@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  aether-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - JWT_SECRET=aether-production-secret-key-32chars
+      - CORS_ORIGIN=*
+      - DB_PATH=/app/data/messaging.db
+    volumes:
+      - aether_data:/app/data
+      - aether_uploads:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  aether_data:
+  aether_uploads:

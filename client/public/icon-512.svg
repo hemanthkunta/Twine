@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background Gradient -->
+    <radialGradient id="twineBg" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#2a102e" />
+      <stop offset="60%" stop-color="#0f111a" />
+      <stop offset="100%" stop-color="#07090e" />
+    </radialGradient>
+
+    <!-- Glowing Heart Gradients -->
+    <linearGradient id="twineHeartPink" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff3366" />
+      <stop offset="50%" stop-color="#ff007f" />
+      <stop offset="100%" stop-color="#d9006c" />
+    </linearGradient>
+
+    <linearGradient id="twineHeartPurple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b829ea" />
+      <stop offset="50%" stop-color="#7928ca" />
+      <stop offset="100%" stop-color="#4f1192" />
+    </linearGradient>
+
+    <!-- Specular Highlight -->
+    <linearGradient id="specularGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Realistic Bloom & Glow Filters -->
+    <filter id="superGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="24" result="blur24" />
+      <feGaussianBlur stdDeviation="12" result="blur12" />
+      <feGaussianBlur stdDeviation="4" result="blur4" />
+      <feMerge>
+        <feMergeNode in="blur24" />
+        <feMergeNode in="blur12" />
+        <feMergeNode in="blur4" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <filter id="bloomFlare" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="28" flood-color="#ff007f" flood-opacity="0.65" />
+      <feDropShadow dx="0" dy="-8" stdDeviation="20" flood-color="#7928ca" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Container -->
+  <rect width="512" height="512" rx="128" fill="url(#twineBg)" />
+  <rect width="496" height="496" x="8" y="8" rx="120" fill="none" stroke="rgba(255, 0, 127, 0.25)" stroke-width="3" />
+
+  <!-- Ambient Light Orbs in Background -->
+  <circle cx="180" cy="230" r="140" fill="#ff007f" opacity="0.18" filter="url(#superGlow)" />
+  <circle cx="330" cy="270" r="140" fill="#7928ca" opacity="0.22" filter="url(#superGlow)" />
+
+  <g filter="url(#bloomFlare)">
+    <!-- 1. Left Entwined Heart (Pink/Rose) -->
+    <path d="M210 395 C200 385 85 280 85 185 C85 115 135 70 195 70 C230 70 260 90 235 120 C210 90 240 70 275 70 C310 70 340 85 360 110 C340 135 315 170 290 205 C265 240 235 300 210 395 Z" fill="url(#twineHeartPink)" opacity="0.95" />
+
+    <!-- 2. Right Entwined Heart (Purple/Violet) -->
+    <path d="M305 440 C295 430 180 325 210 235 C230 175 270 130 315 130 C350 130 380 150 355 180 C330 150 360 130 395 130 C455 130 505 175 505 245 C505 335 390 430 305 440 Z" fill="url(#twineHeartPurple)" opacity="0.92" style="mix-blend-mode: screen;" />
+
+    <!-- 3. Overlap Intertwining Knot Glow -->
+    <path d="M230 220 C245 190 275 175 305 190 C325 200 335 220 325 245 C305 285 270 330 245 365 C235 320 220 265 230 220 Z" fill="#ff7eb3" opacity="0.85" filter="url(#superGlow)" />
+
+    <!-- 4. Specular Realistic Gloss Reflections -->
+    <path d="M130 160 C130 120 160 95 195 95 C210 95 225 105 230 115 C215 125 180 145 150 180 Z" fill="url(#specularGlow)" />
+    <path d="M330 190 C330 160 355 145 385 145 C398 145 410 152 415 160 C400 170 375 190 350 215 Z" fill="url(#specularGlow)" />
+  </g>
+
+  <!-- Glowing Sparkle Crosses -->
+  <g fill="#ffffff" filter="url(#superGlow)">
+    <!-- Top-right star -->
+    <path d="M430 80 Q430 100 450 100 Q430 100 430 120 Q430 100 410 100 Q430 100 430 80 Z" opacity="0.95" />
+    <!-- Center-left sparkle -->
+    <path d="M100 290 Q100 302 112 302 Q100 302 100 314 Q100 302 88 302 Q100 302 100 290 Z" opacity="0.85" />
+    <!-- Floating tiny stars -->
+    <circle cx="280" cy="90" r="3.5" opacity="0.9" />
+    <circle cx="465" cy="220" r="3" opacity="0.8" />
+  </g>
+</svg>

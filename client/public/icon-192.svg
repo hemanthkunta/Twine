@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <radialGradient id="twineBg192" cx="50%" cy="50%" r="75%">
+      <stop offset="0%" stop-color="#2a102e" />
+      <stop offset="100%" stop-color="#07090e" />
+    </radialGradient>
+    <linearGradient id="pinkGrad192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff3366" />
+      <stop offset="100%" stop-color="#ff007f" />
+    </linearGradient>
+    <linearGradient id="purpleGrad192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b829ea" />
+      <stop offset="100%" stop-color="#7928ca" />
+    </linearGradient>
+  </defs>
+
+  <rect width="192" height="192" rx="48" fill="url(#twineBg192)" />
+
+  <!-- Left Entwined Heart (Pink) -->
+  <path d="M78 145 C74 141 32 102 32 68 C32 42 50 25 72 25 C85 25 96 33 87 43 C78 33 89 25 101 25 C114 25 125 31 132 40 C125 49 116 62 107 75 C97 88 86 110 78 145 Z" fill="url(#pinkGrad192)" opacity="0.95" />
+
+  <!-- Right Entwined Heart (Purple) -->
+  <path d="M114 162 C110 158 68 120 78 88 C85 66 100 50 116 50 C129 50 140 58 131 68 C122 58 133 50 146 50 C168 50 186 66 186 92 C186 125 144 158 114 162 Z" fill="url(#purpleGrad192)" opacity="0.9" style="mix-blend-mode: screen;" />
+
+  <!-- Overlap Glow -->
+  <circle cx="100" cy="85" r="14" fill="#ff7eb3" opacity="0.75" />
+
+  <!-- Sparkles -->
+  <circle cx="155" cy="35" r="2.5" fill="#ffffff" />
+  <circle cx="38" cy="110" r="2" fill="#ffffff" />
+</svg>
