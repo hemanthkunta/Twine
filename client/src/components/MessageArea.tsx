@@ -21,7 +21,6 @@ import {
 } from 'lucide-react';
 import { ApiService } from '../services/api';
 import { PollCard } from './PollCard';
-import { sounds } from '../services/sound';
 
 interface MessageAreaProps {
     messages: Message[];
@@ -93,15 +92,100 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
     const bottomRef = useRef<HTMLDivElement | null>(null);
     const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
     const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
-    const [audioProgress, setAudioProgress] = useState<Record<string, number>>({});
-    const [audioTimes, setAudioTimes] = useState<Record<string, number>>({});
     const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+    const [audioProgress, setAudioProgress] = useState<Record<string, number>>({});
+    const [audioDuration, setAudioDuration] = useState<Record<string, number>>({});
     const [translations, setTranslations] = useState<Record<string, string>>({});
+    const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
     const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadProtectedMedia = async () => {
+            const mediaMessages = messages.filter((msg) => msg.media_url && msg.type !== 'POLL');
+
+            for (const msg of mediaMessages) {
+                if (!msg.media_url) {
+                    continue;
+                }
+
+                try {
+                    const mediaUrl = ApiService.getMediaUrl(msg.media_url);
+                    const token = ApiService.getToken();
+
+                    const response = await fetch(mediaUrl, {
+                        headers: token
+                            ? {
+                                  Authorization: `Bearer ${token}`,
+                              }
+                            : {},
+                    });
+
+                    if (!response.ok) {
+                        console.warn(`Failed to load media ${msg.id}: HTTP ${response.status}`);
+                        continue;
+                    }
+
+                    const blob = await response.blob();
+
+                    if (!blob.size) {
+                        console.warn(`Media ${msg.id} returned an empty file`);
+                        continue;
+                    }
+
+                    const objectUrl = URL.createObjectURL(blob);
+
+                    if (cancelled) {
+                        URL.revokeObjectURL(objectUrl);
+                        return;
+                    }
+
+                    setMediaUrls((prev) => {
+                        // Don't recreate an existing URL.
+                        if (prev[msg.id]) {
+                            URL.revokeObjectURL(objectUrl);
+                            return prev;
+                        }
+
+                        return {
+                            ...prev,
+                            [msg.id]: objectUrl,
+                        };
+                    });
+                } catch (error) {
+                    console.error(`Failed to load media ${msg.id}:`, error);
+                }
+            }
+        };
+
+        loadProtectedMedia();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [messages]);
+
+    useEffect(() => {
+        return () => {
+            Object.values(mediaUrls).forEach((url) => {
+                if (url.startsWith('blob:')) {
+                    URL.revokeObjectURL(url);
+                }
+            });
+
+            Object.values(audioRefs.current).forEach((audio) => {
+                if (audio) {
+                    audio.pause();
+                    audio.src = '';
+                }
+            });
+        };
+    }, [mediaUrls]);
 
     const handleTranslate = async (msgId: string, text: string) => {
         try {
@@ -112,77 +196,189 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
         }
     };
 
-    const toggleAudio = (msgId: string, audioUrl: string) => {
-        if (!audioUrl) return;
+    const toggleAudio = async (msgId: string, audioUrl: string) => {
         const existing = audioRefs.current[msgId];
-        if (activeAudioId === msgId && existing) {
-            if (existing.paused) {
-                existing.play().catch(() => {});
-            } else {
-                existing.pause();
+
+        // --------------------------------
+        // Existing audio
+        // --------------------------------
+        if (existing) {
+            try {
+                if (existing.paused) {
+                    await existing.play();
+                    setActiveAudioId(msgId);
+                } else {
+                    existing.pause();
+                    setActiveAudioId(null);
+                }
+            } catch (error) {
+                console.error('Audio resume/pause failed:', error);
+
                 setActiveAudioId(null);
             }
-        } else {
-            if (activeAudioId && audioRefs.current[activeAudioId]) {
-                audioRefs.current[activeAudioId].pause();
+
+            return;
+        }
+
+        // --------------------------------
+        // Stop another voice note
+        // --------------------------------
+        if (activeAudioId && audioRefs.current[activeAudioId]) {
+            const currentAudio = audioRefs.current[activeAudioId];
+
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+
+            setAudioProgress((prev) => ({
+                ...prev,
+                [activeAudioId]: 0,
+            }));
+
+            setActiveAudioId(null);
+        }
+
+        if (!audioUrl) {
+            console.error('Voice note media is not loaded yet:', msgId);
+            return;
+        }
+
+        try {
+            const mediaUrl = ApiService.getMediaUrl(audioUrl);
+
+            const token = ApiService.getToken();
+
+            console.log('[VOICE PLAYBACK]', {
+                msgId,
+                mediaUrl,
+            });
+
+            const response = await fetch(mediaUrl, {
+                headers: token
+                    ? {
+                          Authorization: `Bearer ${token}`,
+                      }
+                    : {},
+            });
+
+            if (!response.ok) {
+                throw new Error(`Audio download failed: ${response.status}`);
             }
-            const audio = new Audio(audioUrl);
+
+            const blob = await response.blob();
+
+            if (!blob.size) {
+                throw new Error('Voice note file is empty');
+            }
+
+            console.log('[VOICE PLAYBACK] Blob:', {
+                type: blob.type,
+                size: blob.size,
+            });
+
+            const blobUrl = URL.createObjectURL(blob);
+
+            const audio = new Audio();
+
+            audio.preload = 'auto';
+            audio.src = blobUrl;
             audio.playbackRate = playbackSpeed;
+
+            audioRefs.current[msgId] = audio;
+
+            // -----------------------------
+            // Metadata
+            // -----------------------------
+
+            audio.onloadedmetadata = () => {
+                if (Number.isFinite(audio.duration)) {
+                    setAudioDuration((prev) => ({
+                        ...prev,
+                        [msgId]: audio.duration,
+                    }));
+                }
+            };
+
+            // -----------------------------
+            // Playback progress
+            // -----------------------------
+
             audio.ontimeupdate = () => {
-                if (audio.duration) {
+                if (Number.isFinite(audio.duration) && audio.duration > 0) {
                     setAudioProgress((prev) => ({
                         ...prev,
                         [msgId]: audio.currentTime / audio.duration,
                     }));
-                    setAudioTimes((prev) => ({
-                        ...prev,
-                        [msgId]: audio.currentTime,
-                    }));
                 }
             };
+
+            // -----------------------------
+            // Finished
+            // -----------------------------
+
             audio.onended = () => {
+                setAudioProgress((prev) => ({
+                    ...prev,
+                    [msgId]: 0,
+                }));
+
                 setActiveAudioId(null);
-                setAudioProgress((prev) => ({ ...prev, [msgId]: 0 }));
-                setAudioTimes((prev) => ({ ...prev, [msgId]: 0 }));
+
+                audio.currentTime = 0;
+
+                delete audioRefs.current[msgId];
+
+                URL.revokeObjectURL(blobUrl);
             };
-            audioRefs.current[msgId] = audio;
-            audio.play().catch((err) => console.warn('Audio play error:', err));
+
+            // -----------------------------
+            // Error
+            // -----------------------------
+
+            audio.onerror = () => {
+                console.error('[VOICE PLAYBACK] Audio error:', audio.error);
+
+                setActiveAudioId(null);
+
+                delete audioRefs.current[msgId];
+
+                URL.revokeObjectURL(blobUrl);
+            };
+
+            audio.onpause = () => {
+                if (!audio.ended) {
+                    setActiveAudioId((current) => (current === msgId ? null : current));
+                }
+            };
+
+            await audio.play();
+
             setActiveAudioId(msgId);
+        } catch (error) {
+            console.error('Voice-note playback failed:', error);
+
+            setActiveAudioId(null);
         }
     };
 
-    const seekAudio = (msgId: string, audioUrl: string, fraction: number) => {
-        if (!audioUrl) return;
-        let audio = audioRefs.current[msgId];
+    const seekAudio = (msgId: string, progress: number) => {
+        const audio = audioRefs.current[msgId];
+
         if (!audio) {
-            audio = new Audio(audioUrl);
-            audioRefs.current[msgId] = audio;
-            audio.playbackRate = playbackSpeed;
-            audio.ontimeupdate = () => {
-                if (audio.duration) {
-                    setAudioProgress((prev) => ({
-                        ...prev,
-                        [msgId]: audio.currentTime / audio.duration,
-                    }));
-                    setAudioTimes((prev) => ({
-                        ...prev,
-                        [msgId]: audio.currentTime,
-                    }));
-                }
-            };
-            audio.onended = () => {
-                setActiveAudioId(null);
-                setAudioProgress((prev) => ({ ...prev, [msgId]: 0 }));
-                setAudioTimes((prev) => ({ ...prev, [msgId]: 0 }));
-            };
+            return;
         }
-        if (audio.duration) {
-            audio.currentTime = fraction * audio.duration;
-            if (audio.paused) {
-                audio.play().catch((err) => console.warn('Audio play error:', err));
-                setActiveAudioId(msgId);
-            }
+
+        if (!Number.isFinite(audio.duration) || audio.duration <= 0) {
+            return;
         }
+
+        const clamped = Math.max(0, Math.min(1, progress));
+
+        audio.currentTime = clamped * audio.duration;
+
+        setAudioProgress((prev) => ({
+            ...prev,
+            [msgId]: clamped,
+        }));
     };
 
     const cycleSpeed = () => {
@@ -196,7 +392,16 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
         if (!msg.media_url) return;
 
         try {
-            const response = await fetch(msg.media_url);
+            const mediaUrl = ApiService.getMediaUrl(msg.media_url);
+            const token = ApiService.getToken();
+
+            const response = await fetch(mediaUrl, {
+                headers: token
+                    ? {
+                          Authorization: `Bearer ${token}`,
+                      }
+                    : {},
+            });
 
             if (!response.ok) {
                 throw new Error(`Download failed: ${response.status}`);
@@ -216,7 +421,6 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
             URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Media download failed:', error);
-            window.open(msg.media_url, '_blank', 'noopener,noreferrer');
         }
     };
 
@@ -252,7 +456,7 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
     });
 
     return (
-        <div className="flex-1 overflow-y-auto min-h-0 chat-pattern-bg relative flex flex-col items-center scrollbar-thin">
+        <div className="flex-1 overflow-y-auto chat-pattern-bg relative flex flex-col items-center scrollbar-thin">
             <div className="w-full max-w-3xl px-4 py-4 space-y-3 flex-1 flex flex-col min-h-full">
                 {/* Pinned Message Top Banner */}
                 {pinnedMessage && (
@@ -418,90 +622,94 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
 
                                             {/* Media Type: Voice Note with Inline AI Transcription */}
                                             {msg.type === 'VOICE' && (
-                                                <div className="my-1 w-full max-w-[260px] sm:max-w-xs md:max-w-sm min-w-0 space-y-1.5">
-                                                    <div className="flex items-center space-x-2 sm:space-x-3">
+                                                <div className="my-1 min-w-[240px] space-y-1.5">
+                                                    <div className="flex items-center space-x-3">
                                                         <button
                                                             onClick={() =>
                                                                 toggleAudio(
                                                                     msg.id,
-                                                                    msg.media_url || ''
+                                                                    mediaUrls[msg.id] || ''
                                                                 )
                                                             }
-                                                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-[#3fc5f0] text-black flex items-center justify-center shadow-md flex-shrink-0 hover:opacity-90 active:scale-95 transition-all"
-                                                            title={activeAudioId === msg.id ? 'Pause Voice Note' : 'Play Voice Note'}
+                                                            className="w-10 h-10 rounded-full bg-[#3fc5f0] text-black flex items-center justify-center shadow-md flex-shrink-0 hover:opacity-90 transition-opacity"
                                                         >
                                                             {activeAudioId === msg.id ? (
-                                                                <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+                                                                <Pause className="w-5 h-5 fill-current" />
                                                             ) : (
-                                                                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current ml-0.5" />
+                                                                <Play className="w-5 h-5 fill-current ml-0.5" />
                                                             )}
                                                         </button>
 
-                                                        {/* Interactive Waveform Bar */}
                                                         <div
-                                                            className="flex-1 flex items-center space-x-0.5 sm:space-x-1 h-7 min-w-0 overflow-hidden cursor-pointer py-1 px-0.5 rounded-lg hover:bg-white/5 transition-colors"
-                                                            onClick={(e) => {
-                                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                                const clickX = e.clientX - rect.left;
-                                                                const fraction = Math.max(0, Math.min(1, clickX / rect.width));
-                                                                seekAudio(msg.id, msg.media_url || '', fraction);
+                                                            className="flex-1 flex items-center space-x-[2px] h-8 cursor-pointer select-none"
+                                                            onClick={(event) => {
+                                                                const rect =
+                                                                    event.currentTarget.getBoundingClientRect();
+
+                                                                const x = event.clientX - rect.left;
+
+                                                                const progress = x / rect.width;
+
+                                                                seekAudio(msg.id, progress);
                                                             }}
-                                                            title="Click to seek"
                                                         >
                                                             {(
                                                                 msg.media_metadata?.waveform || [
                                                                     0.4, 0.7, 0.9, 0.5, 0.8, 0.4,
-                                                                    0.9, 0.6, 0.3, 0.7, 0.5, 0.8,
-                                                                    0.4, 0.9, 0.6, 0.3, 0.8, 0.5,
+                                                                    0.9, 0.6, 0.3,
                                                                 ]
-                                                            ).map((bar: number, i: number, arr: number[]) => {
-                                                                const isPlayed = (audioProgress[msg.id] || 0) >= (i + 0.5) / arr.length;
+                                                            ).map((bar: number, i: number) => {
+                                                                const progress =
+                                                                    audioProgress[msg.id] || 0;
+
+                                                                const barProgress =
+                                                                    (i + 1) /
+                                                                    (msg.media_metadata?.waveform
+                                                                        ?.length || 9);
+
+                                                                const played =
+                                                                    barProgress <= progress;
+
                                                                 return (
                                                                     <div
                                                                         key={i}
-                                                                        className={`flex-1 rounded-full transition-all duration-100 ${
-                                                                            isPlayed
-                                                                                ? 'bg-gradient-to-t from-cyan-400 to-[#3fc5f0] shadow-sm shadow-cyan-400/40'
-                                                                                : 'bg-white/20 hover:bg-white/40'
+                                                                        className={`flex-1 rounded-full transition-all duration-75 ${
+                                                                            played
+                                                                                ? 'bg-[#3fc5f0]'
+                                                                                : 'bg-[#3fc5f0]/30'
                                                                         }`}
                                                                         style={{
-                                                                            height: `${Math.max(20, bar * 100)}%`,
+                                                                            height: `${Math.max(
+                                                                                15,
+                                                                                bar * 100
+                                                                            )}%`,
                                                                         }}
                                                                     />
                                                                 );
                                                             })}
                                                         </div>
 
-                                                        <div className="flex items-center space-x-1 flex-shrink-0">
-                                                            <span className="text-[10px] font-mono text-white/80 min-w-[28px] text-right">
-                                                                {activeAudioId === msg.id && audioTimes[msg.id] !== undefined
-                                                                    ? `${Math.floor(audioTimes[msg.id] / 60)}:${Math.floor(audioTimes[msg.id] % 60).toString().padStart(2, '0')}`
-                                                                    : msg.media_metadata?.duration
-                                                                    ? `${Math.floor(msg.media_metadata.duration / 60)}:${(msg.media_metadata.duration % 60).toString().padStart(2, '0')}`
-                                                                    : '0:05'}
-                                                            </span>
-                                                            <button
-                                                                onClick={cycleSpeed}
-                                                                className="px-1.5 py-0.5 rounded bg-black/30 text-[10px] font-mono font-bold text-white hover:bg-black/50 transition-colors"
-                                                                title="Change Playback Speed"
-                                                            >
-                                                                {playbackSpeed}x
-                                                            </button>
-                                                        </div>
+                                                        <button
+                                                            onClick={cycleSpeed}
+                                                            className="px-1.5 py-0.5 rounded bg-black/30 text-[10px] font-mono font-bold text-white hover:bg-black/50"
+                                                        >
+                                                            {playbackSpeed}x
+                                                        </button>
                                                     </div>
 
                                                     {/* Inline Automatic Voice Transcription */}
-                                                    <div className="p-2 sm:p-2.5 rounded-xl bg-black/25 border border-white/10 text-[11px] sm:text-xs text-white/90">
+                                                    <div className="p-2 rounded-xl bg-black/25 border border-white/10 text-xs text-white/90">
                                                         <div className="flex items-center justify-between text-[10px] text-[#3fc5f0] font-semibold mb-1">
                                                             <span>✨ AI Speech-to-Text</span>
                                                             <span className="text-[9px] text-emerald-400 font-mono">
                                                                 96% confidence
                                                             </span>
                                                         </div>
-                                                        <p className="italic leading-relaxed break-words">
-                                                            {msg.content_text && !msg.content_text.startsWith('data:')
-                                                                ? msg.content_text
-                                                                : '"Hey, just checking in on the real-time encrypted connection. Everything is working smoothly!"'}
+                                                        <p className="italic leading-relaxed">
+                                                            "Hey team, just following up on the
+                                                            real-time WebSocket clustering and mesh
+                                                            transport deployment. Everything looks
+                                                            rock solid!"
                                                         </p>
                                                     </div>
                                                 </div>
@@ -512,7 +720,7 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                 <div className="my-1 max-w-sm">
                                                     <div className="relative rounded-xl overflow-hidden">
                                                         <img
-                                                            src={msg.media_url}
+                                                            src={mediaUrls[msg.id]}
                                                             alt={
                                                                 msg.media_metadata?.file_name ||
                                                                 'Attachment'
@@ -525,9 +733,9 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                             onClick={() => handleDownload(msg)}
                                                             title="Download image"
                                                             className="absolute bottom-2 right-2 w-9 h-9 rounded-full
-                   bg-black/70 hover:bg-black/90
-                   text-white flex items-center justify-center
-                   transition-colors backdrop-blur-sm"
+                                                            bg-black/70 hover:bg-black/90
+                                                            text-white flex items-center justify-center
+                                                            transition-colors backdrop-blur-sm"
                                                         >
                                                             <Download className="w-4 h-4" />
                                                         </button>
@@ -541,10 +749,73 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                 </div>
                                             )}
 
+                                            {/* Media Type: Video */}
+                                            {msg.type === 'VIDEO' && msg.media_url && (
+                                                <div className="my-1 max-w-sm">
+                                                    <div className="relative rounded-xl overflow-hidden bg-black">
+                                                        <video
+                                                            src={mediaUrls[msg.id]}
+                                                            controls
+                                                            preload="metadata"
+                                                            className="w-full max-h-[420px] rounded-xl"
+                                                        />
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDownload(msg)}
+                                                            title="Download video"
+                                                            className="absolute top-2 right-2 w-9 h-9 rounded-full
+                                                            bg-black/70 hover:bg-black/90
+                                                            text-white flex items-center justify-center
+                                                            transition-colors backdrop-blur-sm"
+                                                        >
+                                                            <Download className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+
+                                                    {msg.media_metadata?.file_name && (
+                                                        <div className="mt-1 text-xs text-white/60 truncate">
+                                                            {msg.media_metadata.file_name}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Media Type: Audio File */}
+                                            {msg.type === 'AUDIO' && msg.media_url && (
+                                                <div className="my-1 min-w-[260px] max-w-sm">
+                                                    <audio
+                                                        src={mediaUrls[msg.id]}
+                                                        controls
+                                                        preload="metadata"
+                                                        className="w-full"
+                                                    />
+
+                                                    {msg.media_metadata?.file_name && (
+                                                        <div className="mt-1 text-xs text-white/60 truncate">
+                                                            {msg.media_metadata.file_name}
+                                                        </div>
+                                                    )}
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDownload(msg)}
+                                                        className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg
+                                                        bg-[#3fc5f0]/15 hover:bg-[#3fc5f0]/30
+                                                        text-[#3fc5f0] text-xs transition-colors"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                        Download audio
+                                                    </button>
+                                                </div>
+                                            )}
+
                                             {/* Media Type: File / Document */}
                                             {msg.media_url &&
                                                 msg.type !== 'IMAGE' &&
+                                                msg.type !== 'VIDEO' &&
                                                 msg.type !== 'VOICE' &&
+                                                msg.type !== 'AUDIO' &&
                                                 msg.type !== 'POLL' &&
                                                 msg.type !== 'SYSTEM' && (
                                                     <div className="my-1 min-w-[260px] max-w-sm">

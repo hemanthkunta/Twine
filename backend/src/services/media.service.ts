@@ -61,14 +61,18 @@ export class MediaService {
             throw new Error(`File type not allowed: ${params.mimeType}`);
         }
 
-        const matches = params.base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        // Browser MediaRecorder can produce Data URLs such as:
+        // data:audio/webm;codecs=opus;base64,AAAA...
+        // Split at the first comma so MIME parameters do not affect decoding.
+        const commaIndex = params.base64Data.indexOf(',');
 
-        const dataStr = matches ? matches[2] : params.base64Data;
+        const dataStr =
+            commaIndex >= 0 ? params.base64Data.slice(commaIndex + 1) : params.base64Data;
 
         let buffer: Buffer;
 
         try {
-            buffer = Buffer.from(dataStr, 'base64');
+            buffer = Buffer.from(dataStr.replace(/\s/g, ''), 'base64');
         } catch {
             throw new Error('Invalid base64 file data');
         }
@@ -80,6 +84,15 @@ export class MediaService {
         if (buffer.length > MAX_FILE_SIZE) {
             throw new Error('File exceeds the 50 MB upload limit');
         }
+
+        console.log(
+            '[MEDIA DEBUG]',
+            mimeType,
+            'size=',
+            buffer.length,
+            'first16=',
+            buffer.subarray(0, 16).toString('hex')
+        );
 
         // Verify binary file signatures.
         if (!this.validateFileSignature(buffer, mimeType)) {
@@ -145,14 +158,7 @@ export class MediaService {
 
             case 'video/webm':
             case 'audio/webm':
-                // WebM/Matroska EBML header.
-                return (
-                    buffer.length >= 4 &&
-                    buffer[0] === 0x1a &&
-                    buffer[1] === 0x45 &&
-                    buffer[2] === 0xdf &&
-                    buffer[3] === 0xa3
-                );
+                return this.looksLikeWebM(buffer);
 
             case 'audio/ogg':
                 return buffer.length >= 4 && buffer.subarray(0, 4).toString('ascii') === 'OggS';
@@ -178,6 +184,34 @@ export class MediaService {
         }
     }
 
+    private static looksLikeWebM(buffer: Buffer): boolean {
+        if (buffer.length >= 4) {
+            if (
+                buffer[0] === 0x1a &&
+                buffer[1] === 0x45 &&
+                buffer[2] === 0xdf &&
+                buffer[3] === 0xa3
+            ) {
+                return true;
+            }
+        }
+
+        const maxSearch = Math.min(buffer.length - 4, 1024);
+
+        for (let i = 0; i <= maxSearch; i++) {
+            if (
+                buffer[i] === 0x1a &&
+                buffer[i + 1] === 0x45 &&
+                buffer[i + 2] === 0xdf &&
+                buffer[i + 3] === 0xa3
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static looksLikeMp3(buffer: Buffer): boolean {
         if (buffer.length >= 3) {
             const id3 = buffer.subarray(0, 3).toString('ascii');
@@ -187,7 +221,6 @@ export class MediaService {
             }
         }
 
-        // MPEG audio frame sync.
         if (buffer.length >= 2) {
             return buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0;
         }
