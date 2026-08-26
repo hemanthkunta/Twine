@@ -98,37 +98,70 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+      const file = e.target.files?.[0];
+      if (!file) return;
 
-    setIsUploading(true);
-    setShowAttachMenu(false);
+      setIsUploading(true);
+      setShowAttachMenu(false);
 
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Data = reader.result as string;
-        const isImg = file.type.startsWith('image/');
-        const res = await ApiService.uploadMedia({
-          base64Data,
-          fileName: file.name,
-          mimeType: file.type,
-        });
+      try {
+          const reader = new FileReader();
 
-        onSendMessage(
-          isImg ? '' : `📎 Shared file: ${file.name} (${Math.round(file.size / 1024)} KB)`,
-          replyToMessage?.id,
-          res.media.url,
-          isImg ? 'IMAGE' : 'FILE',
-          { file_name: file.name, size: file.size, mime_type: file.type }
-        );
-        setIsUploading(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error('File upload error', err);
-      setIsUploading(false);
-    }
+          reader.onloadend = async () => {
+              try {
+                  const base64Data = reader.result as string;
+
+                  const isImg = file.type.startsWith('image/');
+                  const isVideo = file.type.startsWith('video/');
+                  const isAudio = file.type.startsWith('audio/');
+
+                  let mediaType: 'IMAGE' | 'VIDEO' | 'AUDIO' | 'FILE' = 'FILE';
+
+                  if (isImg) {
+                      mediaType = 'IMAGE';
+                  } else if (isVideo) {
+                      mediaType = 'VIDEO';
+                  } else if (isAudio) {
+                      mediaType = 'AUDIO';
+                  }
+
+                  const res = await ApiService.uploadMedia({
+                      base64Data,
+                      fileName: file.name,
+                      mimeType: file.type,
+                  });
+
+                  const contentText =
+                      mediaType === 'IMAGE' || mediaType === 'VIDEO' || mediaType === 'AUDIO'
+                          ? ''
+                          : `📎 Shared file: ${file.name} (${Math.round(file.size / 1024)} KB)`;
+
+                  onSendMessage(contentText, replyToMessage?.id, res.media.url, mediaType, {
+                      file_name: file.name,
+                      size: file.size,
+                      mime_type: file.type,
+                  });
+
+                  setIsUploading(false);
+
+                  // Allow selecting the same file again later.
+                  e.target.value = '';
+              } catch (err) {
+                  console.error('File upload error', err);
+                  setIsUploading(false);
+              }
+          };
+
+          reader.onerror = () => {
+              console.error('Failed to read selected file');
+              setIsUploading(false);
+          };
+
+          reader.readAsDataURL(file);
+      } catch (err) {
+          console.error('File upload error', err);
+          setIsUploading(false);
+      }
   };
 
   return (

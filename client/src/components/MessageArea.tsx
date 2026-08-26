@@ -443,9 +443,9 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                             onClick={() => handleDownload(msg)}
                                                             title="Download image"
                                                             className="absolute bottom-2 right-2 w-9 h-9 rounded-full
-                   bg-black/70 hover:bg-black/90
-                   text-white flex items-center justify-center
-                   transition-colors backdrop-blur-sm"
+                                                            bg-black/70 hover:bg-black/90
+                                                            text-white flex items-center justify-center
+                                                            transition-colors backdrop-blur-sm"
                                                         >
                                                             <Download className="w-4 h-4" />
                                                         </button>
@@ -459,10 +459,73 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                 </div>
                                             )}
 
+                                            {/* Media Type: Video */}
+                                            {msg.type === 'VIDEO' && msg.media_url && (
+                                                <div className="my-1 max-w-sm">
+                                                    <div className="relative rounded-xl overflow-hidden bg-black">
+                                                        <video
+                                                            src={msg.media_url}
+                                                            controls
+                                                            preload="metadata"
+                                                            className="w-full max-h-[420px] rounded-xl"
+                                                        />
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleDownload(msg)}
+                                                            title="Download video"
+                                                            className="absolute top-2 right-2 w-9 h-9 rounded-full
+                                                            bg-black/70 hover:bg-black/90
+                                                            text-white flex items-center justify-center
+                                                            transition-colors backdrop-blur-sm"
+                                                        >
+                                                            <Download className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+
+                                                    {msg.media_metadata?.file_name && (
+                                                        <div className="mt-1 text-xs text-white/60 truncate">
+                                                            {msg.media_metadata.file_name}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Media Type: Audio File */}
+                                            {msg.type === 'AUDIO' && msg.media_url && (
+                                                <div className="my-1 min-w-[260px] max-w-sm">
+                                                    <audio
+                                                        src={msg.media_url}
+                                                        controls
+                                                        preload="metadata"
+                                                        className="w-full"
+                                                    />
+
+                                                    {msg.media_metadata?.file_name && (
+                                                        <div className="mt-1 text-xs text-white/60 truncate">
+                                                            {msg.media_metadata.file_name}
+                                                        </div>
+                                                    )}
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDownload(msg)}
+                                                        className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg
+                                                        bg-[#3fc5f0]/15 hover:bg-[#3fc5f0]/30
+                                                        text-[#3fc5f0] text-xs transition-colors"
+                                                    >
+                                                        <Download className="w-4 h-4" />
+                                                        Download audio
+                                                    </button>
+                                                </div>
+                                            )}
+
                                             {/* Media Type: File / Document */}
                                             {msg.media_url &&
                                                 msg.type !== 'IMAGE' &&
+                                                msg.type !== 'VIDEO' &&
                                                 msg.type !== 'VOICE' &&
+                                                msg.type !== 'AUDIO' &&
                                                 msg.type !== 'POLL' &&
                                                 msg.type !== 'SYSTEM' && (
                                                     <div className="my-1 min-w-[260px] max-w-sm">
