@@ -94,11 +94,72 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
     const [activeAudioId, setActiveAudioId] = useState<string | null>(null);
     const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
     const [translations, setTranslations] = useState<Record<string, string>>({});
+    const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
     const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const objectUrls: string[] = [];
+
+        const loadProtectedMedia = async () => {
+            const mediaMessages = messages.filter((msg) => msg.media_url && msg.type !== 'POLL');
+
+            for (const msg of mediaMessages) {
+                if (!msg.media_url || mediaUrls[msg.id]) {
+                    continue;
+                }
+
+                try {
+                    const mediaUrl = ApiService.getMediaUrl(msg.media_url);
+                    const token = ApiService.getToken();
+
+                    const response = await fetch(mediaUrl, {
+                        headers: token
+                            ? {
+                                  Authorization: `Bearer ${token}`,
+                              }
+                            : {},
+                    });
+
+                    if (!response.ok) {
+                        console.warn(`Failed to load media ${msg.id}: HTTP ${response.status}`);
+                        continue;
+                    }
+
+                    const blob = await response.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+
+                    if (cancelled) {
+                        URL.revokeObjectURL(objectUrl);
+                        return;
+                    }
+
+                    objectUrls.push(objectUrl);
+
+                    setMediaUrls((prev) => ({
+                        ...prev,
+                        [msg.id]: objectUrl,
+                    }));
+                } catch (error) {
+                    console.error(`Failed to load media ${msg.id}:`, error);
+                }
+            }
+        };
+
+        loadProtectedMedia();
+
+        return () => {
+            cancelled = true;
+
+            for (const url of objectUrls) {
+                URL.revokeObjectURL(url);
+            }
+        };
+    }, [messages, mediaUrls]);
 
     const handleTranslate = async (msgId: string, text: string) => {
         try {
@@ -109,25 +170,70 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
         }
     };
 
-    const toggleAudio = (msgId: string, audioUrl: string) => {
+    const toggleAudio = async (msgId: string, audioUrl: string) => {
         const existing = audioRefs.current[msgId];
+
         if (activeAudioId === msgId && existing) {
             if (existing.paused) {
-                existing.play();
+                try {
+                    await existing.play();
+                } catch (error) {
+                    console.error('Audio playback failed:', error);
+                }
             } else {
                 existing.pause();
                 setActiveAudioId(null);
             }
-        } else {
-            if (activeAudioId && audioRefs.current[activeAudioId]) {
-                audioRefs.current[activeAudioId].pause();
+            return;
+        }
+
+        // Stop any currently playing voice note.
+        if (activeAudioId && audioRefs.current[activeAudioId]) {
+            audioRefs.current[activeAudioId].pause();
+            audioRefs.current[activeAudioId].currentTime = 0;
+        }
+
+        try {
+            const mediaUrl = ApiService.getMediaUrl(audioUrl);
+            const token = ApiService.getToken();
+
+            const response = await fetch(mediaUrl, {
+                headers: token
+                    ? {
+                          Authorization: `Bearer ${token}`,
+                      }
+                    : {},
+            });
+
+            if (!response.ok) {
+                throw new Error(`Audio download failed: ${response.status}`);
             }
-            const audio = new Audio(audioUrl);
+
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+
+            const audio = new Audio(blobUrl);
+            audio.preload = 'auto';
             audio.playbackRate = playbackSpeed;
+
             audioRefs.current[msgId] = audio;
-            audio.onended = () => setActiveAudioId(null);
-            audio.play();
+
+            audio.onended = () => {
+                setActiveAudioId(null);
+                URL.revokeObjectURL(blobUrl);
+            };
+
+            audio.onerror = () => {
+                console.error('Audio element failed to play:', audio.error);
+                setActiveAudioId(null);
+                URL.revokeObjectURL(blobUrl);
+            };
+
+            await audio.play();
             setActiveAudioId(msgId);
+        } catch (error) {
+            console.error('Voice-note playback failed:', error);
+            setActiveAudioId(null);
         }
     };
 
@@ -142,7 +248,16 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
         if (!msg.media_url) return;
 
         try {
-            const response = await fetch(msg.media_url);
+            const mediaUrl = ApiService.getMediaUrl(msg.media_url);
+            const token = ApiService.getToken();
+
+            const response = await fetch(mediaUrl, {
+                headers: token
+                    ? {
+                          Authorization: `Bearer ${token}`,
+                      }
+                    : {},
+            });
 
             if (!response.ok) {
                 throw new Error(`Download failed: ${response.status}`);
@@ -162,7 +277,6 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
             URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Media download failed:', error);
-            window.open(msg.media_url, '_blank', 'noopener,noreferrer');
         }
     };
 
@@ -370,7 +484,7 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                             onClick={() =>
                                                                 toggleAudio(
                                                                     msg.id,
-                                                                    msg.media_url || ''
+                                                                    mediaUrls[msg.id] || ''
                                                                 )
                                                             }
                                                             className="w-10 h-10 rounded-full bg-[#3fc5f0] text-black flex items-center justify-center shadow-md flex-shrink-0 hover:opacity-90 transition-opacity"
@@ -430,7 +544,7 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                 <div className="my-1 max-w-sm">
                                                     <div className="relative rounded-xl overflow-hidden">
                                                         <img
-                                                            src={msg.media_url}
+                                                            src={mediaUrls[msg.id]}
                                                             alt={
                                                                 msg.media_metadata?.file_name ||
                                                                 'Attachment'
@@ -464,7 +578,7 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                 <div className="my-1 max-w-sm">
                                                     <div className="relative rounded-xl overflow-hidden bg-black">
                                                         <video
-                                                            src={msg.media_url}
+                                                            src={mediaUrls[msg.id]}
                                                             controls
                                                             preload="metadata"
                                                             className="w-full max-h-[420px] rounded-xl"
@@ -495,7 +609,7 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                             {msg.type === 'AUDIO' && msg.media_url && (
                                                 <div className="my-1 min-w-[260px] max-w-sm">
                                                     <audio
-                                                        src={msg.media_url}
+                                                        src={mediaUrls[msg.id]}
                                                         controls
                                                         preload="metadata"
                                                         className="w-full"

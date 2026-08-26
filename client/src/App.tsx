@@ -398,13 +398,7 @@ export function App() {
                 offlineStorage.saveMessageLocally(message);
 
                 if (activeChatRef.current === chat_id) {
-                    setMessages((prev) => [
-                        ...prev,
-                        {
-                            ...message,
-                            status: 'READ',
-                        },
-                    ]);
+                    setMessages((prev) => [...prev, message]);
 
                     wsClient.send('chat:read_receipt', {
                         chat_id,

@@ -1,4 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import fs from 'node:fs';
+import path from 'node:path';
 import { AuthService } from '../services/auth.service.js';
 import { ChatService } from '../services/chat.service.js';
 import { MessageService } from '../services/message.service.js';
@@ -11,7 +13,7 @@ import { FederationBridgeService } from '../services/federation.service.js';
 import { PushNotificationService } from '../services/push.service.js';
 import { RateLimiter } from '../middleware/rateLimiter.js';
 import { MetricsService } from '../services/metrics.service.js';
-import { checkDbHealth } from '../db/index.js';
+import { checkDbHealth, db } from '../db/index.js';
 
 export const router = Router();
 
@@ -332,6 +334,28 @@ router.post('/chats/:id/read-all', authMiddleware, (req: Request, res: Response)
 
     const readMessageIds = MessageService.markChatMessagesAsRead(chatId, userId);
 
+    // Immediately notify every connected member that these messages
+    // have been read by this user.
+    if (readMessageIds.length > 0) {
+        const memberIds = ChatService.getChatMemberIds(chatId);
+
+        for (const messageId of readMessageIds) {
+            const updateFrame = {
+                type: 'chat:receipt_update' as const,
+                payload: {
+                    chat_id: chatId,
+                    message_id: messageId,
+                    user_id: userId,
+                    status: 'READ' as const,
+                    timestamp: new Date().toISOString(),
+                },
+                timestamp: Date.now(),
+            };
+
+            PresenceService.broadcastToUsers(memberIds, updateFrame);
+        }
+    }
+
     res.json({
         success: true,
         count: readMessageIds.length,
@@ -345,6 +369,65 @@ router.get('/messages/search', authMiddleware, (req: Request, res: Response) => 
     const query = (req.query.q as string) || '';
     const messages = MessageService.searchMessages(userId, query);
     res.json({ messages });
+});
+
+// Protected Media Downloads
+// Protected Media Downloads
+router.get('/media/:filename', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const filename = req.params.filename;
+
+    // Prevent path traversal.
+    const safeFilename = path.basename(filename);
+
+    if (!safeFilename || safeFilename !== filename) {
+        res.status(400).json({
+            error: 'Invalid media filename',
+        });
+        return;
+    }
+
+    const uploadsDir = path.resolve('backend', 'uploads');
+    const filePath = path.join(uploadsDir, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+        res.status(404).json({
+            error: 'Media file not found',
+        });
+        return;
+    }
+
+    // Find the message that owns this media file.
+    const mediaUrl = `/uploads/${safeFilename}`;
+
+    const row = db
+        .prepare(
+            `
+            SELECT chat_id
+            FROM messages
+            WHERE media_url = ?
+              AND is_deleted = 0
+            LIMIT 1
+            `
+        )
+        .get(mediaUrl) as { chat_id: string } | undefined;
+
+    if (!row) {
+        res.status(404).json({
+            error: 'Media record not found',
+        });
+        return;
+    }
+
+    // User must belong to the chat containing the file.
+    if (!ChatService.isChatMember(row.chat_id, userId)) {
+        res.status(403).json({
+            error: 'You are not authorized to access this media',
+        });
+        return;
+    }
+
+    res.sendFile(filePath);
 });
 
 // 6. Media Uploads
