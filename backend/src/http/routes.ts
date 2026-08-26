@@ -11,6 +11,7 @@ import { PresenceService } from '../services/presence.service.js';
 import { ChannelAnalyticsService } from '../services/analytics.service.js';
 import { FederationBridgeService } from '../services/federation.service.js';
 import { PushNotificationService } from '../services/push.service.js';
+import { BlockService } from '../services/block.service.js';
 import { RateLimiter } from '../middleware/rateLimiter.js';
 import { MetricsService } from '../services/metrics.service.js';
 import { checkDbHealth, db } from '../db/index.js';
@@ -710,7 +711,28 @@ router.post('/push/subscribe', authMiddleware, (req: Request, res: Response) => 
     res.json({ success: true });
 });
 
-// 12. Health & Readiness Probes & Prometheus Metrics
+// 12. User Blocking & Unblocking
+router.post('/users/:id/block', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const targetUserId = req.params.id;
+    const success = BlockService.blockUser(userId, targetUserId);
+    res.json({ success, blocked_user_id: targetUserId });
+});
+
+router.post('/users/:id/unblock', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const targetUserId = req.params.id;
+    const success = BlockService.unblockUser(userId, targetUserId);
+    res.json({ success, unblocked_user_id: targetUserId });
+});
+
+router.get('/users/blocked', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const blockedUserIds = BlockService.getBlockedUserIds(userId);
+    res.json({ blockedUserIds });
+});
+
+// 13. Health & Readiness Probes & Prometheus Metrics
 router.get('/health', (_req: Request, res: Response) => {
     res.json({
         status: 'ok',
@@ -718,6 +740,7 @@ router.get('/health', (_req: Request, res: Response) => {
         onlineUsersCount: PresenceService.getOnlineUserIds().length,
     });
 });
+
 
 router.get('/ready', (_req: Request, res: Response) => {
     const dbOk = checkDbHealth();

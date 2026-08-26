@@ -6,6 +6,7 @@ import { MessageService } from '../services/message.service.js';
 import { GroupService } from '../services/group.service.js';
 import { PresenceService } from '../services/presence.service.js';
 import { AIService } from '../services/ai.service.js';
+import { BlockService } from '../services/block.service.js';
 import { RateLimiter } from '../middleware/rateLimiter.js';
 import { MetricsService } from '../services/metrics.service.js';
 import { clusterBroker } from '../services/cluster.service.js';
@@ -466,6 +467,15 @@ export function setupWebSocketGateway(server: Server) {
                     const caller = AuthService.getUserById(senderId);
                     if (!caller) return;
 
+                    if (BlockService.isBlocked(senderId, callPayload.target_user_id)) {
+                        sendFrame('webrtc:call_ended', {
+                            call_id: callPayload.call_id,
+                            user_id: callPayload.target_user_id,
+                            reason: 'blocked',
+                        }, correlation_id);
+                        return;
+                    }
+
                     PresenceService.sendToUser(callPayload.target_user_id, {
                         type: 'webrtc:incoming_call',
                         payload: {
@@ -529,6 +539,25 @@ export function setupWebSocketGateway(server: Server) {
                     });
                     return;
                 }
+
+                // 12B. WebRTC Signaling: Screen share & Video State Sync / Renegotiation
+                if (type === 'webrtc:renegotiate') {
+                    const renPayload = payload as any;
+                    PresenceService.sendToUser(renPayload.target_user_id, {
+                        type: 'webrtc:renegotiate',
+                        payload: {
+                            call_id: renPayload.call_id,
+                            sender_id: senderId,
+                            offer: renPayload.offer,
+                            answer: renPayload.answer,
+                            is_screen_sharing: renPayload.is_screen_sharing,
+                            is_video_active: renPayload.is_video_active,
+                        },
+                        timestamp: Date.now(),
+                    });
+                    return;
+                }
+
 
                 // 13. Presence: Heartbeat
                 if (type === 'presence:heartbeat') {

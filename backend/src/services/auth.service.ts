@@ -392,6 +392,7 @@ export class AuthService {
                     last_seen_at,
                     is_bot
                 FROM users
+                WHERE is_bot = 0
                 ORDER BY created_at ASC
                 `
             )
@@ -399,9 +400,10 @@ export class AuthService {
 
         return rows.map((r) => ({
             ...r,
-            is_bot: Boolean(r.is_bot),
+            is_bot: false,
         }));
     }
+
 
     static searchUsers(query: string, currentUserId: string): UserSummary[] {
         const q = `%${query.trim().toLowerCase()}%`;

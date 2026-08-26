@@ -125,6 +125,7 @@ export interface UserSession {
   device_type: string;
   client_version?: string;
   ip_address?: string;
+  is_current?: boolean;
   last_active_at: string;
   created_at: string;
 }

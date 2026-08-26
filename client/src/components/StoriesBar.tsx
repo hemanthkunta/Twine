@@ -34,27 +34,8 @@ const DEMO_STORIES: Story[] = [
     timeAgo: '42m ago',
     hasUnseen: true,
   },
-  {
-    id: 'st_3',
-    userId: 'usr_charlie_003',
-    userName: 'Charlie',
-    userAvatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
-    imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800',
-    caption: '📡 Testing LoRa 915MHz off-grid radio mesh over 5 kilometers. It works seamlessly!',
-    timeAgo: '2h ago',
-    hasUnseen: false,
-  },
-  {
-    id: 'st_4',
-    userId: 'usr_diana_004',
-    userName: 'Diana',
-    userAvatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
-    imageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800',
-    caption: '⚡ Cyberpunk Neon Cyan theme activated. Aesthetic is next-level!',
-    timeAgo: '3h ago',
-    hasUnseen: false,
-  },
 ];
+
 
 interface StoriesBarProps {
   currentUser: User;

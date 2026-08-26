@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Phone,
   Video,
@@ -9,23 +9,27 @@ import {
   Radio,
   Users,
   Bot,
-  Cloud,
   Compass,
   Flame,
   BarChart3,
   Network,
-  Bookmark,
   Heart,
+  Ban,
+  UserCheck,
+  Bell,
+  BellOff,
+  Trash2,
 } from 'lucide-react';
 import { Chat, TransportMode } from '../types/index';
 import { UserAvatar } from './UserAvatar';
 import { UserStatusBadge } from './UserStatusBadge';
-import { disappearingService } from '../services/disappearing.service';
 
 interface ChatHeaderProps {
   chat: Chat;
   isOnline?: boolean;
   isTyping?: boolean;
+  isBlocked?: boolean;
+  isMuted?: boolean;
   transportMode?: TransportMode;
   meshPeerCount?: number;
   disappearingTimer?: number;
@@ -40,12 +44,17 @@ interface ChatHeaderProps {
   onOpenCreatePoll?: () => void;
   onOpenChannelDashboard?: () => void;
   onOpenFederationBridge?: () => void;
+  onToggleBlock?: () => void;
+  onToggleMute?: () => void;
+  onClearChat?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   chat,
   isOnline,
   isTyping,
+  isBlocked = false,
+  isMuted = false,
   transportMode = 'CLOUD',
   meshPeerCount = 3,
   disappearingTimer = 0,
@@ -60,12 +69,18 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onOpenCreatePoll,
   onOpenChannelDashboard,
   onOpenFederationBridge,
+  onToggleBlock,
+  onToggleMute,
+  onClearChat,
 }) => {
-  const isDirect = chat.type === 'DIRECT';
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  const isSaved = Boolean(chat.type === 'SAVED' || chat.is_saved_messages || chat.title?.includes('Saved Notes') || chat.title?.includes('Twine Vault'));
+  const isDirect = (chat.type === 'DIRECT' || Boolean(chat.peer_user)) && !isSaved;
   const isChannel = chat.type === 'CHANNEL';
-  const isGroup = chat.type === 'GROUP' || chat.type === 'SUPERGROUP';
-  const isSaved = chat.type === 'SAVED' || chat.is_saved_messages;
-  const isBot = chat.peer_user?.is_bot;
+  const isGroup = (chat.type === 'GROUP' || chat.type === 'SUPERGROUP') && !isDirect && !isSaved;
+  const isBot = Boolean(chat.peer_user?.is_bot);
 
   const peerName = isSaved
     ? 'Twine Vault (Saved Notes)'
@@ -76,13 +91,25 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   const peerAvatar = isDirect ? chat.peer_user?.avatar_url || chat.avatar_url : chat.avatar_url;
   const lastSeen = chat.peer_user?.last_seen_at;
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <header className="h-16 px-4 border-b border-[rgba(255,255,255,0.06)] bg-[#17212b] flex items-center justify-between z-10 select-none shadow-sm">
-      <div className="flex items-center space-x-3 min-w-0">
+    <header className="h-16 px-3 sm:px-4 border-b border-theme bg-theme-header flex items-center justify-between flex-shrink-0 sticky top-0 z-20 select-none shadow-sm min-w-0">
+      {/* Left: Back Button & User Info */}
+      <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1 mr-2">
         {onBackMobile && (
           <button
             onClick={onBackMobile}
-            className="md:hidden p-1.5 rounded-lg text-[#7f91a4] hover:text-white"
+            className="md:hidden p-2 -ml-1 rounded-xl text-[#7f91a4] hover:text-white hover:bg-[#202b36] transition-colors flex-shrink-0"
+            title="Back to Chats"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -97,88 +124,52 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             name={peerName}
             avatarUrl={peerAvatar}
             size="md"
-            isOnline={isDirect ? isOnline : undefined}
+            isOnline={isDirect && !isBlocked ? isOnline : undefined}
           />
         )}
 
-        <div className="min-w-0">
-          <div className="flex items-center space-x-2">
-            <h2 className="text-sm md:text-base font-bold text-white truncate">{peerName}</h2>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center space-x-1.5 min-w-0">
+            {isChannel && <Radio className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />}
+            {isGroup && <Users className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
+            {isBot && <Bot className="w-3.5 h-3.5 text-[#3fc5f0] flex-shrink-0" />}
 
-            {/* Transport & Connection State Pill */}
-            {transportMode === 'CLOUD' ? (
-              <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-semibold border border-emerald-500/25">
-                <Cloud className="w-3 h-3" />
-                <span className="hidden sm:inline">Cloud Sync</span>
-              </span>
-            ) : transportMode === 'MESH' ? (
-              <button
-                onClick={onOpenMeshRadar}
-                className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-semibold border border-purple-500/35 hover:bg-purple-500/30 transition-all animate-pulse"
-                title="Active BLE / LoRa Mesh Fallback"
-              >
-                <Compass className="w-3 h-3" />
-                <span>Mesh ({meshPeerCount} peers)</span>
-              </button>
-            ) : (
-              <span className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold border border-amber-500/25">
-                <span>⏳ Offline Queued</span>
+            <h2 className="text-sm sm:text-base font-bold text-white tracking-tight truncate leading-tight">
+              {peerName}
+            </h2>
+
+            {isBlocked && (
+              <span className="inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full bg-red-500/20 border border-red-500/40 text-red-400 text-[10px] font-bold flex-shrink-0">
+                <Ban className="w-3 h-3" />
+                <span>Blocked</span>
               </span>
             )}
 
-            {/* Disappearing Timer Badge if active */}
-            {disappearingTimer > 0 && (
-              <button
-                onClick={onOpenDisappearingTimer}
-                className="inline-flex items-center space-x-1 text-[10px] px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 font-semibold border border-orange-500/30 hover:bg-orange-500/30 transition-all"
-                title="Disappearing messages timer active"
-              >
-                <Flame className="w-3 h-3 text-orange-400 animate-pulse" />
-                <span>{disappearingService.formatTimerLabel(disappearingTimer as any)}</span>
-              </button>
-            )}
-
-            {isDirect && isBot && (
-              <span className="inline-flex items-center space-x-0.5 text-[10px] px-1.5 py-0.5 rounded bg-[#3fc5f0]/15 text-[#3fc5f0] font-medium border border-[#3fc5f0]/30">
-                <Bot className="w-3 h-3" />
-                <span>AI</span>
-              </span>
-            )}
-
-            {isChannel && (
-              <span className="inline-flex items-center space-x-0.5 text-[10px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-400 font-medium border border-purple-500/30">
-                <Radio className="w-3 h-3" />
-                <span>Channel</span>
-              </span>
-            )}
-
-            {isGroup && (
-              <span className="inline-flex items-center space-x-0.5 text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-400 font-medium border border-blue-500/30">
-                <Users className="w-3 h-3" />
-                <span>{chat.member_count || 5} members</span>
-              </span>
-            )}
-
-            {chat.is_e2ee && (
-              <button
-                onClick={onOpenSafetyNumber}
-                className="inline-flex items-center space-x-0.5 text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20 hover:bg-emerald-500/20 transition-all"
-                title="Click to verify 60-digit E2EE Safety Number"
-              >
+            {isDirect && !isBlocked && (
+              <span className="hidden sm:inline-flex items-center space-x-1 px-1.5 py-0.2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] font-semibold flex-shrink-0">
                 <ShieldCheck className="w-3 h-3" />
-                <span className="hidden sm:inline">E2EE</span>
-              </button>
+                <span className="hidden md:inline">E2EE</span>
+              </span>
+            )}
+
+            {isMuted && (
+              <span className="text-[#7f91a4]" title="Notifications Muted">
+                <BellOff className="w-3.5 h-3.5" />
+              </span>
             )}
           </div>
 
-          {/* Subtitle / Presence / Topic Chips */}
-          <div className="flex items-center space-x-2">
-            {isSaved ? (
-              <span className="text-xs text-[#7f91a4]">Your personal cloud storage & notes</span>
+          <div className="flex items-center space-x-2 text-xs min-w-0">
+            {isBlocked ? (
+              <span className="text-xs text-red-400 font-medium truncate">You blocked this contact</span>
             ) : isDirect ? (
-              <UserStatusBadge isOnline={isOnline} lastSeenAt={lastSeen} isTyping={isTyping} />
+              <UserStatusBadge
+                isOnline={Boolean(isOnline)}
+                isTyping={Boolean(isTyping)}
+                lastSeenAt={lastSeen}
+              />
             ) : (
-              <div className="flex items-center space-x-1.5 text-xs text-[#7f91a4]">
+              <div className="flex items-center space-x-1.5 text-xs text-[#7f91a4] truncate">
                 <span>
                   {isChannel
                     ? `${chat.member_count || 4} subscribers`
@@ -201,47 +192,44 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center space-x-1 sm:space-x-1.5 text-[#7f91a4]">
-        {/* Create Poll / Quiz Trigger */}
+      {/* Right: Actions */}
+      <div className="flex items-center space-x-0.5 sm:space-x-1 text-[#7f91a4] flex-shrink-0">
+        {/* Desktop Quick Actions */}
         {(isGroup || isChannel) && onOpenCreatePoll && (
           <button
             onClick={onOpenCreatePoll}
-            className="p-2.5 rounded-xl hover:text-[#3fc5f0] hover:bg-[#242f3d] transition-all"
+            className="hidden lg:flex p-2 rounded-xl hover:text-[#3fc5f0] hover:bg-[#202b36] transition-all"
             title="Create Poll or Quiz"
           >
             <BarChart3 className="w-4 h-4" />
           </button>
         )}
 
-        {/* Channel Analytics Dashboard Trigger */}
         {isChannel && onOpenChannelDashboard && (
           <button
             onClick={onOpenChannelDashboard}
-            className="p-2.5 rounded-xl hover:text-purple-400 hover:bg-[#242f3d] transition-all"
+            className="hidden lg:flex p-2 rounded-xl hover:text-purple-400 hover:bg-[#202b36] transition-all"
             title="Channel Analytics & Admin Dashboard"
           >
             <Radio className="w-4 h-4" />
           </button>
         )}
 
-        {/* Matrix / XMPP Federation Bridge Trigger */}
         {(isGroup || isChannel) && onOpenFederationBridge && (
           <button
             onClick={onOpenFederationBridge}
-            className="p-2.5 rounded-xl hover:text-cyan-400 hover:bg-[#242f3d] transition-all"
+            className="hidden lg:flex p-2 rounded-xl hover:text-cyan-400 hover:bg-[#202b36] transition-all"
             title="Matrix / XMPP Federation Bridge"
           >
             <Network className="w-4 h-4" />
           </button>
         )}
 
-        {/* AI Moderation Bot Trigger */}
         {(isGroup || isChannel) && onOpenAIModeration && (
           <button
             onClick={onOpenAIModeration}
-            className="p-2.5 rounded-xl text-purple-400 hover:bg-[#242f3d] hover:text-purple-300 transition-all"
-            title="Configure AI Moderation Bot (Spam & Toxicity Filter)"
+            className="hidden md:flex p-2 rounded-xl text-purple-400 hover:bg-[#202b36] hover:text-purple-300 transition-all"
+            title="Configure AI Moderation Bot"
           >
             <Bot className="w-4 h-4" />
           </button>
@@ -250,10 +238,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         {/* Disappearing Messages Trigger */}
         <button
           onClick={onOpenDisappearingTimer}
-          className={`p-2.5 rounded-xl transition-all ${
+          className={`hidden sm:flex p-2 rounded-xl transition-all ${
             disappearingTimer > 0
               ? 'text-orange-400 bg-orange-500/10 hover:bg-orange-500/20'
-              : 'hover:text-orange-400 hover:bg-[#242f3d]'
+              : 'hover:text-orange-400 hover:bg-[#202b36]'
           }`}
           title="Disappearing Messages Timer"
         >
@@ -261,10 +249,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         </button>
 
         {/* Safety Number E2EE Trigger */}
-        {isDirect && (
+        {isDirect && !isBlocked && (
           <button
             onClick={onOpenSafetyNumber}
-            className="p-2.5 rounded-xl hover:text-emerald-400 hover:bg-[#242f3d] transition-all"
+            className="hidden sm:flex p-2 rounded-xl hover:text-emerald-400 hover:bg-[#202b36] transition-all"
             title="Verify Safety Number & QR Code"
           >
             <ShieldCheck className="w-4 h-4" />
@@ -274,43 +262,202 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         {/* Mesh Radar Trigger */}
         <button
           onClick={onOpenMeshRadar}
-          className="p-2.5 rounded-xl text-purple-400 hover:bg-[#242f3d] hover:text-purple-300 transition-all"
+          className="hidden sm:flex p-2 rounded-xl text-purple-400 hover:bg-[#202b36] hover:text-purple-300 transition-all"
           title="P2P Mesh Radar & BLE Discovery"
         >
           <Compass className="w-4 h-4" />
         </button>
 
+        {/* Voice & Video Call Buttons (Disabled if contact is blocked) */}
         {isDirect && !isBot && (
           <>
             <button
+              disabled={isBlocked}
               onClick={() => onStartCall('voice')}
-              className="p-2.5 rounded-xl hover:text-[#3fc5f0] hover:bg-[#242f3d] transition-all"
-              title="Voice Call (WebRTC)"
+              className={`p-2 sm:p-2.5 rounded-xl transition-all ${
+                isBlocked
+                  ? 'text-gray-600 opacity-40 cursor-not-allowed'
+                  : 'text-[#3fc5f0] hover:text-white hover:bg-[#202b36]'
+              }`}
+              title={isBlocked ? 'Contact is blocked' : 'Voice Call (WebRTC)'}
             >
               <Phone className="w-4 h-4" />
             </button>
 
             <button
+              disabled={isBlocked}
               onClick={() => onStartCall('video')}
-              className="p-2.5 rounded-xl hover:text-[#3fc5f0] hover:bg-[#242f3d] transition-all"
-              title="Video Call (WebRTC)"
+              className={`p-2 sm:p-2.5 rounded-xl transition-all ${
+                isBlocked
+                  ? 'text-gray-600 opacity-40 cursor-not-allowed'
+                  : 'text-[#3fc5f0] hover:text-white hover:bg-[#202b36]'
+              }`}
+              title={isBlocked ? 'Contact is blocked' : 'Video Call (WebRTC)'}
             >
               <Video className="w-4 h-4" />
             </button>
           </>
         )}
 
+        {/* Search */}
         <button
           onClick={onOpenSearch}
-          className="p-2.5 rounded-xl hover:text-white hover:bg-[#242f3d] transition-all"
+          className="p-2 sm:p-2.5 rounded-xl hover:text-white hover:bg-[#202b36] transition-all"
           title="Search messages"
         >
           <Search className="w-4 h-4" />
         </button>
 
-        <button className="p-2.5 rounded-xl hover:text-white hover:bg-[#242f3d] transition-all" title="More options">
-          <MoreVertical className="w-4 h-4" />
-        </button>
+        {/* Responsive 3-Dots More Options Dropdown */}
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setShowMoreMenu((prev) => !prev)}
+            className={`p-2 sm:p-2.5 rounded-xl transition-all ${
+              showMoreMenu ? 'text-white bg-[#2b5278]' : 'hover:text-white hover:bg-[#202b36]'
+            }`}
+            title="More options (Search, Block, Clear, E2EE)"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+
+          {showMoreMenu && (
+            <div className="absolute right-0 top-full mt-1.5 w-60 glass-modal rounded-2xl p-1.5 border border-white/15 shadow-2xl z-50 animate-fade-in flex flex-col space-y-0.5">
+              {/* 1. Search */}
+              <button
+                onClick={() => { onOpenSearch(); setShowMoreMenu(false); }}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-white hover:bg-[#2b5278] rounded-xl transition-colors text-left"
+              >
+                <Search className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                <span>Search in Conversation</span>
+              </button>
+
+              {/* 2. Block / Unblock Contact (For Direct Chats) */}
+              {isDirect && chat.peer_user && onToggleBlock && (
+                <button
+                  onClick={() => { onToggleBlock(); setShowMoreMenu(false); }}
+                  className={`w-full flex items-center space-x-2.5 px-3 py-2 text-xs rounded-xl transition-colors text-left font-semibold ${
+                    isBlocked
+                      ? 'text-emerald-400 hover:bg-emerald-500/20'
+                      : 'text-red-400 hover:bg-red-500/20'
+                  }`}
+                >
+                  {isBlocked ? (
+                    <>
+                      <UserCheck className="w-4 h-4 flex-shrink-0" />
+                      <span>Unblock {chat.peer_user.display_name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Ban className="w-4 h-4 flex-shrink-0" />
+                      <span>Block {chat.peer_user.display_name}</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* 3. Mute / Unmute Notifications */}
+              {onToggleMute && (
+                <button
+                  onClick={() => { onToggleMute(); setShowMoreMenu(false); }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-white hover:bg-[#2b5278] rounded-xl transition-colors text-left"
+                >
+                  {isMuted ? (
+                    <>
+                      <Bell className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                      <span>Unmute Notifications</span>
+                    </>
+                  ) : (
+                    <>
+                      <BellOff className="w-4 h-4 text-[#7f91a4] flex-shrink-0" />
+                      <span>Mute Notifications</span>
+                    </>
+                  )}
+                </button>
+              )}
+
+              {/* 4. Disappearing Messages */}
+              <button
+                onClick={() => { onOpenDisappearingTimer(); setShowMoreMenu(false); }}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-white hover:bg-[#2b5278] rounded-xl transition-colors text-left"
+              >
+                <Flame className="w-4 h-4 text-orange-400 flex-shrink-0" />
+                <span>Disappearing Messages</span>
+              </button>
+
+              {/* 5. Safety Number (E2EE) */}
+              {isDirect && (
+                <button
+                  onClick={() => { onOpenSafetyNumber(); setShowMoreMenu(false); }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-white hover:bg-[#2b5278] rounded-xl transition-colors text-left"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>Verify E2EE Safety Number</span>
+                </button>
+              )}
+
+              {/* 6. Mesh Radar */}
+              <button
+                onClick={() => { onOpenMeshRadar(); setShowMoreMenu(false); }}
+                className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-white hover:bg-[#2b5278] rounded-xl transition-colors text-left"
+              >
+                <Compass className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                <span>P2P Mesh Radar</span>
+              </button>
+
+              {/* 7. Clear Chat History */}
+              {onClearChat && (
+                <button
+                  onClick={() => { onClearChat(); setShowMoreMenu(false); }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-red-300 hover:bg-red-500/15 rounded-xl transition-colors text-left border-t border-white/5 pt-2 mt-1"
+                >
+                  <Trash2 className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <span>Clear Conversation History</span>
+                </button>
+              )}
+
+              {/* 8. Group/Channel Actions */}
+              {(isGroup || isChannel) && onOpenCreatePoll && (
+                <button
+                  onClick={() => { onOpenCreatePoll(); setShowMoreMenu(false); }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-white hover:bg-[#2b5278] rounded-xl transition-colors text-left"
+                >
+                  <BarChart3 className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                  <span>Create Poll or Quiz</span>
+                </button>
+              )}
+
+              {isChannel && onOpenChannelDashboard && (
+                <button
+                  onClick={() => { onOpenChannelDashboard(); setShowMoreMenu(false); }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-white hover:bg-[#2b5278] rounded-xl transition-colors text-left"
+                >
+                  <Radio className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                  <span>Channel Analytics</span>
+                </button>
+              )}
+
+              {(isGroup || isChannel) && onOpenFederationBridge && (
+                <button
+                  onClick={() => { onOpenFederationBridge(); setShowMoreMenu(false); }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-white hover:bg-[#2b5278] rounded-xl transition-colors text-left"
+                >
+                  <Network className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                  <span>Bridge to Matrix / XMPP</span>
+                </button>
+              )}
+
+              {(isGroup || isChannel) && onOpenAIModeration && (
+                <button
+                  onClick={() => { onOpenAIModeration(); setShowMoreMenu(false); }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-white hover:bg-[#2b5278] rounded-xl transition-colors text-left"
+                >
+                  <Bot className="w-4 h-4 text-[#3fc5f0] flex-shrink-0" />
+                  <span>AI Moderation Bot</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

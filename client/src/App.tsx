@@ -106,9 +106,22 @@ export function App() {
     // Real-time states
     const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
     const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
+    const [blockedUserIds, setBlockedUserIds] = useState<Set<string>>(new Set());
+    const [mutedChatIds, setMutedChatIds] = useState<Set<string>>(new Set());
 
     const activeChatRef = useRef<string | null>(null);
     activeChatRef.current = activeChatId;
+
+    // Load blocked users
+    useEffect(() => {
+        if (currentUser) {
+            ApiService.getBlockedUsers()
+                .then((res) => {
+                    setBlockedUserIds(new Set(res.blockedUserIds || []));
+                })
+                .catch(() => {});
+        }
+    }, [currentUser]);
 
     // 1. Initial Load: Check token & load demo users
     useEffect(() => {
@@ -127,32 +140,21 @@ export function App() {
                             wsClient.connect();
                         })
                         .catch(() => {
-                            if (res.users && res.users.length > 0) {
-                                ApiService.demoLogin(res.users[0].id).then((dRes) => {
-                                    setCurrentUser(dRes.user);
-                                    CryptoService.initIdentityKey(dRes.user.id);
-                                    wsClient.connect();
-                                });
-                            } else {
-                                setShowAuthModal(true);
-                            }
+                            ApiService.setToken(null);
+                            setCurrentUser(null);
+                            setShowAuthModal(true);
                         });
                 } else {
-                    if (res.users && res.users.length > 0) {
-                        ApiService.demoLogin(res.users[0].id).then((dRes) => {
-                            setCurrentUser(dRes.user);
-                            CryptoService.initIdentityKey(dRes.user.id);
-                            wsClient.connect();
-                        });
-                    } else {
-                        setShowAuthModal(true);
-                    }
+                    setCurrentUser(null);
+                    setShowAuthModal(true);
                 }
             })
             .catch((err) => {
                 console.error(err);
+                setCurrentUser(null);
                 setShowAuthModal(true);
             });
+
 
         // Network Online / Offline Detection
         const handleOnline = () => {
@@ -799,21 +801,75 @@ export function App() {
         setShowAuthModal(true);
     };
 
-    const handleEndCall = async () => {
-        if (activeCall) {
-            const summary = await ApiService.getCallSummary(145, activeCall.peer.display_name);
-            setCallSummaryData(summary);
-            setActiveCall(null);
+    const handleToggleBlock = async (targetUserId: string) => {
+        const isCurrentlyBlocked = blockedUserIds.has(targetUserId);
+        try {
+            if (isCurrentlyBlocked) {
+                await ApiService.unblockUser(targetUserId);
+                setBlockedUserIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(targetUserId);
+                    return next;
+                });
+                alert('✅ Contact unblocked successfully.');
+            } else {
+                await ApiService.blockUser(targetUserId);
+                setBlockedUserIds((prev) => {
+                    const next = new Set(prev);
+                    next.add(targetUserId);
+                    return next;
+                });
+                alert('🚫 Contact blocked. They will not be able to message or call you.');
+            }
+        } catch (err: any) {
+            alert(err.message || 'Failed to update block status');
         }
     };
+
+    const handleToggleMute = (chatId: string) => {
+        setMutedChatIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(chatId)) {
+                next.delete(chatId);
+                alert('🔔 Notifications unmuted for this chat.');
+            } else {
+                next.add(chatId);
+                alert('🔕 Notifications muted for this chat.');
+            }
+            return next;
+        });
+    };
+
+    const handleClearChat = (chatId: string) => {
+        if (window.confirm('Are you sure you want to clear message history for this conversation?')) {
+            setMessages([]);
+            offlineStorage.saveMessagesLocally([]);
+            alert('🧹 Conversation history cleared.');
+        }
+    };
+
+    const handleEndCall = async () => {
+        if (activeCall) {
+            const peerName = activeCall.peer.display_name;
+            setActiveCall(null);
+            try {
+                // Optional call summary
+                const summary = await ApiService.getCallSummary(60, peerName);
+                if (summary) {
+                    setCallSummaryData(summary);
+                }
+            } catch {
+                // Ignore
+            }
+        }
+    };
+
 
     const activeChat = chats.find((c) => c.id === activeChatId);
 
     return (
         <div className="flex flex-col h-screen w-screen text-theme-primary bg-theme-primary overflow-hidden relative selection:bg-[#2f88ff]/30">
-            {/* Ambient Lighting & Glow Flares */}
-            <div className="ambient-light-flare-1" />
-            <div className="ambient-light-flare-2" />
+            {/* GPU-Accelerated Static Ambient Background */}
             <div className="ambient-glow-mesh" />
 
             {/* Top Push Notification Banner */}
@@ -837,8 +893,8 @@ export function App() {
                     </button>
                 </div>
             )}
-            {/* Clean Twine App Header */}
-            <header className="h-12 bg-theme-sidebar/95 backdrop-blur-md border-b border-theme px-4 flex items-center justify-between text-xs select-none flex-shrink-0 z-30">
+            {/* Frozen Clean Twine App Header */}
+            <header className="h-12 bg-theme-sidebar border-b border-theme px-4 flex items-center justify-between text-xs select-none flex-shrink-0 sticky top-0 z-30">
                 <div className="flex items-center space-x-3">
                     <TwineGlowingLogo size="sm" />
                     <div className="flex items-center space-x-1.5">
@@ -903,11 +959,11 @@ export function App() {
             </header>
 
             {/* Main Layout */}
-            <div className="flex flex-1 overflow-hidden relative z-10">
+            <div className="flex flex-1 overflow-hidden relative z-10 min-h-0">
                 {currentUser ? (
                     <>
                         <div
-                            className={`w-full md:w-80 lg:w-96 flex-shrink-0 h-full ${mobileChatOpen ? 'hidden md:flex' : 'flex'}`}
+                            className={`w-full md:w-80 lg:w-96 xl:w-[380px] flex-shrink-0 h-full flex flex-col min-h-0 ${mobileChatOpen ? 'hidden md:flex' : 'flex'}`}
                         >
                             <ChatList
                                 currentUser={currentUser}
@@ -930,7 +986,7 @@ export function App() {
 
                         {activeChat ? (
                             <main
-                                className={`flex-1 flex flex-col h-full bg-theme-primary relative min-w-0 ${!mobileChatOpen ? 'hidden md:flex' : 'flex'}`}
+                                className={`flex-1 flex flex-col h-full min-h-0 min-w-0 bg-theme-primary relative ${!mobileChatOpen ? 'hidden md:flex' : 'flex'}`}
                             >
                                 <ChatHeader
                                     chat={activeChat}
@@ -940,6 +996,10 @@ export function App() {
                                             : false
                                     }
                                     isTyping={typingUsers.has(activeChat.id)}
+                                    isBlocked={
+                                        Boolean(activeChat.peer_user && blockedUserIds.has(activeChat.peer_user.id))
+                                    }
+                                    isMuted={mutedChatIds.has(activeChat.id)}
                                     transportMode={transportMode}
                                     meshPeerCount={meshService.getPeers().length}
                                     disappearingTimer={currentDisappearingTimer}
@@ -955,8 +1015,19 @@ export function App() {
                                         setShowChannelDashboardModal(true)
                                     }
                                     onOpenFederationBridge={() => setShowFederationModal(true)}
+                                    onToggleBlock={() => {
+                                        if (activeChat.peer_user) {
+                                            handleToggleBlock(activeChat.peer_user.id);
+                                        }
+                                    }}
+                                    onToggleMute={() => handleToggleMute(activeChat.id)}
+                                    onClearChat={() => handleClearChat(activeChat.id)}
                                     onStartCall={(type) => {
                                         if (activeChat.peer_user) {
+                                            if (blockedUserIds.has(activeChat.peer_user.id)) {
+                                                alert('❌ Cannot start call with a blocked contact.');
+                                                return;
+                                            }
                                             setActiveCall({ peer: activeChat.peer_user, type });
                                         }
                                     }}
@@ -981,16 +1052,31 @@ export function App() {
                                     onSelectReply={(replyText) => handleSendMessage(replyText)}
                                 />
 
-                                <MessageInput
-                                    chatId={activeChat.id}
-                                    replyToMessage={replyToMessage}
-                                    editingMessage={editingMessage}
-                                    onClearReply={() => setReplyToMessage(null)}
-                                    onClearEdit={() => setEditingMessage(null)}
-                                    onSendMessage={handleSendMessage}
-                                    onEditSubmit={handleEditSubmit}
-                                    onTyping={handleTyping}
-                                />
+                                {activeChat.peer_user && blockedUserIds.has(activeChat.peer_user.id) ? (
+                                    <div className="p-4 bg-[#17212b] border-t border-theme flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-red-300 select-none">
+                                        <div className="flex items-center space-x-2">
+                                            <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse flex-shrink-0"></span>
+                                            <span>You have blocked this contact. Unblock to send messages or start calls.</span>
+                                        </div>
+                                        <button
+                                            onClick={() => activeChat.peer_user && handleToggleBlock(activeChat.peer_user.id)}
+                                            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow transition-all flex-shrink-0"
+                                        >
+                                            Unblock Contact
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <MessageInput
+                                        chatId={activeChat.id}
+                                        replyToMessage={replyToMessage}
+                                        editingMessage={editingMessage}
+                                        onClearReply={() => setReplyToMessage(null)}
+                                        onClearEdit={() => setEditingMessage(null)}
+                                        onSendMessage={handleSendMessage}
+                                        onEditSubmit={handleEditSubmit}
+                                        onTyping={handleTyping}
+                                    />
+                                )}
                             </main>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-theme-primary">
@@ -1031,25 +1117,18 @@ export function App() {
                             Twine Messenger
                         </h3>
                         <p className="text-xs text-[#7f91a4] mb-6">
-                            Connecting your private couple & friends vault...
+                            Private real-time messenger. Please sign in to access your conversations.
                         </p>
                         <button
-                            onClick={() => {
-                                if (demoUsers.length > 0) {
-                                    ApiService.demoLogin(demoUsers[0].id).then((r) =>
-                                        setCurrentUser(r.user)
-                                    );
-                                } else {
-                                    setShowAuthModal(true);
-                                }
-                            }}
+                            onClick={() => setShowAuthModal(true)}
                             className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#ff007f] to-[#b829ea] text-white text-xs font-bold shadow-lg shadow-[#ff007f]/30 hover:opacity-95"
                         >
-                            Enter Twine Vault
+                            Sign In / Select Account
                         </button>
                     </div>
                 )}
             </div>
+
 
             {/* Telegram-Style Mobile Bottom Navigation Bar */}
             {currentUser && !mobileChatOpen && (
