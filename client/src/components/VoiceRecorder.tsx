@@ -181,9 +181,10 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
                 audio: {
                     channelCount: 1,
                     sampleRate: 48000,
+                    sampleSize: 16,
                     echoCancellation: true,
                     noiseSuppression: true,
-                    autoGainControl: true,
+                    autoGainControl: false,
                 },
             });
 
@@ -233,7 +234,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
              */
             const gainNode = audioContext.createGain();
 
-            gainNode.gain.value = 1.0;
+            // Moderate microphone boost.
+            // Do not use 4.0 — that amplifies background noise and can clip.
+            gainNode.gain.value = 1.5;
 
             gainNodeRef.current = gainNode;
 
@@ -264,8 +267,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
              */
             const analyser = audioContext.createAnalyser();
 
-            analyser.fftSize = 256;
-            analyser.smoothingTimeConstant = 0.65;
+            analyser.fftSize = 512;
+            analyser.smoothingTimeConstant = 0.8;
 
             analyserRef.current = analyser;
 
@@ -290,6 +293,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
             source.connect(gainNode);
             gainNode.connect(compressor);
             compressor.connect(analyser);
+            compressor.connect(destination);
 
             /*
              * ---------------------------------------------------------
@@ -297,7 +301,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
              * ---------------------------------------------------------
              * Use physical microphone stream for 100% reliable pristine audio
              */
-            const recorder = new MediaRecorder(stream, {
+            const processedStream = destination.stream;
+
+            processedStreamRef.current = processedStream;
+
+            const recorder = new MediaRecorder(processedStream, {
                 mimeType,
                 audioBitsPerSecond: 128000,
             });
@@ -395,7 +403,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
                 setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
             }, 250);
 
-            console.log('[VOICE] Recording started with amplified microphone signal');
+            console.log('[VOICE] Recording started with processed microphone signal', {
+                gain: gainNode.gain.value,
+                compressor: true,
+                mimeType,
+            });
         } catch (err) {
             console.error('[VOICE] Unable to start recording:', err);
 

@@ -100,15 +100,6 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
     const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
     const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
 
-    // Waveform DOM references.
-    // These allow us to update the waveform without re-rendering
-    // the entire MessageArea on every audio frame.
-    const waveformBarRefs = useRef<Record<string, HTMLDivElement[]>>({});
-    const audioTimeRefs = useRef<Record<string, HTMLSpanElement | null>>({});
-
-    // Animation frame used only while audio is playing.
-    const playbackAnimationRefs = useRef<Record<string, number>>({});
-
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -183,98 +174,20 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
     const mediaUrlsRef = useRef<Record<string, string>>({});
     mediaUrlsRef.current = mediaUrls;
 
-    const updateWaveformUI = (msgId: string, progress: number, duration?: number) => {
-        const clampedProgress = Math.max(0, Math.min(1, progress));
-
-        const bars = waveformBarRefs.current[msgId] || [];
-
-        if (bars.length > 0) {
-            const playedIndex = Math.floor(clampedProgress * bars.length);
-
-            for (let i = 0; i < bars.length; i++) {
-                const bar = bars[i];
-
-                if (!bar) continue;
-
-                const played = i < playedIndex;
-
-                if (played) {
-                    bar.dataset.played = 'true';
-                } else {
-                    bar.dataset.played = 'false';
-                }
-            }
-        }
-
-        const timeElement = audioTimeRefs.current[msgId];
-
-        if (timeElement && duration && Number.isFinite(duration) && duration > 0) {
-            const currentSeconds = clampedProgress * duration;
-
-            const minutes = Math.floor(currentSeconds / 60);
-            const seconds = Math.floor(currentSeconds % 60);
-
-            const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-            if (timeElement.textContent !== timeText) {
-                timeElement.textContent = timeText;
-            }
-        }
-    };
-
-    const startWaveformAnimation = (msgId: string, audio: HTMLAudioElement) => {
-        const previousFrame = playbackAnimationRefs.current[msgId];
-
-        if (previousFrame) {
-            cancelAnimationFrame(previousFrame);
-        }
-
-        const animate = () => {
-            if (audio.paused || audio.ended) {
-                delete playbackAnimationRefs.current[msgId];
-                return;
-            }
-
-            const duration = audio.duration;
-
-            if (Number.isFinite(duration) && duration > 0) {
-                const progress = audio.currentTime / duration;
-
-                updateWaveformUI(msgId, progress, duration);
-            }
-
-            playbackAnimationRefs.current[msgId] = requestAnimationFrame(animate);
-        };
-
-        playbackAnimationRefs.current[msgId] = requestAnimationFrame(animate);
-    };
-
     useEffect(() => {
         return () => {
-            // Revoke protected media object URLs.
             Object.values(mediaUrlsRef.current).forEach((url) => {
                 if (url.startsWith('blob:')) {
                     URL.revokeObjectURL(url);
                 }
             });
 
-            // Stop all audio and cancel waveform animation frames.
-            Object.entries(audioRefs.current).forEach(([msgId, audio]) => {
+            Object.values(audioRefs.current).forEach((audio) => {
                 if (audio) {
                     audio.pause();
                     audio.src = '';
                 }
-
-                const frame = playbackAnimationRefs.current[msgId];
-
-                if (frame) {
-                    cancelAnimationFrame(frame);
-                    delete playbackAnimationRefs.current[msgId];
-                }
             });
-
-            waveformBarRefs.current = {};
-            audioTimeRefs.current = {};
         };
     }, []);
 
@@ -320,32 +233,15 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
             }
         }
 
-        // Stop any other voice note.
+        // Stop any other voice note
         if (activeAudioId && audioRefs.current[activeAudioId]) {
-            const previousId = activeAudioId;
-            const currentAudio = audioRefs.current[previousId];
-
+            const currentAudio = audioRefs.current[activeAudioId];
             currentAudio.pause();
             currentAudio.currentTime = 0;
-
-            const frame = playbackAnimationRefs.current[previousId];
-
-            if (frame) {
-                cancelAnimationFrame(frame);
-                delete playbackAnimationRefs.current[previousId];
-            }
-
-            updateWaveformUI(
-                previousId,
-                0,
-                Number.isFinite(currentAudio.duration) ? currentAudio.duration : undefined
-            );
-
             setAudioProgress((prev) => ({
                 ...prev,
-                [previousId]: 0,
+                [activeAudioId]: 0,
             }));
-
             setActiveAudioId(null);
         }
 
@@ -369,37 +265,23 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                         ...prev,
                         [msgId]: audio.duration,
                     }));
-
-                    updateWaveformUI(msgId, 0, audio.duration);
                 }
-            };
-
-            audio.onplay = () => {
-                startWaveformAnimation(msgId, audio);
             };
 
             audio.ontimeupdate = () => {
-                // Intentionally left lightweight.
-                //
-                // The waveform itself is updated by requestAnimationFrame
-                // instead of causing a React render on every timeupdate.
+                if (Number.isFinite(audio.duration) && audio.duration > 0) {
+                    setAudioProgress((prev) => ({
+                        ...prev,
+                        [msgId]: audio.currentTime / audio.duration,
+                    }));
+                }
             };
 
             audio.onended = () => {
-                const frame = playbackAnimationRefs.current[msgId];
-
-                if (frame) {
-                    cancelAnimationFrame(frame);
-                    delete playbackAnimationRefs.current[msgId];
-                }
-
-                updateWaveformUI(msgId, 0, audio.duration);
-
                 setAudioProgress((prev) => ({
                     ...prev,
                     [msgId]: 0,
                 }));
-
                 setActiveAudioId(null);
                 audio.currentTime = 0;
             };
@@ -410,13 +292,6 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
             };
 
             audio.onpause = () => {
-                const frame = playbackAnimationRefs.current[msgId];
-
-                if (frame) {
-                    cancelAnimationFrame(frame);
-                    delete playbackAnimationRefs.current[msgId];
-                }
-
                 if (!audio.ended) {
                     setActiveAudioId((current) => (current === msgId ? null : current));
                 }
@@ -445,8 +320,6 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
         const clamped = Math.max(0, Math.min(1, progress));
 
         audio.currentTime = clamped * audio.duration;
-
-        updateWaveformUI(msgId, clamped, audio.duration);
 
         setAudioProgress((prev) => ({
             ...prev,
@@ -769,32 +642,39 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                                         i: number,
                                                                         arr: number[]
                                                                     ) => {
+                                                                        const progress =
+                                                                            audioProgress[msg.id] ||
+                                                                            0;
+
+                                                                        const barProgress =
+                                                                            (i + 1) / arr.length;
+
+                                                                        const played =
+                                                                            barProgress <= progress;
+
+                                                                        const isCurrentlyPlaying =
+                                                                            activeAudioId ===
+                                                                            msg.id;
+
                                                                         return (
                                                                             <div
                                                                                 key={i}
-                                                                                ref={(element) => {
-                                                                                    if (!element)
-                                                                                        return;
-
-                                                                                    if (
-                                                                                        !waveformBarRefs
-                                                                                            .current[
-                                                                                            msg.id
-                                                                                        ]
-                                                                                    ) {
-                                                                                        waveformBarRefs.current[
-                                                                                            msg.id
-                                                                                        ] = [];
-                                                                                    }
-
-                                                                                    waveformBarRefs.current[
-                                                                                        msg.id
-                                                                                    ][i] = element;
-                                                                                }}
-                                                                                className="voice-wave-bar flex-1 rounded-full bg-white/20"
+                                                                                className={`flex-1 rounded-full transition-all duration-100 ${
+                                                                                    played
+                                                                                        ? 'bg-gradient-to-t from-cyan-400 to-[#3fc5f0] shadow-sm shadow-cyan-400/50'
+                                                                                        : 'bg-white/20 hover:bg-white/40'
+                                                                                } ${
+                                                                                    isCurrentlyPlaying &&
+                                                                                    played
+                                                                                        ? 'voice-bar-anim'
+                                                                                        : ''
+                                                                                }`}
                                                                                 style={{
-                                                                                    height: `${Math.max(20, bar * 100)}%`,
-                                                                                    minWidth: '2px',
+                                                                                    height: `${Math.max(
+                                                                                        20,
+                                                                                        bar * 100
+                                                                                    )}%`,
+                                                                                    animationDelay: `${(i % 5) * 0.08}s`,
                                                                                 }}
                                                                             />
                                                                         );
@@ -803,22 +683,26 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                             </div>
 
                                                             <div className="flex items-center space-x-1.5 flex-shrink-0">
-                                                                <span
-                                                                    ref={(element) => {
-                                                                        audioTimeRefs.current[
-                                                                            msg.id
-                                                                        ] = element;
-                                                                    }}
-                                                                    className="text-[10px] font-mono text-white/80 min-w-[28px] text-right"
-                                                                >
-                                                                    {msg.media_metadata?.duration
-                                                                        ? `${Math.floor(msg.media_metadata.duration / 60)}:${(
-                                                                              msg.media_metadata
-                                                                                  .duration % 60
+                                                                <span className="text-[10px] font-mono text-white/80 min-w-[28px] text-right">
+                                                                    {activeAudioId === msg.id &&
+                                                                    audioProgress[msg.id] !==
+                                                                        undefined &&
+                                                                    audioDuration[msg.id]
+                                                                        ? `${Math.floor((audioProgress[msg.id] * audioDuration[msg.id]) / 60)}:${Math.floor(
+                                                                              (audioProgress[
+                                                                                  msg.id
+                                                                              ] *
+                                                                                  audioDuration[
+                                                                                      msg.id
+                                                                                  ]) %
+                                                                                  60
                                                                           )
                                                                               .toString()
                                                                               .padStart(2, '0')}`
-                                                                        : '0:05'}
+                                                                        : msg.media_metadata
+                                                                                ?.duration
+                                                                          ? `${Math.floor(msg.media_metadata.duration / 60)}:${(msg.media_metadata.duration % 60).toString().padStart(2, '0')}`
+                                                                          : '0:05'}
                                                                 </span>
                                                                 <button
                                                                     onClick={cycleSpeed}

@@ -187,7 +187,9 @@ router.post('/auth/demo-login', authRateLimiter, (req: Request, res: Response) =
 
 router.get('/auth/demo-users', authRateLimiter, (_req: Request, res: Response) => {
     if (config.isProduction) {
-        res.status(403).json({ error: 'Demo user directory is disabled in production environments' });
+        res.status(403).json({
+            error: 'Demo user directory is disabled in production environments',
+        });
         return;
     }
 
@@ -474,7 +476,10 @@ router.post('/chats/:id/mute', authMiddleware, (req: Request, res: Response) => 
         return;
     }
 
-    db.prepare('UPDATE chat_members SET is_muted = 1 WHERE chat_id = ? AND user_id = ?').run(chatId, userId);
+    db.prepare('UPDATE chat_members SET is_muted = 1 WHERE chat_id = ? AND user_id = ?').run(
+        chatId,
+        userId
+    );
     res.json({ success: true, is_muted: true });
 });
 
@@ -489,7 +494,10 @@ router.post('/chats/:id/unmute', authMiddleware, (req: Request, res: Response) =
         return;
     }
 
-    db.prepare('UPDATE chat_members SET is_muted = 0 WHERE chat_id = ? AND user_id = ?').run(chatId, userId);
+    db.prepare('UPDATE chat_members SET is_muted = 0 WHERE chat_id = ? AND user_id = ?').run(
+        chatId,
+        userId
+    );
     res.json({ success: true, is_muted: false });
 });
 
@@ -802,7 +810,6 @@ router.get('/health', (_req: Request, res: Response) => {
         onlineUsersCount: PresenceService.getOnlineUserIds().length,
     });
 });
-
 
 router.get('/ready', (_req: Request, res: Response) => {
     const dbOk = checkDbHealth();

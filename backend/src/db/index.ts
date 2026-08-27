@@ -182,7 +182,6 @@ export function initDatabase() {
         `);
     } catch {}
 
-
     seedInitialData();
 }
 
@@ -287,4 +286,3 @@ function seedInitialData() {
 
     console.log('✅ Seeding complete: 2 accounts ready (Alice & Bob).');
 }
-

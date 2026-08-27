@@ -404,7 +404,6 @@ export class AuthService {
         }));
     }
 
-
     static searchUsers(query: string, currentUserId: string): UserSummary[] {
         const q = `%${query.trim().toLowerCase()}%`;
 
