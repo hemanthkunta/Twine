@@ -81,6 +81,13 @@ export function setupWebSocketGateway(server: Server) {
                         return;
                     }
 
+                    // Enforce session validity (revocation check)
+                    if (!decoded.session_id || !AuthService.isSessionValid(decoded.session_id, decoded.id)) {
+                        sendError('UNAUTHORIZED', 'Session revoked or invalid', correlation_id);
+                        socket.close(4001, 'Session revoked');
+                        return;
+                    }
+
                     const user = AuthService.getUserById(decoded.id);
                     if (!user) {
                         sendError('USER_NOT_FOUND', 'User record not found', correlation_id);
@@ -97,7 +104,7 @@ export function setupWebSocketGateway(server: Server) {
 
                     const ackPayload: WSAuthAckPayload = {
                         user: { ...user, is_online: true },
-                        session_id: `sess_${Date.now()}`,
+                        session_id: decoded.session_id,
                         active_users_count: PresenceService.getOnlineUserIds().length,
                     };
 
@@ -132,10 +139,19 @@ export function setupWebSocketGateway(server: Server) {
                         return;
                     }
 
+                    const memberIds = ChatService.getChatMemberIds(msgPayload.chat_id);
+                    const peerId = memberIds.find((id) => id !== senderId);
+
+                    // Block check: verify if sender or recipient has blocked the other
+                    if (peerId && BlockService.isBlocked(senderId, peerId)) {
+                        sendError('BLOCKED', 'Message cannot be delivered due to blocking', correlation_id);
+                        return;
+                    }
+
                     const message = MessageService.createMessage({
                         chatId: msgPayload.chat_id,
                         senderId,
-                        contentText: msgPayload.content,
+                        contentText: msgPayload.content || '',
                         type: msgPayload.type || 'TEXT',
                         replyToMessageId: msgPayload.reply_to_id,
                         ciphertextPayload: msgPayload.ciphertext_payload,
@@ -154,7 +170,6 @@ export function setupWebSocketGateway(server: Server) {
                     sendFrame('chat:message_ack', ack, correlation_id);
 
                     // Broadcast to chat members (excluding this specific socket, sending to all other sockets including other devices of the sender)
-                    const memberIds = ChatService.getChatMemberIds(message.chat_id);
                     const newMsgFrame: WSFrame<WSNewMessagePayload> = {
                         type: 'chat:new_message',
                         payload: { message, chat_id: message.chat_id },
@@ -180,7 +195,8 @@ export function setupWebSocketGateway(server: Server) {
 
                     // 🤖 Check for AI Bot trigger (@ai or Direct AI Chat)
                     const isDirectAIChat = memberIds.includes('usr_ai_bot');
-                    const hasAITrigger = message.content_text
+                    const text = message.content_text || '';
+                    const hasAITrigger = text
                         .trim()
                         .toLowerCase()
                         .startsWith('@ai');
@@ -202,7 +218,7 @@ export function setupWebSocketGateway(server: Server) {
                                     memberIds,
                                     false
                                 );
-                                const cleanPrompt = message.content_text.replace(/^@ai\s*/i, '');
+                                const cleanPrompt = text.replace(/^@ai\s*/i, '');
                                 const history = MessageService.getChatMessages(message.chat_id, 10);
                                 const botReplyText = AIService.generateBotResponse(
                                     cleanPrompt,
@@ -361,6 +377,11 @@ export function setupWebSocketGateway(server: Server) {
                 // 6. Chat: Pin Message
                 if (type === 'chat:pin_message') {
                     const pinPayload = payload as WSPinMessagePayload;
+                    if (!pinPayload.chat_id || !ChatService.isChatMember(pinPayload.chat_id, senderId)) {
+                        sendError('FORBIDDEN', 'You are not a member of this chat', correlation_id);
+                        return;
+                    }
+
                     if (pinPayload.is_pinned) {
                         GroupService.pinMessage(
                             pinPayload.chat_id,
@@ -475,6 +496,18 @@ export function setupWebSocketGateway(server: Server) {
                         }, correlation_id);
                         return;
                     }
+
+                    if (!PresenceService.isUserOnline(callPayload.target_user_id)) {
+                        console.warn(`[WebRTC Call] Target user ${callPayload.target_user_id} is currently offline.`);
+                        sendFrame('webrtc:call_ended', {
+                            call_id: callPayload.call_id,
+                            user_id: callPayload.target_user_id,
+                            reason: 'offline',
+                        }, correlation_id);
+                        return;
+                    }
+
+                    console.log(`[WebRTC Call] Dispatching incoming call from ${caller.display_name} (${senderId}) to user ${callPayload.target_user_id}`);
 
                     PresenceService.sendToUser(callPayload.target_user_id, {
                         type: 'webrtc:incoming_call',

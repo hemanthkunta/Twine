@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Message, User } from '../types/index';
 import { StatusTicks } from './StatusTicks';
+import { LiveWallpaper } from './LiveWallpaper';
 import {
     Reply,
     Smile,
@@ -77,53 +78,6 @@ const renderFormattedText = (text: string) => {
         );
     });
 };
-
-interface VoiceWaveformProps {
-    waveform: number[];
-    progress: number;
-    onSeek: (progress: number) => void;
-}
-
-const VoiceWaveform = React.memo<VoiceWaveformProps>(({ waveform, progress, onSeek }) => {
-    const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-
-        if (rect.width <= 0) {
-            return;
-        }
-
-        const x = event.clientX - rect.left;
-
-        const nextProgress = Math.max(0, Math.min(1, x / rect.width));
-
-        onSeek(nextProgress);
-    };
-
-    return (
-        <div
-            className="flex-1 flex items-center space-x-[2px] h-8 cursor-pointer select-none"
-            onClick={handleClick}
-        >
-            {waveform.map((bar, index) => {
-                const barProgress = (index + 1) / waveform.length;
-
-                const played = barProgress <= progress;
-
-                return (
-                    <div
-                        key={index}
-                        className={`flex-1 rounded-full ${
-                            played ? 'bg-[#3fc5f0]' : 'bg-[#3fc5f0]/30'
-                        }`}
-                        style={{
-                            height: `${Math.max(15, bar * 100)}%`,
-                        }}
-                    />
-                );
-            })}
-        </div>
-    );
-});
 
 export const MessageArea: React.FC<MessageAreaProps> = ({
     messages,
@@ -217,9 +171,12 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
         };
     }, [messages]);
 
+    const mediaUrlsRef = useRef<Record<string, string>>({});
+    mediaUrlsRef.current = mediaUrls;
+
     useEffect(() => {
         return () => {
-            Object.values(mediaUrls).forEach((url) => {
+            Object.values(mediaUrlsRef.current).forEach((url) => {
                 if (url.startsWith('blob:')) {
                     URL.revokeObjectURL(url);
                 }
@@ -246,268 +203,113 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
     const toggleAudio = async (msgId: string, audioUrl: string) => {
         const existing = audioRefs.current[msgId];
 
-        // ------------------------------------------------------------
-        // EXISTING AUDIO: PLAY / PAUSE
-        // ------------------------------------------------------------
+        // --------------------------------
+        // Existing audio instance
+        // --------------------------------
         if (existing) {
             try {
-                if (existing.paused) {
-                    await existing.play();
-                    setActiveAudioId(msgId);
-                } else {
+                if (activeAudioId === msgId && !existing.paused) {
                     existing.pause();
                     setActiveAudioId(null);
+                    return;
+                } else {
+                    if (activeAudioId && activeAudioId !== msgId && audioRefs.current[activeAudioId]) {
+                        audioRefs.current[activeAudioId].pause();
+                    }
+                    if (existing.ended || existing.currentTime >= (existing.duration || 0)) {
+                        existing.currentTime = 0;
+                    }
+                    existing.playbackRate = playbackSpeed;
+                    await existing.play();
+                    setActiveAudioId(msgId);
+                    return;
                 }
             } catch (error) {
-                console.error('[VOICE PLAYBACK] Resume/pause failed:', error);
+                console.warn('Audio resume failed, recreating audio instance:', error);
             }
-
-            return;
         }
 
-        // ------------------------------------------------------------
-        // STOP ANOTHER VOICE NOTE
-        // ------------------------------------------------------------
-        if (activeAudioId && activeAudioId !== msgId && audioRefs.current[activeAudioId]) {
+        // Stop any other voice note
+        if (activeAudioId && audioRefs.current[activeAudioId]) {
             const currentAudio = audioRefs.current[activeAudioId];
-
             currentAudio.pause();
             currentAudio.currentTime = 0;
-
             setAudioProgress((prev) => ({
                 ...prev,
                 [activeAudioId]: 0,
             }));
-
-            delete audioRefs.current[activeAudioId];
+            setActiveAudioId(null);
         }
 
-        setActiveAudioId(null);
-
-        // ------------------------------------------------------------
-        // CHECK URL
-        // ------------------------------------------------------------
         if (!audioUrl) {
-            console.error('[VOICE PLAYBACK] Voice note media is not loaded yet:', msgId);
+            console.error('Voice note media is not loaded yet:', msgId);
             return;
         }
 
-        let blobUrl: string | null = null;
-
         try {
             const mediaUrl = ApiService.getMediaUrl(audioUrl);
-            const token = ApiService.getToken();
-
-            console.log('[VOICE PLAYBACK] Loading:', {
-                msgId,
-                mediaUrl,
-            });
-
-            // --------------------------------------------------------
-            // DOWNLOAD PROTECTED MEDIA
-            // --------------------------------------------------------
-            const response = await fetch(mediaUrl, {
-                headers: token
-                    ? {
-                          Authorization: `Bearer ${token}`,
-                      }
-                    : {},
-            });
-
-            if (!response.ok) {
-                throw new Error(`Audio download failed: ${response.status}`);
-            }
-
-            const downloadedBlob = await response.blob();
-
-            if (!downloadedBlob.size) {
-                throw new Error('Voice note file is empty');
-            }
-
-            console.log('[VOICE PLAYBACK] Downloaded:', {
-                size: downloadedBlob.size,
-                type: downloadedBlob.type,
-            });
-
-            // --------------------------------------------------------
-            // KEEP THE SERVER'S ACTUAL BLOB
-            //
-            // DO NOT force audio/webm;codecs=opus here.
-            // --------------------------------------------------------
-            blobUrl = URL.createObjectURL(downloadedBlob);
-
-            // --------------------------------------------------------
-            // CREATE AUDIO ELEMENT
-            // --------------------------------------------------------
-            const audio = new Audio();
+            const audio = new Audio(mediaUrl);
 
             audio.preload = 'auto';
-            audio.src = blobUrl;
             audio.playbackRate = playbackSpeed;
 
             audioRefs.current[msgId] = audio;
 
-            // --------------------------------------------------------
-            // METADATA LOADED
-            // --------------------------------------------------------
             audio.onloadedmetadata = () => {
-                console.log('[VOICE PLAYBACK] Metadata loaded:', {
-                    msgId,
-                    duration: audio.duration,
-                });
+                if (Number.isFinite(audio.duration) && audio.duration > 0) {
+                    setAudioDuration((prev) => ({
+                        ...prev,
+                        [msgId]: audio.duration,
+                    }));
+                }
+            };
 
+            audio.ontimeupdate = () => {
+                if (Number.isFinite(audio.duration) && audio.duration > 0) {
+                    setAudioProgress((prev) => ({
+                        ...prev,
+                        [msgId]: audio.currentTime / audio.duration,
+                    }));
+                }
+            };
+
+            audio.onended = () => {
                 setAudioProgress((prev) => ({
                     ...prev,
                     [msgId]: 0,
                 }));
+                setActiveAudioId(null);
+                audio.currentTime = 0;
             };
 
-            // --------------------------------------------------------
-            // TIME UPDATE
-            //
-            // This is the important part for the moving waveform.
-            // --------------------------------------------------------
-            let lastProgressUpdate = 0;
-
-            audio.ontimeupdate = () => {
-                if (!Number.isFinite(audio.duration) || audio.duration <= 0) {
-                    return;
-                }
-
-                const now = performance.now();
-
-                // Limit React updates to roughly 20 FPS.
-                if (now - lastProgressUpdate < 50) {
-                    return;
-                }
-
-                lastProgressUpdate = now;
-
-                const progress = Math.max(0, Math.min(1, audio.currentTime / audio.duration));
-
-                setAudioProgress((prev) => {
-                    // Avoid unnecessary React renders.
-                    const previous = prev[msgId] ?? 0;
-
-                    if (Math.abs(previous - progress) < 0.01) {
-                        return prev;
-                    }
-
-                    return {
-                        ...prev,
-                        [msgId]: progress,
-                    };
-                });
+            audio.onerror = () => {
+                console.error('[VOICE PLAYBACK] Audio error:', audio.error);
+                setActiveAudioId(null);
             };
 
-            // --------------------------------------------------------
-            // PLAY
-            // --------------------------------------------------------
-            audio.onplay = () => {
-                setActiveAudioId(msgId);
-            };
-
-            // --------------------------------------------------------
-            // PAUSE
-            // --------------------------------------------------------
             audio.onpause = () => {
                 if (!audio.ended) {
                     setActiveAudioId((current) => (current === msgId ? null : current));
                 }
             };
 
-            // --------------------------------------------------------
-            // FINISHED
-            // --------------------------------------------------------
-            audio.onended = () => {
-                setAudioProgress((prev) => ({
-                    ...prev,
-                    [msgId]: 0,
-                }));
-
-                setActiveAudioId((current) => (current === msgId ? null : current));
-
-                audio.currentTime = 0;
-
-                delete audioRefs.current[msgId];
-
-                if (blobUrl) {
-                    URL.revokeObjectURL(blobUrl);
-                    blobUrl = null;
-                }
-            };
-
-            // --------------------------------------------------------
-            // ERROR
-            // --------------------------------------------------------
-            audio.onerror = () => {
-                console.error('[VOICE PLAYBACK] Audio error:', audio.error);
-
-                setActiveAudioId((current) => (current === msgId ? null : current));
-
-                delete audioRefs.current[msgId];
-
-                if (blobUrl) {
-                    URL.revokeObjectURL(blobUrl);
-                    blobUrl = null;
-                }
-            };
-
-            // --------------------------------------------------------
-            // WAIT UNTIL AUDIO CAN PLAY
-            // --------------------------------------------------------
-            await new Promise<void>((resolve, reject) => {
-                const handleCanPlay = () => {
-                    cleanup();
-                    resolve();
-                };
-
-                const handleError = () => {
-                    cleanup();
-                    reject(new Error('Browser could not decode voice note'));
-                };
-
-                const cleanup = () => {
-                    audio.removeEventListener('canplay', handleCanPlay);
-
-                    audio.removeEventListener('error', handleError);
-                };
-
-                audio.addEventListener('canplay', handleCanPlay, { once: true });
-
-                audio.addEventListener('error', handleError, { once: true });
-
-                audio.load();
-            });
-
-            // --------------------------------------------------------
-            // START PLAYBACK
-            // --------------------------------------------------------
             await audio.play();
-
             setActiveAudioId(msgId);
         } catch (error) {
-            console.error('[VOICE PLAYBACK] Failed:', error);
-
-            setActiveAudioId((current) => (current === msgId ? null : current));
-
-            delete audioRefs.current[msgId];
-
-            if (blobUrl) {
-                URL.revokeObjectURL(blobUrl);
-                blobUrl = null;
-            }
+            console.error('Voice-note playback failed:', error);
+            setActiveAudioId(null);
         }
     };
 
-    const seekAudio = (msgId: string, progress: number) => {
-        const audio = audioRefs.current[msgId];
+    const seekAudio = async (msgId: string, audioUrl: string, progress: number) => {
+        let audio = audioRefs.current[msgId];
 
         if (!audio) {
-            return;
+            await toggleAudio(msgId, audioUrl);
+            audio = audioRefs.current[msgId];
         }
 
-        if (!Number.isFinite(audio.duration) || audio.duration <= 0) {
+        if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) {
             return;
         }
 
@@ -520,10 +322,6 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
             [msgId]: clamped,
         }));
     };
-
-    const handleWaveformSeek = React.useCallback((msgId: string, progress: number) => {
-        seekAudio(msgId, progress);
-    }, []);
 
     const cycleSpeed = () => {
         const nextSpeed = playbackSpeed === 1 ? 1.5 : playbackSpeed === 1.5 ? 2 : 1;
@@ -600,7 +398,9 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
     });
 
     return (
-        <div className="flex-1 overflow-y-auto chat-pattern-bg relative flex flex-col items-center scrollbar-thin">
+        <div className="flex-1 relative flex flex-col min-h-0 overflow-hidden chat-pattern-bg">
+            <LiveWallpaper />
+            <div className="relative z-10 flex-1 overflow-y-auto flex flex-col items-center scrollbar-thin">
             <div className="w-full max-w-3xl px-4 py-4 space-y-3 flex-1 flex flex-col min-h-full">
                 {/* Pinned Message Top Banner */}
                 {pinnedMessage && (
@@ -732,10 +532,10 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
 
                                         {/* Speech Bubble */}
                                         <div
-                                            className={`relative min-w-[130px] max-w-[85%] md:max-w-[560px] rounded-2xl px-3.5 py-2.5 shadow-md transition-all ${
+                                            className={`msg-bubble relative min-w-[130px] max-w-[85%] md:max-w-[560px] rounded-2xl px-3.5 py-2.5 shadow-md transition-all ${
                                                 isOut
-                                                    ? 'bg-[#2b5278] text-white rounded-br-xs'
-                                                    : 'bg-[#182533] text-white rounded-bl-xs border border-[rgba(255,255,255,0.05)]'
+                                                    ? 'msg-bubble-out bg-[#2b5278] text-white rounded-br-xs'
+                                                    : 'msg-bubble-in bg-[#182533] text-white rounded-bl-xs border border-[rgba(255,255,255,0.05)]'
                                             }`}
                                         >
                                             {!isOut && (
@@ -764,18 +564,19 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                 </div>
                                             )}
 
-                                            {/* Media Type: Voice Note with Inline AI Transcription */}
+                                            {/* Media Type: Pure Voice Note */}
                                             {msg.type === 'VOICE' && (
-                                                <div className="my-1 min-w-[240px] space-y-1.5">
-                                                    <div className="flex items-center space-x-3">
+                                                <div className="my-1 w-full max-w-[260px] sm:max-w-xs md:max-w-sm min-w-0">
+                                                    <div className="flex items-center space-x-2 sm:space-x-3">
                                                         <button
                                                             onClick={() =>
                                                                 toggleAudio(
                                                                     msg.id,
-                                                                    mediaUrls[msg.id] || ''
+                                                                    mediaUrls[msg.id] || msg.media_url || ''
                                                                 )
                                                             }
-                                                            className="w-10 h-10 rounded-full bg-[#3fc5f0] text-black flex items-center justify-center shadow-md flex-shrink-0 hover:opacity-90 transition-opacity"
+                                                            className="w-10 h-10 rounded-full bg-[#3fc5f0] text-black flex items-center justify-center shadow-md flex-shrink-0 hover:opacity-90 active:scale-95 transition-all"
+                                                            title={activeAudioId === msg.id ? 'Pause Voice Note' : 'Play Voice Note'}
                                                         >
                                                             {activeAudioId === msg.id ? (
                                                                 <Pause className="w-5 h-5 fill-current" />
@@ -784,41 +585,85 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                             )}
                                                         </button>
 
-                                                        <VoiceWaveform
-                                                            waveform={
+                                                        <div
+                                                            className="flex-1 flex items-center space-x-[2px] sm:space-x-1 h-8 cursor-pointer select-none py-1"
+                                                            onClick={(event) => {
+                                                                const rect =
+                                                                    event.currentTarget.getBoundingClientRect();
+
+                                                                const x = event.clientX - rect.left;
+                                                                const progress = Math.max(
+                                                                    0,
+                                                                    Math.min(1, x / rect.width)
+                                                                );
+
+                                                                seekAudio(
+                                                                    msg.id,
+                                                                    mediaUrls[msg.id] || msg.media_url || '',
+                                                                    progress
+                                                                );
+                                                            }}
+                                                            title="Click to seek"
+                                                        >
+                                                            {(
                                                                 msg.media_metadata?.waveform || [
                                                                     0.4, 0.7, 0.9, 0.5, 0.8, 0.4,
-                                                                    0.9, 0.6, 0.3,
+                                                                    0.9, 0.6, 0.3, 0.7, 0.5, 0.8,
+                                                                    0.4, 0.9, 0.6, 0.3, 0.8, 0.5,
                                                                 ]
-                                                            }
-                                                            progress={audioProgress[msg.id] || 0}
-                                                            onSeek={(progress) =>
-                                                                seekAudio(msg.id, progress)
-                                                            }
-                                                        />
+                                                            ).map((bar: number, i: number, arr: number[]) => {
+                                                                const progress =
+                                                                    audioProgress[msg.id] || 0;
 
-                                                        <button
-                                                            onClick={cycleSpeed}
-                                                            className="px-1.5 py-0.5 rounded bg-black/30 text-[10px] font-mono font-bold text-white hover:bg-black/50"
-                                                        >
-                                                            {playbackSpeed}x
-                                                        </button>
-                                                    </div>
+                                                                const barProgress =
+                                                                    (i + 1) / arr.length;
 
-                                                    {/* Inline Automatic Voice Transcription */}
-                                                    <div className="p-2 rounded-xl bg-black/25 border border-white/10 text-xs text-white/90">
-                                                        <div className="flex items-center justify-between text-[10px] text-[#3fc5f0] font-semibold mb-1">
-                                                            <span>✨ AI Speech-to-Text</span>
-                                                            <span className="text-[9px] text-emerald-400 font-mono">
-                                                                96% confidence
-                                                            </span>
+                                                                const played =
+                                                                    barProgress <= progress;
+
+                                                                const isCurrentlyPlaying =
+                                                                    activeAudioId === msg.id;
+
+                                                                return (
+                                                                    <div
+                                                                        key={i}
+                                                                        className={`flex-1 rounded-full transition-all duration-100 ${
+                                                                            played
+                                                                                ? 'bg-gradient-to-t from-cyan-400 to-[#3fc5f0] shadow-sm shadow-cyan-400/50'
+                                                                                : 'bg-white/20 hover:bg-white/40'
+                                                                        } ${
+                                                                            isCurrentlyPlaying && played
+                                                                                ? 'voice-bar-anim'
+                                                                                : ''
+                                                                        }`}
+                                                                        style={{
+                                                                            height: `${Math.max(
+                                                                                20,
+                                                                                bar * 100
+                                                                            )}%`,
+                                                                            animationDelay: `${(i % 5) * 0.08}s`,
+                                                                        }}
+                                                                    />
+                                                                );
+                                                            })}
                                                         </div>
-                                                        <p className="italic leading-relaxed">
-                                                            "Hey team, just following up on the
-                                                            real-time WebSocket clustering and mesh
-                                                            transport deployment. Everything looks
-                                                            rock solid!"
-                                                        </p>
+
+                                                        <div className="flex items-center space-x-1.5 flex-shrink-0">
+                                                            <span className="text-[10px] font-mono text-white/80 min-w-[28px] text-right">
+                                                                {activeAudioId === msg.id && audioProgress[msg.id] !== undefined && audioDuration[msg.id]
+                                                                    ? `${Math.floor((audioProgress[msg.id] * audioDuration[msg.id]) / 60)}:${Math.floor((audioProgress[msg.id] * audioDuration[msg.id]) % 60).toString().padStart(2, '0')}`
+                                                                    : msg.media_metadata?.duration
+                                                                    ? `${Math.floor(msg.media_metadata.duration / 60)}:${(msg.media_metadata.duration % 60).toString().padStart(2, '0')}`
+                                                                    : '0:05'}
+                                                            </span>
+                                                            <button
+                                                                onClick={cycleSpeed}
+                                                                className="px-1.5 py-0.5 rounded bg-black/30 text-[10px] font-mono font-bold text-white hover:bg-black/50 transition-colors"
+                                                                title="Change playback speed"
+                                                            >
+                                                                {playbackSpeed}x
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
@@ -1078,6 +923,7 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                     ))
                 )}
                 <div ref={bottomRef} />
+            </div>
             </div>
         </div>
     );

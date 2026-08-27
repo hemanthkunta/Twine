@@ -1,7 +1,7 @@
 export type UserRole = 'OWNER' | 'ADMIN' | 'MEMBER';
 export type ChatType = 'DIRECT' | 'GROUP' | 'SUPERGROUP' | 'CHANNEL' | 'SAVED';
 export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'AUDIO' | 'VOICE' | 'FILE' | 'SYSTEM' | 'LOCATION' | 'POLL';
-export type ReceiptStatus = 'SENT' | 'DELIVERED' | 'READ' | 'QUEUED';
+export type ReceiptStatus = 'SENT' | 'DELIVERED' | 'READ' | 'QUEUED' | 'FAILED';
 export type TransportMode = 'CLOUD' | 'MESH' | 'QUEUED';
 
 export interface User {

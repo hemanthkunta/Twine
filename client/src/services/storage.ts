@@ -179,6 +179,19 @@ class OfflineStorageService {
       req.onerror = () => reject(req.error);
     });
   }
+
+  // --- Session & Cache Invalidation ---
+  async clearUserData(): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['messages', 'outbox', 'mesh_packets'], 'readwrite');
+      tx.objectStore('messages').clear();
+      tx.objectStore('outbox').clear();
+      tx.objectStore('mesh_packets').clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
 }
 
 export const offlineStorage = new OfflineStorageService();

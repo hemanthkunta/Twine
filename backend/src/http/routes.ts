@@ -5,7 +5,7 @@ import { AuthService } from '../services/auth.service.js';
 import { ChatService } from '../services/chat.service.js';
 import { MessageService } from '../services/message.service.js';
 import { GroupService } from '../services/group.service.js';
-import { MediaService } from '../services/media.service.js';
+import { MediaService, UPLOADS_DIR } from '../services/media.service.js';
 import { AIService } from '../services/ai.service.js';
 import { PresenceService } from '../services/presence.service.js';
 import { ChannelAnalyticsService } from '../services/analytics.service.js';
@@ -15,8 +15,13 @@ import { BlockService } from '../services/block.service.js';
 import { RateLimiter } from '../middleware/rateLimiter.js';
 import { MetricsService } from '../services/metrics.service.js';
 import { checkDbHealth, db } from '../db/index.js';
+import { config } from '../config/index.js';
 
 export const router = Router();
+
+const authRateLimiter = RateLimiter.createMiddleware(20, 0.33); // 20 burst, 20/min
+const apiRateLimiter = RateLimiter.createMiddleware(300, 5.0); // 300 burst, 300/min
+const uploadRateLimiter = RateLimiter.createMiddleware(30, 0.5); // 30 burst, 30/min
 
 // Global request metric recording & general rate limit (300 req/min)
 router.use((req: Request, res: Response, next: NextFunction) => {
@@ -26,9 +31,8 @@ router.use((req: Request, res: Response, next: NextFunction) => {
     next();
 });
 
-const authRateLimiter = RateLimiter.createMiddleware(20, 0.33); // 20 burst, 20/min
-const apiRateLimiter = RateLimiter.createMiddleware(300, 5.0); // 300 burst, 300/min
-const uploadRateLimiter = RateLimiter.createMiddleware(30, 0.5); // 30 burst, 30/min
+// Attach general API rate limiter globally to all API routes
+router.use(apiRateLimiter);
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {
     const header = req.headers.authorization;
@@ -162,9 +166,18 @@ router.post('/auth/refresh', authRateLimiter, (req: Request, res: Response) => {
     }
 });
 
-router.post('/auth/demo-login', (req: Request, res: Response) => {
+router.post('/auth/demo-login', authRateLimiter, (req: Request, res: Response) => {
+    if (config.isProduction) {
+        res.status(403).json({ error: 'Demo login is disabled in production environments' });
+        return;
+    }
+
     try {
         const { userId } = req.body;
+        if (!userId) {
+            res.status(400).json({ error: 'userId is required' });
+            return;
+        }
         const result = AuthService.demoLogin(userId);
         res.json(result);
     } catch (err: any) {
@@ -172,7 +185,12 @@ router.post('/auth/demo-login', (req: Request, res: Response) => {
     }
 });
 
-router.get('/auth/demo-users', (_req: Request, res: Response) => {
+router.get('/auth/demo-users', authRateLimiter, (_req: Request, res: Response) => {
+    if (config.isProduction) {
+        res.status(403).json({ error: 'Demo user directory is disabled in production environments' });
+        return;
+    }
+
     const users = AuthService.getAllDemoUsers();
     const enhanced = users.map((u) => ({
         ...u,
@@ -388,8 +406,7 @@ router.get('/media/:filename', authMiddleware, (req: Request, res: Response) => 
         return;
     }
 
-    const uploadsDir = path.resolve('backend', 'uploads');
-    const filePath = path.join(uploadsDir, safeFilename);
+    const filePath = path.join(UPLOADS_DIR, safeFilename);
 
     if (!fs.existsSync(filePath)) {
         res.status(404).json({
@@ -431,8 +448,53 @@ router.get('/media/:filename', authMiddleware, (req: Request, res: Response) => 
     res.sendFile(filePath);
 });
 
+router.post('/chats/:id/clear', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const chatId = req.params.id;
+
+    if (!ChatService.isChatMember(chatId, userId)) {
+        res.status(403).json({
+            error: 'You are not a member of this chat',
+        });
+        return;
+    }
+
+    db.prepare('UPDATE messages SET is_deleted = 1 WHERE chat_id = ?').run(chatId);
+    res.json({ success: true, message: 'Chat history cleared' });
+});
+
+router.post('/chats/:id/mute', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const chatId = req.params.id;
+
+    if (!ChatService.isChatMember(chatId, userId)) {
+        res.status(403).json({
+            error: 'You are not a member of this chat',
+        });
+        return;
+    }
+
+    db.prepare('UPDATE chat_members SET is_muted = 1 WHERE chat_id = ? AND user_id = ?').run(chatId, userId);
+    res.json({ success: true, is_muted: true });
+});
+
+router.post('/chats/:id/unmute', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const chatId = req.params.id;
+
+    if (!ChatService.isChatMember(chatId, userId)) {
+        res.status(403).json({
+            error: 'You are not a member of this chat',
+        });
+        return;
+    }
+
+    db.prepare('UPDATE chat_members SET is_muted = 0 WHERE chat_id = ? AND user_id = ?').run(chatId, userId);
+    res.json({ success: true, is_muted: false });
+});
+
 // 6. Media Uploads
-router.post('/media/upload', authMiddleware, (req: Request, res: Response) => {
+router.post('/media/upload', authMiddleware, uploadRateLimiter, (req: Request, res: Response) => {
     try {
         const { base64Data, fileName, mimeType, waveform } = req.body;
         if (!base64Data || !fileName || !mimeType) {

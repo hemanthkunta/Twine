@@ -12,6 +12,8 @@ class RealtimeSocketClient {
   private listeners = new Map<string, Set<EventHandler>>();
   private pendingQueue: WSFrame[] = [];
   private seq = 0;
+  private reconnectAttempts = 0;
+  private readonly MAX_QUEUE_SIZE = 50;
 
   connect() {
     const token = ApiService.getToken();
@@ -50,7 +52,15 @@ class RealtimeSocketClient {
         this.isConnected = false;
         this.isAuthenticated = false;
         this.stopHeartbeat();
-        console.log(`WebSocket closed (code ${event.code}). Reconnecting in 2s...`);
+
+        // If closed due to unauthorized (4001), do not loop reconnect
+        if (event.code === 4001) {
+          console.warn('WebSocket auth rejected (4001). Halting reconnect.');
+          this.clearPendingQueue();
+          return;
+        }
+
+        console.log(`WebSocket closed (code ${event.code}). Scheduling reconnect...`);
         this.scheduleReconnect();
       };
 
@@ -74,12 +84,19 @@ class RealtimeSocketClient {
   private handleFrame(frame: WSFrame) {
     if (frame.type === 'auth:ack') {
       this.isAuthenticated = true;
-      console.log('✅ WebSocket Authenticated successfully:', frame.payload.user.display_name);
+      this.reconnectAttempts = 0;
+      console.log('✅ WebSocket Authenticated successfully:', frame.payload?.user?.display_name);
       // Flush pending queue
       while (this.pendingQueue.length > 0) {
         const item = this.pendingQueue.shift();
         if (item) this.rawSend(item);
       }
+    }
+
+    if (frame.type === 'error' && frame.payload?.code === 'UNAUTHORIZED') {
+      console.warn('WebSocket auth failed: unauthorized token');
+      this.disconnect();
+      return;
     }
 
     const handlers = this.listeners.get(frame.type);
@@ -103,6 +120,9 @@ class RealtimeSocketClient {
     if (this.isConnected && (type === 'auth:handshake' || this.isAuthenticated)) {
       this.rawSend(frame);
     } else {
+      if (this.pendingQueue.length >= this.MAX_QUEUE_SIZE) {
+        this.pendingQueue.shift(); // Evict oldest frame
+      }
       this.pendingQueue.push(frame);
     }
   }
@@ -144,10 +164,17 @@ class RealtimeSocketClient {
 
   private scheduleReconnect() {
     if (this.reconnectTimer) return;
+    this.reconnectAttempts++;
+    // Exponential backoff with jitter: 1s, 2s, 4s, ... max 30s
+    const delay = Math.min(30000, 1000 * Math.pow(1.5, Math.min(this.reconnectAttempts, 8))) + Math.random() * 500;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
-    }, 2000);
+    }, delay);
+  }
+
+  clearPendingQueue() {
+    this.pendingQueue = [];
   }
 
   disconnect() {
@@ -156,12 +183,18 @@ class RealtimeSocketClient {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    this.clearPendingQueue();
     if (this.socket) {
-      this.socket.close();
+      // Avoid calling close handler reconnect logic
+      const sock = this.socket;
       this.socket = null;
+      sock.onclose = null;
+      sock.onerror = null;
+      sock.close();
     }
     this.isConnected = false;
     this.isAuthenticated = false;
+    this.reconnectAttempts = 0;
   }
 
   getIsConnected(): boolean {

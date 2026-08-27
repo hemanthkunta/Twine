@@ -209,13 +209,6 @@ function seedInitialData() {
         );
     }
 
-    if (countRow && countRow.count > 1) {
-        return;
-    }
-
-    console.log('🌱 Seeding pristine demo users (Alice & Bob) and conversations...');
-
-
     const demoUsers = [
         {
             id: 'usr_alice_001',
@@ -232,6 +225,22 @@ function seedInitialData() {
             display_name: 'Bob Vance',
             bio: 'Distributed Systems & P2P Mesh Architect ⚡',
             avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+        },
+        {
+            id: 'usr_charlie_003',
+            phone_number: '+12345678903',
+            username: 'charlie',
+            display_name: 'Charlie Smith',
+            bio: 'Security Researcher & Cryptanalyst 🛡️',
+            avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150',
+        },
+        {
+            id: 'usr_diana_004',
+            phone_number: '+12345678904',
+            username: 'diana',
+            display_name: 'Diana Prince',
+            bio: 'Mobile App Lead & UX Specialist 📱',
+            avatar_url: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150',
         },
     ];
 

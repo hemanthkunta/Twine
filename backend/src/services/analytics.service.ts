@@ -5,7 +5,7 @@ export class ChannelAnalyticsService {
     const totalViews = messages.reduce((acc, m) => acc + (m.views_count || 42), 0);
     const topPosts = messages.slice(0, 5).map((m) => ({
       id: m.id,
-      text: m.content_text.slice(0, 60),
+      text: (m.content_text || (m.media_url ? '[Media Attachment]' : '')).slice(0, 60),
       views: m.views_count || 120,
       reactions: Object.values(m.reactions || {}).reduce((sum, u) => sum + u.length, 0),
     }));

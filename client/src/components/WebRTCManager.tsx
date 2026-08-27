@@ -67,6 +67,30 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const callIdRef = useRef<string>(callId || `call_${Date.now()}`);
 
+  /**
+   * Locate the negotiated video RTP sender. Its `track` is null before any
+   * camera/screen media is attached, so fall back to the video transceiver
+   * rather than matching on `track.kind` (which would miss the empty sender).
+   */
+  const findVideoSender = (): RTCRtpSender | undefined => {
+    const pc = pcRef.current;
+    if (!pc) return undefined;
+    return (
+      pc.getSenders().find((s) => s.track?.kind === 'video') ||
+      pc.getTransceivers().find((t) => t.receiver.track?.kind === 'video')?.sender
+    );
+  };
+
+  /** Attach the current remote stream to the remote <video> on the next paint. */
+  const attachRemoteVideo = () => {
+    setTimeout(() => {
+      if (remoteVideoRef.current && remoteStreamRef.current) {
+        remoteVideoRef.current.srcObject = remoteStreamRef.current;
+        remoteVideoRef.current.play().catch(() => {});
+      }
+    }, 60);
+  };
+
   useEffect(() => {
     if (isIncoming) {
       // 1. Incoming Call -> Play ringtone and wait for user to accept/decline
@@ -104,7 +128,6 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           setCallStatus('connected');
         } catch (err) {
           console.error('Error setting remote description on answer:', err);
-          setCallStatus('connected');
         }
       }
     });
@@ -126,24 +149,27 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
     // C. Screen Share & Media State Sync from Peer
     const unsubRenegotiate = wsClient.on('webrtc:renegotiate', async (payload) => {
+      // Ignore stray media-state signals that don't belong to this call.
+      if (payload.call_id && payload.call_id !== callIdRef.current) return;
+
+      // A received screen-share flag ONLY controls this client's "remote"
+      // state — it never touches the local `isScreenSharing`. That invariant is
+      // what keeps one side stopping from toggling the other side's own
+      // "Stop sharing" control.
       if (payload.is_screen_sharing !== undefined) {
         setRemoteIsScreenSharing(Boolean(payload.is_screen_sharing));
-        if (payload.is_screen_sharing) {
-          setRemoteHasVideo(true);
-          // Ensure remote video element attaches and plays
-          setTimeout(() => {
-            if (remoteVideoRef.current && remoteStreamRef.current) {
-              remoteVideoRef.current.srcObject = remoteStreamRef.current;
-              remoteVideoRef.current.play().catch(() => {});
-            }
-          }, 100);
-        } else if (!payload.is_video_active) {
-          setRemoteHasVideo(false);
-        }
+        if (payload.is_screen_sharing) attachRemoteVideo();
       }
 
-      if (payload.is_video_active !== undefined) {
-        setRemoteHasVideo(Boolean(payload.is_video_active || payload.is_screen_sharing));
+      // Whether the remote stage is visible is derived from the peer's combined
+      // video + screen state. When the peer stops sharing with no camera on,
+      // both flags are false and the remote view clears on this side instead of
+      // freezing on the last shared frame.
+      if (payload.is_screen_sharing !== undefined || payload.is_video_active !== undefined) {
+        const peerHasVideo =
+          Boolean(payload.is_screen_sharing) || Boolean(payload.is_video_active);
+        setRemoteHasVideo(peerHasVideo);
+        if (peerHasVideo) attachRemoteVideo();
       }
     });
 
@@ -173,28 +199,59 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
    */
   const getLocalMediaStream = async (): Promise<MediaStream> => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const constraints: MediaStreamConstraints = {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 48000,
-          channelCount: 1,
         },
         video: callType === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
-      });
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       return stream;
     } catch (err) {
-      console.warn('Microphone/Camera not available or denied, creating synthesized audio/video track:', err);
-      // Create empty synthesized canvas & silent audio tracks so WebRTC handshakes succeed
-      const canvas = document.createElement('canvas');
-      canvas.width = 320;
-      canvas.height = 240;
-      const ctx = canvas.getContext('2d')!;
-      ctx.fillStyle = '#17212b';
-      ctx.fillRect(0, 0, 320, 240);
-      const stream = canvas.captureStream(15);
-      return stream;
+      console.warn('Microphone/Camera access fallback:', err);
+      const tracks: MediaStreamTrack[] = [];
+
+      // Generate silent audio track so WebRTC offer/answer SDP contains audio m-line
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          const audioCtx = new AudioCtx();
+          const osc = audioCtx.createOscillator();
+          const dst = audioCtx.createMediaStreamDestination();
+          const gain = audioCtx.createGain();
+          gain.gain.value = 0; // silent
+          osc.connect(gain);
+          gain.connect(dst);
+          osc.start();
+          const audioTrack = dst.stream.getAudioTracks()[0];
+          if (audioTrack) tracks.push(audioTrack);
+        }
+      } catch (audioErr) {
+        console.warn('Audio fallback error:', audioErr);
+      }
+
+      // Generate blank video track
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 320;
+        canvas.height = 240;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#17212b';
+          ctx.fillRect(0, 0, 320, 240);
+        }
+        const canvasStream = canvas.captureStream ? canvas.captureStream(15) : (canvas as any).mozCaptureStream?.(15);
+        if (canvasStream) {
+          const videoTrack = canvasStream.getVideoTracks()[0];
+          if (videoTrack) tracks.push(videoTrack);
+        }
+      } catch (canvasErr) {
+        console.warn('Canvas video fallback error:', canvasErr);
+      }
+
+      return new MediaStream(tracks);
     }
   };
 
@@ -211,12 +268,20 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       localVideoRef.current.play().catch(() => {});
     }
 
-    // Always add audio and video transceivers to guarantee video/screen can be added dynamically
-    pc.addTransceiver('audio', { direction: 'sendrecv' });
-    pc.addTransceiver('video', { direction: 'sendrecv' });
-
     // Attach local stream tracks to PC
     stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+    // Ensure transceivers exist for both audio and video without duplicating
+    const senders = pc.getSenders();
+    const hasAudioSender = senders.some((s) => s.track?.kind === 'audio');
+    const hasVideoSender = senders.some((s) => s.track?.kind === 'video');
+
+    if (!hasAudioSender) {
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+    }
+    if (!hasVideoSender) {
+      pc.addTransceiver('video', { direction: 'recvonly' });
+    }
 
     // Transmit local ICE candidates
     pc.onicecandidate = (event) => {
@@ -235,24 +300,34 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       remoteStreamRef.current = remoteStream;
 
       if (event.track.kind === 'video') {
-        setRemoteHasVideo(true);
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteStream;
           remoteVideoRef.current.play().catch(() => {});
         }
-        event.track.onended = () => {
-          setRemoteHasVideo(false);
-          setRemoteIsScreenSharing(false);
-        };
-        event.track.onmute = () => {
-          // When track is temporarily muted
-        };
+        // A pre-negotiated sendrecv video transceiver fires `ontrack` even when
+        // the peer isn't sending anything yet; that track stays `muted` until
+        // real media flows. Reveal the remote stage only once it's actually
+        // live so a voice call doesn't open an empty video view.
+        setRemoteHasVideo(!event.track.muted);
+
         event.track.onunmute = () => {
           setRemoteHasVideo(true);
           if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream;
+            remoteVideoRef.current.srcObject = remoteStreamRef.current;
             remoteVideoRef.current.play().catch(() => {});
           }
+        };
+        // The peer stopping a share (or turning the camera off) does
+        // `replaceTrack(null)`, which MUTES the remote track rather than ending
+        // it. Clear here so the receiver doesn't keep showing a frozen frame;
+        // `onunmute` restores it if media resumes.
+        event.track.onmute = () => {
+          setRemoteHasVideo(false);
+          setRemoteIsScreenSharing(false);
+        };
+        event.track.onended = () => {
+          setRemoteHasVideo(false);
+          setRemoteIsScreenSharing(false);
         };
       }
 
@@ -335,7 +410,8 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       }
     } catch (err) {
       console.error('Error accepting call:', err);
-      setCallStatus('connected');
+      setCallStatus('ended');
+      onEndCall();
     }
   };
 
@@ -369,11 +445,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
         const screenTrack = screenStream.getVideoTracks()[0];
 
         if (pcRef.current) {
-          // Find video sender or transceiver
-          const videoSender =
-            pcRef.current.getSenders().find((s) => s.track?.kind === 'video' || (s as any).kind === 'video') ||
-            pcRef.current.getTransceivers().find((t) => t.receiver.track.kind === 'video')?.sender;
-
+          const videoSender = findVideoSender();
           if (videoSender) {
             await videoSender.replaceTrack(screenTrack);
           } else {
@@ -418,24 +490,30 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     setIsScreenSharing(false);
 
     if (pcRef.current) {
-      const videoSender =
-        pcRef.current.getSenders().find((s) => s.track?.kind === 'video' || (s as any).kind === 'video') ||
-        pcRef.current.getTransceivers().find((t) => t.receiver.track.kind === 'video')?.sender;
+      const videoSender = findVideoSender();
 
       if (videoSender) {
         if (isVideoActive && localStreamRef.current) {
-          const cameraTrack = localStreamRef.current.getVideoTracks()[0];
-          await videoSender.replaceTrack(cameraTrack || null);
+          // Revert the shared screen back to the live camera feed.
+          const cameraTrack = localStreamRef.current.getVideoTracks()[0] || null;
+          await videoSender.replaceTrack(cameraTrack);
           if (localVideoRef.current) {
             localVideoRef.current.srcObject = localStreamRef.current;
+            localVideoRef.current.play().catch(() => {});
           }
         } else {
+          // Voice call / camera off: stop sending video and clear the local
+          // preview so the sharer isn't left staring at the frozen screen frame.
           await videoSender.replaceTrack(null);
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = null;
+          }
         }
       }
     }
 
-    // Notify peer
+    // Notify only the peer. This flips THEIR "remote" screen state; it never
+    // touches this client's own sharing controls.
     wsClient.send('webrtc:renegotiate', {
       call_id: callIdRef.current,
       target_user_id: peer.id,
@@ -494,7 +572,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       if (videoTrack) {
         videoTrack.enabled = nextVideoState;
       }
-      const videoSender = pcRef.current.getSenders().find((s) => s.track?.kind === 'video' || (s as any).kind === 'video');
+      const videoSender = findVideoSender();
       if (videoSender && !isScreenSharing) {
         await videoSender.replaceTrack(nextVideoState ? videoTrack : null);
       }

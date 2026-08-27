@@ -16,8 +16,15 @@ export class MetricsService {
     }, 1000).unref();
   }
 
-  static recordHttpRequest(method: string, path: string, statusCode: number) {
-    const key = `${method}:${path}:${statusCode}`;
+  static recordHttpRequest(method: string, rawPath: string, statusCode: number) {
+    if (this.httpRequestsTotal.size > 500) {
+      this.httpRequestsTotal.clear();
+    }
+    const normalizedPath = (rawPath || '/')
+      .replace(/\/(usr|msg|chat|grp|sess|cm|pol|blk)_[a-zA-Z0-9_-]+/g, '/:id')
+      .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, ':id')
+      .slice(0, 100);
+    const key = `${method}:${normalizedPath}:${statusCode}`;
     this.httpRequestsTotal.set(key, (this.httpRequestsTotal.get(key) || 0) + 1);
   }
 

@@ -51,3 +51,9 @@ Thumbs.db
 *.sw?
 
 backend/backend/uploads/
+node_modules
+client/node_modules
+backend/node_modules
+.azure/
+rt_probe*.mjs
+rt_probe*.db

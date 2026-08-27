@@ -14,10 +14,12 @@ import {
   CheckCircle2,
   Ban,
   UserCheck,
+  Heart,
 } from 'lucide-react';
 import { User, UserSession, UserSummary } from '../types/index';
 import { ApiService } from '../services/api';
 import { THEME_PRESETS, ThemeService, ThemeDefinition } from '../services/theme.service';
+import { WALLPAPER_PRESETS, WallpaperService, WallpaperDefinition } from '../services/wallpaper.service';
 import { UserAvatar } from './UserAvatar';
 
 interface SettingsModalProps {
@@ -48,6 +50,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [allUsers, setAllUsers] = useState<UserSummary[]>([]);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [wpEnabled, setWpEnabled] = useState<boolean>(WallpaperService.isEnabled());
+  const [wpId, setWpId] = useState<string>(WallpaperService.getSelectedId());
+
+  const toggleWallpaper = () => {
+    const next = !wpEnabled;
+    setWpEnabled(next);
+    WallpaperService.setEnabled(next);
+  };
+  const selectWallpaper = (id: string) => {
+    setWpId(id);
+    setWpEnabled(true);
+    WallpaperService.setWallpaper(id);
+  };
+
+  const [glassOn, setGlassOn] = useState<boolean>(WallpaperService.isGlassEnabled());
+  const toggleGlass = () => {
+    const next = !glassOn;
+    setGlassOn(next);
+    WallpaperService.setGlassEnabled(next);
+  };
 
   useEffect(() => {
     if (tab === 'sessions') {
@@ -400,6 +422,106 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Live Couples Wallpaper */}
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <label className="flex items-center space-x-1.5 text-xs font-bold text-[#7f91a4] uppercase tracking-wider">
+                    <Heart className="w-3.5 h-3.5 text-[#ff7aa2]" />
+                    <span>Live Chat Wallpaper</span>
+                  </label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={wpEnabled}
+                    onClick={toggleWallpaper}
+                    title={wpEnabled ? 'Disable live wallpaper' : 'Enable live wallpaper'}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                      wpEnabled ? 'bg-[#ff7aa2]' : 'bg-[#2b3543]'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                        wpEnabled ? 'translate-x-5' : ''
+                      }`}
+                    />
+                  </button>
+                </div>
+                <div
+                  className={`grid grid-cols-1 sm:grid-cols-2 gap-2.5 transition-opacity ${
+                    wpEnabled ? '' : 'opacity-40 pointer-events-none'
+                  }`}
+                >
+                  {WALLPAPER_PRESETS.map((w: WallpaperDefinition) => {
+                    const isSel = wpId === w.id && wpEnabled;
+                    return (
+                      <button
+                        key={w.id}
+                        onClick={() => selectWallpaper(w.id)}
+                        className={`p-3 rounded-2xl border text-left transition-all ${
+                          isSel
+                            ? 'border-[#ff7aa2] ring-1 ring-[#ff7aa2]/40 shadow-lg'
+                            : 'bg-[#0f1822] border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.15)]'
+                        }`}
+                        style={isSel ? { background: w.gradient } : undefined}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="flex -space-x-1">
+                              <span
+                                className="w-3.5 h-3.5 rounded-full border border-white/20"
+                                style={{ backgroundColor: w.preview[0] }}
+                              />
+                              <span
+                                className="w-3.5 h-3.5 rounded-full border border-white/20"
+                                style={{ backgroundColor: w.preview[1] }}
+                              />
+                            </span>
+                            <span className="text-xs font-bold text-white">{w.name}</span>
+                          </div>
+                          {isSel && <Check className="w-4 h-4 text-[#ff7aa2]" />}
+                        </div>
+                        <p
+                          className={`text-[10px] leading-relaxed line-clamp-2 ${
+                            isSel ? 'text-white/80' : 'text-[#7f91a4]'
+                          }`}
+                        >
+                          {w.description}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Liquid Glass Bubbles */}
+              <div className="p-3.5 rounded-2xl bg-[#0f1822] border border-[rgba(255,255,255,0.06)] flex items-center justify-between">
+                <div className="flex items-center space-x-2.5 min-w-0">
+                  <Sparkles className="w-4 h-4 text-[#ff7aa2] flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-white">Liquid Glass Bubbles</div>
+                    <div className="text-[10px] text-[#7f91a4] leading-relaxed">
+                      Frosted, translucent message bubbles with a drifting sheen — best with a live wallpaper behind them.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={glassOn}
+                  onClick={toggleGlass}
+                  title={glassOn ? 'Disable glass bubbles' : 'Enable glass bubbles'}
+                  className={`relative w-11 h-6 rounded-full flex-shrink-0 ml-3 transition-colors ${
+                    glassOn ? 'bg-[#ff7aa2]' : 'bg-[#2b3543]'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                      glassOn ? 'translate-x-5' : ''
+                    }`}
+                  />
+                </button>
               </div>
 
               {/* Synthesized Audio */}

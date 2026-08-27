@@ -21,6 +21,16 @@ export class MessageService {
         mediaUrl?: string;
         mediaMetadata?: any;
     }): Message {
+        // Enforce chat membership authorization
+        if (!ChatService.isChatMember(params.chatId, params.senderId)) {
+            throw new Error(`User ${params.senderId} is not authorized to send messages in chat ${params.chatId}`);
+        }
+
+        // Enforce maximum payload text limit (10,000 characters)
+        if (params.contentText && params.contentText.length > 10000) {
+            throw new Error('Message text exceeds maximum allowed limit of 10,000 characters');
+        }
+
         const msgId = `msg_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
         const msgType = params.type || 'TEXT';
         const metadataStr = params.mediaMetadata ? JSON.stringify(params.mediaMetadata) : null;
@@ -285,7 +295,7 @@ export class MessageService {
             .get(messageId, userId) as any;
 
         if (existing) {
-            const weight: Record<ReceiptStatus, number> = { SENT: 1, DELIVERED: 2, READ: 3 };
+            const weight: Record<ReceiptStatus, number> = { QUEUED: 0, SENT: 1, DELIVERED: 2, READ: 3, FAILED: -1 };
             if (weight[status] > (weight[existing.status as ReceiptStatus] || 0)) {
                 db.prepare(
                     `

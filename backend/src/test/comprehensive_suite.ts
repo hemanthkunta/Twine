@@ -8,7 +8,7 @@ import { AIService } from '../services/ai.service.js';
 import { ChannelAnalyticsService } from '../services/analytics.service.js';
 import { FederationBridgeService } from '../services/federation.service.js';
 import { PushNotificationService } from '../services/push.service.js';
-import { db } from '../db/index.js';
+import { db, initDatabase } from '../db/index.js';
 
 interface TestResult {
   module: string;
@@ -25,6 +25,8 @@ function assert(condition: boolean, msg: string) {
 }
 
 async function runTests() {
+  initDatabase();
+
   console.log('===============================================================');
   console.log('🔍 RUNNING COMPREHENSIVE MULTI-ROLE TEST & SECURITY AUDIT SUITE');
   console.log('===============================================================\n');

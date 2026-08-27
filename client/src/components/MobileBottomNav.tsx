@@ -24,9 +24,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     if (tab === 'settings') onOpenSettings();
   };
 
-  const handleDownloadApk = () => {
+  const handleDownloadApk = async () => {
     if ('vibrate' in navigator) navigator.vibrate([30, 60]);
-    AndroidInstallerService.downloadApkRelease();
+    await AndroidInstallerService.promptInstall();
   };
 
   return (

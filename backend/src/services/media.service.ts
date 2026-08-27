@@ -2,7 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-const UPLOADS_DIR = path.resolve('backend', 'uploads');
+const cwd = process.cwd();
+export const UPLOADS_DIR = cwd.endsWith('backend')
+    ? path.resolve(cwd, 'uploads')
+    : path.resolve(cwd, 'backend', 'uploads');
 
 if (!fs.existsSync(UPLOADS_DIR)) {
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -84,15 +87,6 @@ export class MediaService {
         if (buffer.length > MAX_FILE_SIZE) {
             throw new Error('File exceeds the 50 MB upload limit');
         }
-
-        console.log(
-            '[MEDIA DEBUG]',
-            mimeType,
-            'size=',
-            buffer.length,
-            'first16=',
-            buffer.subarray(0, 16).toString('hex')
-        );
 
         // Verify binary file signatures.
         if (!this.validateFileSignature(buffer, mimeType)) {

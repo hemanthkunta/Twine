@@ -101,6 +101,7 @@ export function App() {
         type: 'voice' | 'video';
         isIncoming?: boolean;
         incomingOffer?: any;
+        callId?: string;
     } | null>(null);
 
     // Real-time states
@@ -338,7 +339,7 @@ export function App() {
 
         ApiService.getMessages(activeChatId)
             .then(async (res) => {
-                // Start with the server's current messages.
+                // Start with the server's current messages and preserve pending queued messages
                 let loadedMessages = res.messages;
 
                 // Mark all incoming messages as read.
@@ -370,8 +371,13 @@ export function App() {
                     console.warn('Failed to mark chat as read:', readErr);
                 }
 
-                // Set the final state only after READ information has been merged.
-                setMessages(loadedMessages);
+                // Preserve local QUEUED or pending optimistic messages that haven't landed yet
+                setMessages((prev) => {
+                    const pending = prev.filter((m) => m.id.startsWith('temp_') || m.status === 'QUEUED');
+                    const loadedIds = new Set(loadedMessages.map((m) => m.id));
+                    const pendingNotLoaded = pending.filter((m) => !loadedIds.has(m.id));
+                    return [...loadedMessages, ...pendingNotLoaded];
+                });
 
                 // Persist the final state locally.
                 offlineStorage.saveMessagesLocally(loadedMessages);
@@ -391,7 +397,7 @@ export function App() {
     useEffect(() => {
         if (!currentUser) return;
 
-        // A. Receive new message
+        // A. Receive new message (with deduplication)
         const unsubNewMsg = wsClient.on(
             'chat:new_message',
             (payload: { message: Message; chat_id: string }) => {
@@ -400,7 +406,10 @@ export function App() {
                 offlineStorage.saveMessageLocally(message);
 
                 if (activeChatRef.current === chat_id) {
-                    setMessages((prev) => [...prev, message]);
+                    setMessages((prev) => {
+                        if (prev.some((m) => m.id === message.id)) return prev;
+                        return [...prev, message];
+                    });
 
                     wsClient.send('chat:read_receipt', {
                         chat_id,
@@ -450,7 +459,13 @@ export function App() {
             setMessages((prev) =>
                 prev.map((m) =>
                     m.id === payload.temp_id
-                        ? { ...m, id: payload.message_id, isSending: false, status: payload.status }
+                        ? {
+                              ...m,
+                              id: payload.message_id,
+                              status: 'SENT',
+                              isSending: false,
+                              created_at: payload.created_at,
+                          }
                         : m
                 )
             );
@@ -597,11 +612,13 @@ export function App() {
 
         // J. WebRTC Incoming Call
         const unsubCall = wsClient.on('webrtc:incoming_call', (payload) => {
+            console.log('📞 Received incoming WebRTC call from:', payload.caller?.display_name, payload);
             setActiveCall({
                 peer: payload.caller,
                 type: payload.call_type,
                 isIncoming: true,
                 incomingOffer: payload.offer,
+                callId: payload.call_id,
             });
         });
 
@@ -638,12 +655,16 @@ export function App() {
     ) => {
         if (!activeChatId || !currentUser) return;
 
-        // AI Moderation check for sensitive text
+        // AI Moderation check for sensitive text (safely wrapped)
         if (content) {
-            const mod = await ApiService.moderateContent(content);
-            if (mod.flagged && mod.action === 'DELETE') {
-                alert(`❌ Message blocked by AI Moderation: ${mod.reason}`);
-                return;
+            try {
+                const mod = await ApiService.moderateContent(content);
+                if (mod && mod.flagged && mod.action === 'DELETE') {
+                    alert(`❌ Message blocked by AI Moderation: ${mod.reason}`);
+                    return;
+                }
+            } catch (e) {
+                console.warn('AI moderation check skipped (offline/error):', e);
             }
         }
 
@@ -705,6 +726,17 @@ export function App() {
                 media_url: mediaUrl,
                 media_metadata: mediaMetadata,
             });
+
+            // 10s ACK timeout: mark as failed if no ack received
+            setTimeout(() => {
+                setMessages((prev) =>
+                    prev.map((m) =>
+                        m.id === tempId && m.isSending
+                            ? { ...m, isSending: false, status: 'FAILED' }
+                            : m
+                    )
+                );
+            }, 10000);
         } else {
             // 2b. Queue in offline outbox + broadcast via BLE / LoRa Mesh
             await offlineStorage.enqueueOutbox({
@@ -786,18 +818,32 @@ export function App() {
 
     const handleFastSwitchUser = async (userId: string) => {
         wsClient.disconnect();
+        setMessages([]);
+        setChats([]);
+        setActiveChatId(null);
+        try {
+            await offlineStorage.clearUserData();
+        } catch (e) {
+            console.error('Failed to clear offline storage on switch', e);
+        }
         const res = await ApiService.demoLogin(userId);
         setCurrentUser(res.user);
         CryptoService.initIdentityKey(res.user.id);
         wsClient.connect();
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
         wsClient.disconnect();
         ApiService.setToken(null);
         setCurrentUser(null);
         setActiveChatId(null);
         setMessages([]);
+        setChats([]);
+        try {
+            await offlineStorage.clearUserData();
+        } catch (e) {
+            console.error('Failed to clear offline storage on logout', e);
+        }
         setShowAuthModal(true);
     };
 
@@ -1028,7 +1074,13 @@ export function App() {
                                                 alert('❌ Cannot start call with a blocked contact.');
                                                 return;
                                             }
-                                            setActiveCall({ peer: activeChat.peer_user, type });
+                                            const newCallId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+                                            setActiveCall({
+                                                peer: activeChat.peer_user,
+                                                type,
+                                                callId: newCallId,
+                                                isIncoming: false,
+                                            });
                                         }
                                     }}
                                 />
@@ -1298,6 +1350,7 @@ export function App() {
                     callType={activeCall.type}
                     isIncoming={activeCall.isIncoming}
                     incomingOffer={activeCall.incomingOffer}
+                    callId={activeCall.callId}
                     onEndCall={handleEndCall}
                 />
             )}

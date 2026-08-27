@@ -170,3 +170,205 @@
 .animate-pulse-glow {
   animation: pulseGlow 3s ease-in-out infinite;
 }
+
+@keyframes voiceBarBounce {
+  0% { transform: scaleY(0.65); opacity: 0.85; }
+  50% { transform: scaleY(1.35); opacity: 1; filter: drop-shadow(0 0 4px #3fc5f0); }
+  100% { transform: scaleY(0.75); opacity: 0.9; }
+}
+
+.voice-bar-anim {
+  animation: voiceBarBounce 0.45s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+/* ============================================================
+   Live "couples" chat wallpaper
+   Transform/opacity-only animations so the compositor can run
+   them off the main thread. Layer is pointer-events: none.
+   ============================================================ */
+.lw-root {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  transform: translateZ(0);
+}
+
+/* --- Floating hearts --- */
+.lw-heart {
+  position: absolute;
+  bottom: -48px;
+  filter: drop-shadow(0 0 6px var(--lw-accent-soft));
+  animation-name: lwFloatUp;
+  animation-timing-function: ease-in;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+@keyframes lwFloatUp {
+  0%   { transform: translate3d(0, 0, 0) scale(0.7) rotate(0deg); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 0.9; }
+  100% { transform: translate3d(var(--lw-drift, 20px), -108vh, 0) scale(1.05) rotate(12deg); opacity: 0; }
+}
+
+/* --- Aurora light blooms --- */
+.lw-aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, var(--lw-accent-soft) 0%, transparent 70%);
+  filter: blur(48px);
+  transform: translate(-50%, -50%);
+  opacity: 0.55;
+  animation-name: lwAurora;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+@keyframes lwAurora {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.35; }
+  33%      { transform: translate(-38%, -62%) scale(1.25); opacity: 0.6; }
+  66%      { transform: translate(-62%, -42%) scale(0.9); opacity: 0.45; }
+}
+
+/* --- Falling petals --- */
+.lw-petal {
+  position: absolute;
+  top: -48px;
+  background: linear-gradient(135deg, var(--lw-accent) 0%, rgba(255,255,255,0.35) 100%);
+  border-radius: 150% 0 150% 0;
+  filter: drop-shadow(0 0 4px var(--lw-accent-soft));
+  animation-name: lwPetalFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+@keyframes lwPetalFall {
+  0%   { transform: translate3d(0, -48px, 0) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.9; }
+  90%  { opacity: 0.85; }
+  100% { transform: translate3d(var(--lw-drift, 60px), 110vh, 0) rotate(var(--lw-rot, 360deg)); opacity: 0; }
+}
+
+/* --- Starlit sky --- */
+.lw-star {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+  animation-name: lwTwinkle;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: opacity, transform;
+}
+@keyframes lwTwinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.7); }
+  50%      { opacity: 1; transform: scale(1.15); }
+}
+.lw-shooting {
+  position: absolute;
+  top: 12%;
+  left: -12%;
+  width: 120px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  border-radius: 9999px;
+  opacity: 0;
+  animation: lwShoot 7s ease-in infinite;
+  will-change: transform, opacity;
+}
+@keyframes lwShoot {
+  0%, 82% { opacity: 0; transform: translate3d(0, 0, 0) rotate(18deg); }
+  86%     { opacity: 1; }
+  100%    { opacity: 0; transform: translate3d(120vw, 40vh, 0) rotate(18deg); }
+}
+.lw-glow-heart {
+  position: absolute;
+  width: 90px;
+  height: 90px;
+  filter: drop-shadow(0 0 22px var(--lw-accent-soft));
+  opacity: 0.5;
+  animation: lwHeartBeat 3.4s ease-in-out infinite;
+  will-change: transform;
+}
+.lw-glow-heart--a { left: 16%; top: 30%; }
+.lw-glow-heart--b { right: 18%; top: 52%; width: 62px; height: 62px; opacity: 0.4; animation-delay: 1.2s; }
+@keyframes lwHeartBeat {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.14); }
+}
+
+/* --- Bouncing emoji field --- */
+.lw-emoji {
+  position: absolute;
+  line-height: 1;
+  user-select: none;
+  transform: translateZ(0);
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
+  animation-name: lwBounce;
+  animation-timing-function: cubic-bezier(0.5, 0, 0.5, 1);
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+@keyframes lwBounce {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1) rotate(var(--lw-rot, 0deg)); }
+  50%      { transform: translate3d(0, -22px, 0) scale(1.12) rotate(calc(var(--lw-rot, 0deg) * -1)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lw-heart,
+  .lw-aurora-blob,
+  .lw-petal,
+  .lw-star,
+  .lw-glow-heart,
+  .lw-emoji {
+    animation: none !important;
+  }
+  .lw-shooting { display: none; }
+}
+
+/* ============================================================
+   Liquid glass message bubbles — toggled via <html class="glass-bubbles">.
+   The bubble base is translucent + backdrop-blurred, so the live
+   wallpaper drifting behind each bubble refracts through the glass.
+   An animated highlight band sweeps across as a moving specular sheen.
+   Marker classes (.msg-bubble / -out / -in) live on the bubble in
+   MessageArea.tsx; when glass is off these rules simply don't apply.
+   ============================================================ */
+html.glass-bubbles .msg-bubble {
+  background-color: transparent;
+  background-repeat: no-repeat;
+  -webkit-backdrop-filter: blur(13px) saturate(155%);
+  backdrop-filter: blur(13px) saturate(155%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  will-change: background-position;
+}
+html.glass-bubbles .msg-bubble-out {
+  background-image:
+    linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.20) 50%, transparent 60%),
+    linear-gradient(135deg, rgba(83, 168, 232, 0.55) 0%, rgba(43, 82, 120, 0.42) 100%);
+  background-size: 250% 100%, 100% 100%;
+  background-position: 185% 0, 0 0;
+  animation: glassSheen 7.5s ease-in-out infinite;
+}
+html.glass-bubbles .msg-bubble-in {
+  background-image:
+    linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.14) 50%, transparent 60%),
+    linear-gradient(135deg, rgba(42, 55, 72, 0.58) 0%, rgba(24, 37, 51, 0.42) 100%);
+  background-size: 250% 100%, 100% 100%;
+  background-position: 185% 0, 0 0;
+  border-color: rgba(255, 255, 255, 0.12);
+  animation: glassSheen 8.5s ease-in-out infinite;
+}
+@keyframes glassSheen {
+  0%        { background-position: 185% 0, 0 0; }
+  55%, 100% { background-position: -85% 0, 0 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.glass-bubbles .msg-bubble { animation: none !important; }
+}

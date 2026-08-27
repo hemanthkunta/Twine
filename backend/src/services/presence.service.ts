@@ -67,14 +67,20 @@ export class PresenceService {
 
     static sendToUser(userId: string, frame: WSFrame) {
         const clients = this.connections.get(userId);
-        if (!clients) return;
+        if (!clients || clients.size === 0) {
+            console.warn(`[PresenceService] sendToUser: No active client connections for user ${userId}`);
+            return;
+        }
 
         const data = JSON.stringify(frame);
+        let sentCount = 0;
         for (const client of clients) {
             if (client.socket.readyState === WebSocket.OPEN) {
                 client.socket.send(data);
+                sentCount++;
             }
         }
+        console.log(`[PresenceService] sendToUser: Sent frame "${frame.type}" to ${sentCount}/${clients.size} sockets of user ${userId}`);
     }
 
     static broadcastToUsers(userIds: string[], frame: WSFrame, exclude?: string | WebSocket) {

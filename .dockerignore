@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+.env.local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+dist
+build
+coverage
+uploads/*
+!uploads/.gitkeep

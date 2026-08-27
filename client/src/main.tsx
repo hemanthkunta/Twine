@@ -41,13 +41,6 @@ if ('caches' in window) {
   });
 }
 
-// Keep title strictly as Twine
-setInterval(() => {
-  if (document.title !== 'Twine — Couple & Friends Messenger') {
-    document.title = 'Twine — Couple & Friends Messenger';
-  }
-}, 1000);
-
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

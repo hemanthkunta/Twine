@@ -7,7 +7,10 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
-    "dev": "tsx watch src/server.ts",
+    "test": "npm run test:security && npm run test:comprehensive",
+    "test:security": "tsx src/test/security_audit_suite.ts",
+    "test:comprehensive": "tsx src/test/comprehensive_suite.ts",
+    "test:sync": "tsx src/test/cross_platform_sync_suite.ts",
     "test:e2e": "tsx src/test/e2e_test.ts"
   },
   "dependencies": {
