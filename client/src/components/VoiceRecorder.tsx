@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Mic, Send, X } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Mic, Square, X, Send } from 'lucide-react';
 
 interface VoiceRecorderProps {
     onRecordingComplete: (
@@ -34,81 +34,69 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
     const [waveform, setWaveform] = useState<number[]>([]);
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-
-    // Original physical microphone stream.
     const streamRef = useRef<MediaStream | null>(null);
 
-    // Processed stream coming from Web Audio.
-    const processedStreamRef = useRef<MediaStream | null>(null);
-
     const chunksRef = useRef<Blob[]>([]);
-    const startTimeRef = useRef(0);
+    const startTimeRef = useRef<number>(0);
+
     const timerRef = useRef<number | null>(null);
 
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
-    const gainNodeRef = useRef<GainNode | null>(null);
-    const compressorRef = useRef<DynamicsCompressorNode | null>(null);
-    const destinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+    const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
-    const animationRef = useRef<number | null>(null);
+    const animationFrameRef = useRef<number | null>(null);
 
-    const waveformRef = useRef<number[]>([]);
-    const lastWaveformUpdateRef = useRef(0);
+    const waveformSamplesRef = useRef<number[]>([]);
 
     const cleanup = () => {
-        // Stop timer.
         if (timerRef.current !== null) {
             window.clearInterval(timerRef.current);
             timerRef.current = null;
         }
 
-        // Stop waveform animation.
-        if (animationRef.current !== null) {
-            window.cancelAnimationFrame(animationRef.current);
-            animationRef.current = null;
+        if (animationFrameRef.current !== null) {
+            window.cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
         }
 
-        // Stop processed output tracks.
-        if (processedStreamRef.current) {
-            processedStreamRef.current.getTracks().forEach((track) => {
-                try {
-                    track.stop();
-                } catch {
-                    // Ignore already stopped tracks.
-                }
-            });
+        if (sourceRef.current) {
+            try {
+                sourceRef.current.disconnect();
+            } catch {
+                // Already disconnected.
+            }
 
-            processedStreamRef.current = null;
+            sourceRef.current = null;
         }
 
-        // Stop physical microphone.
+        if (analyserRef.current) {
+            try {
+                analyserRef.current.disconnect();
+            } catch {
+                // Already disconnected.
+            }
+
+            analyserRef.current = null;
+        }
+
+        if (audioContextRef.current) {
+            void audioContextRef.current.close().catch(() => {});
+            audioContextRef.current = null;
+        }
+
         if (streamRef.current) {
             streamRef.current.getTracks().forEach((track) => {
-                try {
-                    track.stop();
-                } catch {
-                    // Ignore already stopped tracks.
-                }
+                track.stop();
             });
 
             streamRef.current = null;
         }
 
-        // Close Web Audio graph.
-        if (audioContextRef.current) {
-            audioContextRef.current.close().catch(() => {});
-            audioContextRef.current = null;
-        }
-
-        analyserRef.current = null;
-        gainNodeRef.current = null;
-        compressorRef.current = null;
-        destinationRef.current = null;
         mediaRecorderRef.current = null;
     };
 
-    const updateWaveform = (timestamp = performance.now()) => {
+    const collectWaveform = () => {
         const analyser = analyserRef.current;
 
         if (!analyser) {
@@ -122,43 +110,30 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
         let sum = 0;
 
         for (let i = 0; i < data.length; i++) {
-            const value = data[i] - 128;
-            sum += value * value;
+            const normalized = (data[i] - 128) / 128;
+            sum += normalized * normalized;
         }
 
         const rms = Math.sqrt(sum / data.length);
 
-        /*
-         * The signal has already passed through the gain +
-         * compressor, so this represents the actual recorded level.
-         */
-        const level = Math.max(0.05, Math.min(1, rms / 28));
+        // Make quiet speech visible without changing the actual recording volume.
+        const level = Math.min(1, Math.max(0.08, rms * 5));
 
-        waveformRef.current.push(level);
+        waveformSamplesRef.current.push(level);
 
-        // Keep latest 48 samples.
-        if (waveformRef.current.length > 48) {
-            waveformRef.current.splice(0, waveformRef.current.length - 48);
+        // Keep approximately the latest 80 samples.
+        if (waveformSamplesRef.current.length > 80) {
+            waveformSamplesRef.current.shift();
         }
 
-        // Limit React updates to ~20 FPS.
-        if (timestamp - lastWaveformUpdateRef.current >= 50) {
-            lastWaveformUpdateRef.current = timestamp;
+        setWaveform([...waveformSamplesRef.current]);
 
-            setWaveform([...waveformRef.current]);
-        }
-
-        animationRef.current = window.requestAnimationFrame(updateWaveform);
+        animationFrameRef.current = window.requestAnimationFrame(collectWaveform);
     };
 
     const startRecording = async () => {
         try {
             setError(null);
-            setDuration(0);
-            setWaveform([]);
-
-            waveformRef.current = [];
-            lastWaveformUpdateRef.current = 0;
 
             if (!navigator.mediaDevices?.getUserMedia) {
                 throw new Error('Microphone access is not supported by this browser.');
@@ -170,14 +145,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
                 throw new Error('This browser does not support WebM/Opus recording.');
             }
 
-            console.log('[VOICE] Selected MIME:', mimeType);
-
             /*
-             * Request the microphone.
+             * Do NOT route microphone audio back to speakers.
              *
-             * We keep browser processing enabled because Chrome's
-             * echo cancellation / noise suppression / AGC are useful
-             * for normal laptop microphones.
+             * This is important because routing the microphone through an
+             * AudioContext can accidentally create feedback/echo.
              */
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
@@ -190,141 +162,18 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
 
             streamRef.current = stream;
 
-            const track = stream.getAudioTracks()[0];
-
-            if (track) {
-                console.log('[VOICE] Microphone settings:', track.getSettings());
-            }
-
-            /*
-             * ---------------------------------------------------------
-             * WEB AUDIO PROCESSING
-             * ---------------------------------------------------------
-             */
-
-            const AudioContextClass =
-                window.AudioContext ||
-                (
-                    window as typeof window & {
-                        webkitAudioContext?: typeof AudioContext;
-                    }
-                ).webkitAudioContext;
-
-            if (!AudioContextClass) {
-                throw new Error('Web Audio API is not supported by this browser.');
-            }
-
-            const audioContext = new AudioContextClass();
-
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
-
-            audioContextRef.current = audioContext;
-
-            /*
-             * Microphone source.
-             */
-            const source = audioContext.createMediaStreamSource(stream);
-
-            /*
-             * ---------------------------------------------------------
-             * GAIN
-             * ---------------------------------------------------------
-             *
-             * 2.0 = approximately +6 dB
-             * 2.5 = approximately +8 dB
-             * 3.0 = approximately +9.5 dB
-             *
-             * Start at 2.5.
-             */
-            const gainNode = audioContext.createGain();
-
-            gainNode.gain.value = 1.0;
-
-            gainNodeRef.current = gainNode;
-
-            /*
-             * ---------------------------------------------------------
-             * COMPRESSOR
-             * ---------------------------------------------------------
-             *
-             * Prevents the amplified voice from becoming badly clipped.
-             */
-            const compressor = audioContext.createDynamicsCompressor();
-
-            compressor.threshold.value = -24;
-            compressor.knee.value = 18;
-            compressor.ratio.value = 3;
-            compressor.attack.value = 0.003;
-            compressor.release.value = 0.25;
-
-            compressorRef.current = compressor;
-
-            /*
-             * ---------------------------------------------------------
-             * ANALYSER
-             * ---------------------------------------------------------
-             *
-             * This receives the processed audio so the waveform
-             * represents the amplified recording signal.
-             */
-            const analyser = audioContext.createAnalyser();
-
-            analyser.fftSize = 256;
-            analyser.smoothingTimeConstant = 0.65;
-
-            analyserRef.current = analyser;
-
-            /*
-             * ---------------------------------------------------------
-             * MEDIA STREAM DESTINATION
-             * ---------------------------------------------------------
-             *
-             * This is the important part.
-             *
-             * MediaRecorder will record THIS processed stream,
-             * not the original microphone stream.
-             */
-            const destination = audioContext.createMediaStreamDestination();
-
-            destinationRef.current = destination;
-
-            /*
-             * Audio graph:
-             *
-             * microphone
-             *      ↓
-             * gain
-             *      ↓
-             * compressor
-             *      ↓
-             * analyser
-             *      ↓
-             * destination
-             */
-            source.connect(gainNode);
-            gainNode.connect(compressor);
-            compressor.connect(analyser);
-            analyser.connect(destination);
-
-            processedStreamRef.current = destination.stream;
-
-            /*
-             * ---------------------------------------------------------
-             * MEDIA RECORDER
-             * ---------------------------------------------------------
-             *
-             * IMPORTANT:
-             * Use processedStreamRef.current instead of stream.
-             */
-            const recorder = new MediaRecorder(destination.stream, {
+            const recorder = new MediaRecorder(stream, {
                 mimeType,
                 audioBitsPerSecond: 128000,
             });
 
             mediaRecorderRef.current = recorder;
+
             chunksRef.current = [];
+            waveformSamplesRef.current = [];
+
+            setWaveform([]);
+            setDuration(0);
 
             recorder.ondataavailable = (event: BlobEvent) => {
                 if (event.data && event.data.size > 0) {
@@ -332,71 +181,76 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
                 }
             };
 
-            recorder.onerror = (event) => {
-                console.error('[VOICE] MediaRecorder error:', event);
+            recorder.onerror = () => {
+                console.error('MediaRecorder error');
 
                 setError('Recording failed. Please try again.');
-
                 cleanup();
                 setIsRecording(false);
             };
 
             recorder.onstop = () => {
-                const finalDuration = Math.max(
-                    1,
-                    Math.round((Date.now() - startTimeRef.current) / 1000)
-                );
-
                 try {
+                    const elapsedSeconds = (Date.now() - startTimeRef.current) / 1000;
+
+                    const finalDuration = Math.max(1, Math.round(elapsedSeconds));
+
                     const actualMimeType = recorder.mimeType || mimeType;
 
                     const blob = new Blob(chunksRef.current, {
                         type: actualMimeType,
                     });
 
-                    if (!blob.size) {
+                    if (blob.size === 0) {
                         throw new Error('The recorded audio is empty.');
                     }
-
-                    const finalWaveform =
-                        waveformRef.current.length > 0 ? [...waveformRef.current] : [0.25];
-
-                    console.log('[VOICE] Recording created:', {
-                        mimeType: actualMimeType,
-                        size: blob.size,
-                        duration: finalDuration,
-                        waveformSamples: finalWaveform.length,
-                    });
 
                     const reader = new FileReader();
 
                     reader.onloadend = () => {
-                        const result = reader.result;
+                        try {
+                            const result = reader.result;
 
-                        if (typeof result !== 'string') {
-                            setError('Could not convert audio recording.');
+                            if (typeof result !== 'string') {
+                                throw new Error('Could not convert audio recording.');
+                            }
+
+                            const finalWaveform =
+                                waveformSamplesRef.current.length > 0
+                                    ? [...waveformSamplesRef.current]
+                                    : [0.08];
+
+                            console.log('Voice recording created:', {
+                                mimeType: actualMimeType,
+                                size: blob.size,
+                                duration: finalDuration,
+                                waveformSamples: finalWaveform.length,
+                            });
+
+                            onRecordingComplete(
+                                result,
+                                actualMimeType,
+                                finalDuration,
+                                finalWaveform
+                            );
 
                             cleanup();
                             setIsRecording(false);
-                            return;
+                        } catch (err) {
+                            console.error('Failed to process recording:', err);
+
+                            setError(
+                                err instanceof Error ? err.message : 'Failed to process recording.'
+                            );
+
+                            cleanup();
+                            setIsRecording(false);
                         }
-
-                        onRecordingComplete(result, actualMimeType, finalDuration, finalWaveform);
-
-                        cleanup();
-                        setIsRecording(false);
-                    };
-
-                    reader.onerror = () => {
-                        setError('Could not read the audio recording.');
-
-                        cleanup();
-                        setIsRecording(false);
                     };
 
                     reader.readAsDataURL(blob);
                 } catch (err) {
-                    console.error('[VOICE] Failed to process recording:', err);
+                    console.error('Failed to process recording:', err);
 
                     setError(err instanceof Error ? err.message : 'Failed to process recording.');
 
@@ -406,31 +260,68 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
             };
 
             /*
-             * Start waveform animation.
+             * The analyser is ONLY used for visualization.
+             *
+             * There is intentionally NO:
+             *
+             * source.connect(destination)
+             *
+             * so microphone audio cannot be played back through speakers.
              */
-            updateWaveform();
+            try {
+                const AudioContextClass =
+                    window.AudioContext ||
+                    (
+                        window as typeof window & {
+                            webkitAudioContext?: typeof AudioContext;
+                        }
+                    ).webkitAudioContext;
+
+                if (AudioContextClass) {
+                    const audioContext = new AudioContextClass();
+
+                    const source = audioContext.createMediaStreamSource(stream);
+
+                    const analyser = audioContext.createAnalyser();
+
+                    analyser.fftSize = 512;
+                    analyser.smoothingTimeConstant = 0.75;
+
+                    source.connect(analyser);
+
+                    audioContextRef.current = audioContext;
+                    sourceRef.current = source;
+                    analyserRef.current = analyser;
+
+                    if (audioContext.state === 'suspended') {
+                        await audioContext.resume();
+                    }
+                }
+            } catch (err) {
+                console.warn('Waveform analyser unavailable:', err);
+            }
 
             startTimeRef.current = Date.now();
 
-            /*
-             * Collect one chunk every second.
-             */
-            recorder.start(1000);
+            recorder.start(100);
 
             setIsRecording(true);
 
             timerRef.current = window.setInterval(() => {
-                setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
-            }, 250);
+                const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
 
-            console.log('[VOICE] Recording started with amplified microphone signal');
+                setDuration(elapsed);
+            }, 100);
+
+            animationFrameRef.current = window.requestAnimationFrame(collectWaveform);
         } catch (err) {
-            console.error('[VOICE] Unable to start recording:', err);
-
-            setError(err instanceof Error ? err.message : 'Unable to access microphone.');
+            console.error('Could not start recording:', err);
 
             cleanup();
+
             setIsRecording(false);
+
+            setError(err instanceof Error ? err.message : 'Could not access the microphone.');
         }
     };
 
@@ -441,90 +332,121 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onRecordingComplet
             return;
         }
 
-        if (recorder.state !== 'inactive') {
+        if (recorder.state === 'recording') {
             recorder.stop();
+        }
+
+        if (timerRef.current !== null) {
+            window.clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+
+        if (animationFrameRef.current !== null) {
+            window.cancelAnimationFrame(animationFrameRef.current);
+
+            animationFrameRef.current = null;
         }
     };
 
     const cancelRecording = () => {
-        cleanup();
+        const recorder = mediaRecorderRef.current;
+
+        if (recorder && recorder.state !== 'inactive') {
+            recorder.onstop = null;
+            recorder.stop();
+        }
 
         chunksRef.current = [];
-        waveformRef.current = [];
+        waveformSamplesRef.current = [];
 
-        setIsRecording(false);
-        setDuration(0);
+        cleanup();
+
         setWaveform([]);
+        setDuration(0);
+        setIsRecording(false);
 
         onCancel();
     };
 
-    useEffect(() => {
-        startRecording();
+    const formatDuration = (seconds: number) => {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
 
-        return () => {
-            cleanup();
-        };
-    }, []);
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    };
 
+    /*
+     * Initial state: show microphone button.
+     */
+    if (!isRecording) {
+        return (
+            <div className="flex items-center">
+                <button
+                    type="button"
+                    onClick={startRecording}
+                    className="p-2.5 rounded-xl text-[#7f91a4] hover:text-white hover:bg-[#242f3d] transition-all"
+                    title="Record voice message"
+                >
+                    <Mic className="w-5 h-5" />
+                </button>
+
+                {error && <span className="ml-2 text-xs text-red-400">{error}</span>}
+            </div>
+        );
+    }
+
+    /*
+     * Recording UI.
+     */
     return (
-        <div className="flex items-center gap-3 bg-[#17212b] border border-white/10 rounded-2xl p-2 shadow-lg w-full">
-            {/* Cancel */}
+        <div className="flex items-center gap-3 bg-[#17212b] border border-[rgba(255,255,255,0.08)] rounded-2xl px-3 py-2 w-full">
             <button
                 type="button"
                 onClick={cancelRecording}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10"
+                className="p-2 rounded-full text-[#7f91a4] hover:text-white hover:bg-[#242f3d] transition-all"
                 title="Cancel recording"
             >
                 <X className="w-5 h-5" />
             </button>
 
-            {/* Recording indicator */}
-            <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-                <Mic className="w-4 h-4 text-red-400" />
+            <div className="flex items-center gap-2 text-red-400">
+                <Mic className="w-5 h-5" />
+
+                <span className="text-sm font-medium min-w-[42px]">{formatDuration(duration)}</span>
             </div>
 
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs text-red-400 font-medium">Recording</span>
+            <div className="flex-1 h-10 flex items-center gap-[2px] overflow-hidden">
+                {Array.from({
+                    length: 50,
+                }).map((_, index) => {
+                    const sourceIndex = Math.floor((index / 50) * Math.max(waveform.length, 1));
 
-                    <span className="text-xs text-white/60 font-mono">
-                        {Math.floor(duration / 60)
-                            .toString()
-                            .padStart(2, '0')}
-                        :{(duration % 60).toString().padStart(2, '0')}
-                    </span>
-                </div>
+                    const value = waveform[sourceIndex] ?? 0.08;
 
-                {/* Live waveform */}
-                <div className="flex items-center gap-[2px] h-8 overflow-hidden">
-                    {(waveform.length ? waveform : [0.12, 0.18, 0.25, 0.18, 0.12]).map(
-                        (level, index) => (
-                            <span
-                                key={index}
-                                className="w-[3px] rounded-full bg-[#3fc5f0]"
-                                style={{
-                                    height: `${Math.max(4, Math.min(28, level * 30))}px`,
-                                    opacity: 0.45 + level * 0.55,
-                                }}
-                            />
-                        )
-                    )}
-                </div>
+                    const height = Math.max(4, Math.round(value * 34));
 
-                {error && <div className="text-xs text-red-400 mt-1">{error}</div>}
+                    return (
+                        <span
+                            key={index}
+                            className="w-[3px] rounded-full bg-[#3fc5f0] transition-[height] duration-75"
+                            style={{
+                                height: `${height}px`,
+                            }}
+                        />
+                    );
+                })}
             </div>
 
-            {/* Send */}
             <button
                 type="button"
                 onClick={stopRecording}
-                disabled={!isRecording}
-                className="w-11 h-11 rounded-full bg-[#3fc5f0] text-black flex items-center justify-center shadow-md hover:opacity-90 disabled:opacity-50"
-                title="Send voice note"
+                className="p-2.5 rounded-full bg-[#3fc5f0] text-white hover:opacity-90 transition-all"
+                title="Send voice message"
             >
                 <Send className="w-5 h-5" />
             </button>
+
+            {error && <span className="text-xs text-red-400">{error}</span>}
         </div>
     );
 };

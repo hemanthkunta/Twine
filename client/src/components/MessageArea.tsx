@@ -78,6 +78,53 @@ const renderFormattedText = (text: string) => {
     });
 };
 
+interface VoiceWaveformProps {
+    waveform: number[];
+    progress: number;
+    onSeek: (progress: number) => void;
+}
+
+const VoiceWaveform = React.memo<VoiceWaveformProps>(({ waveform, progress, onSeek }) => {
+    const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+
+        if (rect.width <= 0) {
+            return;
+        }
+
+        const x = event.clientX - rect.left;
+
+        const nextProgress = Math.max(0, Math.min(1, x / rect.width));
+
+        onSeek(nextProgress);
+    };
+
+    return (
+        <div
+            className="flex-1 flex items-center space-x-[2px] h-8 cursor-pointer select-none"
+            onClick={handleClick}
+        >
+            {waveform.map((bar, index) => {
+                const barProgress = (index + 1) / waveform.length;
+
+                const played = barProgress <= progress;
+
+                return (
+                    <div
+                        key={index}
+                        className={`flex-1 rounded-full ${
+                            played ? 'bg-[#3fc5f0]' : 'bg-[#3fc5f0]/30'
+                        }`}
+                        style={{
+                            height: `${Math.max(15, bar * 100)}%`,
+                        }}
+                    />
+                );
+            })}
+        </div>
+    );
+});
+
 export const MessageArea: React.FC<MessageAreaProps> = ({
     messages,
     currentUser,
@@ -185,7 +232,7 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                 }
             });
         };
-    }, [mediaUrls]);
+    }, []);
 
     const handleTranslate = async (msgId: string, text: string) => {
         try {
@@ -199,9 +246,9 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
     const toggleAudio = async (msgId: string, audioUrl: string) => {
         const existing = audioRefs.current[msgId];
 
-        // --------------------------------
-        // Existing audio
-        // --------------------------------
+        // ------------------------------------------------------------
+        // EXISTING AUDIO: PLAY / PAUSE
+        // ------------------------------------------------------------
         if (existing) {
             try {
                 if (existing.paused) {
@@ -212,18 +259,16 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                     setActiveAudioId(null);
                 }
             } catch (error) {
-                console.error('Audio resume/pause failed:', error);
-
-                setActiveAudioId(null);
+                console.error('[VOICE PLAYBACK] Resume/pause failed:', error);
             }
 
             return;
         }
 
-        // --------------------------------
-        // Stop another voice note
-        // --------------------------------
-        if (activeAudioId && audioRefs.current[activeAudioId]) {
+        // ------------------------------------------------------------
+        // STOP ANOTHER VOICE NOTE
+        // ------------------------------------------------------------
+        if (activeAudioId && activeAudioId !== msgId && audioRefs.current[activeAudioId]) {
             const currentAudio = audioRefs.current[activeAudioId];
 
             currentAudio.pause();
@@ -234,24 +279,33 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                 [activeAudioId]: 0,
             }));
 
-            setActiveAudioId(null);
+            delete audioRefs.current[activeAudioId];
         }
 
+        setActiveAudioId(null);
+
+        // ------------------------------------------------------------
+        // CHECK URL
+        // ------------------------------------------------------------
         if (!audioUrl) {
-            console.error('Voice note media is not loaded yet:', msgId);
+            console.error('[VOICE PLAYBACK] Voice note media is not loaded yet:', msgId);
             return;
         }
 
+        let blobUrl: string | null = null;
+
         try {
             const mediaUrl = ApiService.getMediaUrl(audioUrl);
-
             const token = ApiService.getToken();
 
-            console.log('[VOICE PLAYBACK]', {
+            console.log('[VOICE PLAYBACK] Loading:', {
                 msgId,
                 mediaUrl,
             });
 
+            // --------------------------------------------------------
+            // DOWNLOAD PROTECTED MEDIA
+            // --------------------------------------------------------
             const response = await fetch(mediaUrl, {
                 headers: token
                     ? {
@@ -264,19 +318,27 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                 throw new Error(`Audio download failed: ${response.status}`);
             }
 
-            const blob = await response.blob();
+            const downloadedBlob = await response.blob();
 
-            if (!blob.size) {
+            if (!downloadedBlob.size) {
                 throw new Error('Voice note file is empty');
             }
 
-            console.log('[VOICE PLAYBACK] Blob:', {
-                type: blob.type,
-                size: blob.size,
+            console.log('[VOICE PLAYBACK] Downloaded:', {
+                size: downloadedBlob.size,
+                type: downloadedBlob.type,
             });
 
-            const blobUrl = URL.createObjectURL(blob);
+            // --------------------------------------------------------
+            // KEEP THE SERVER'S ACTUAL BLOB
+            //
+            // DO NOT force audio/webm;codecs=opus here.
+            // --------------------------------------------------------
+            blobUrl = URL.createObjectURL(downloadedBlob);
 
+            // --------------------------------------------------------
+            // CREATE AUDIO ELEMENT
+            // --------------------------------------------------------
             const audio = new Audio();
 
             audio.preload = 'auto';
@@ -285,78 +347,156 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
 
             audioRefs.current[msgId] = audio;
 
-            // -----------------------------
-            // Metadata
-            // -----------------------------
-
+            // --------------------------------------------------------
+            // METADATA LOADED
+            // --------------------------------------------------------
             audio.onloadedmetadata = () => {
-                if (Number.isFinite(audio.duration)) {
-                    setAudioDuration((prev) => ({
-                        ...prev,
-                        [msgId]: audio.duration,
-                    }));
-                }
-            };
+                console.log('[VOICE PLAYBACK] Metadata loaded:', {
+                    msgId,
+                    duration: audio.duration,
+                });
 
-            // -----------------------------
-            // Playback progress
-            // -----------------------------
-
-            audio.ontimeupdate = () => {
-                if (Number.isFinite(audio.duration) && audio.duration > 0) {
-                    setAudioProgress((prev) => ({
-                        ...prev,
-                        [msgId]: audio.currentTime / audio.duration,
-                    }));
-                }
-            };
-
-            // -----------------------------
-            // Finished
-            // -----------------------------
-
-            audio.onended = () => {
                 setAudioProgress((prev) => ({
                     ...prev,
                     [msgId]: 0,
                 }));
-
-                setActiveAudioId(null);
-
-                audio.currentTime = 0;
-
-                delete audioRefs.current[msgId];
-
-                URL.revokeObjectURL(blobUrl);
             };
 
-            // -----------------------------
-            // Error
-            // -----------------------------
+            // --------------------------------------------------------
+            // TIME UPDATE
+            //
+            // This is the important part for the moving waveform.
+            // --------------------------------------------------------
+            let lastProgressUpdate = 0;
 
-            audio.onerror = () => {
-                console.error('[VOICE PLAYBACK] Audio error:', audio.error);
+            audio.ontimeupdate = () => {
+                if (!Number.isFinite(audio.duration) || audio.duration <= 0) {
+                    return;
+                }
 
-                setActiveAudioId(null);
+                const now = performance.now();
 
-                delete audioRefs.current[msgId];
+                // Limit React updates to roughly 20 FPS.
+                if (now - lastProgressUpdate < 50) {
+                    return;
+                }
 
-                URL.revokeObjectURL(blobUrl);
+                lastProgressUpdate = now;
+
+                const progress = Math.max(0, Math.min(1, audio.currentTime / audio.duration));
+
+                setAudioProgress((prev) => {
+                    // Avoid unnecessary React renders.
+                    const previous = prev[msgId] ?? 0;
+
+                    if (Math.abs(previous - progress) < 0.01) {
+                        return prev;
+                    }
+
+                    return {
+                        ...prev,
+                        [msgId]: progress,
+                    };
+                });
             };
 
+            // --------------------------------------------------------
+            // PLAY
+            // --------------------------------------------------------
+            audio.onplay = () => {
+                setActiveAudioId(msgId);
+            };
+
+            // --------------------------------------------------------
+            // PAUSE
+            // --------------------------------------------------------
             audio.onpause = () => {
                 if (!audio.ended) {
                     setActiveAudioId((current) => (current === msgId ? null : current));
                 }
             };
 
+            // --------------------------------------------------------
+            // FINISHED
+            // --------------------------------------------------------
+            audio.onended = () => {
+                setAudioProgress((prev) => ({
+                    ...prev,
+                    [msgId]: 0,
+                }));
+
+                setActiveAudioId((current) => (current === msgId ? null : current));
+
+                audio.currentTime = 0;
+
+                delete audioRefs.current[msgId];
+
+                if (blobUrl) {
+                    URL.revokeObjectURL(blobUrl);
+                    blobUrl = null;
+                }
+            };
+
+            // --------------------------------------------------------
+            // ERROR
+            // --------------------------------------------------------
+            audio.onerror = () => {
+                console.error('[VOICE PLAYBACK] Audio error:', audio.error);
+
+                setActiveAudioId((current) => (current === msgId ? null : current));
+
+                delete audioRefs.current[msgId];
+
+                if (blobUrl) {
+                    URL.revokeObjectURL(blobUrl);
+                    blobUrl = null;
+                }
+            };
+
+            // --------------------------------------------------------
+            // WAIT UNTIL AUDIO CAN PLAY
+            // --------------------------------------------------------
+            await new Promise<void>((resolve, reject) => {
+                const handleCanPlay = () => {
+                    cleanup();
+                    resolve();
+                };
+
+                const handleError = () => {
+                    cleanup();
+                    reject(new Error('Browser could not decode voice note'));
+                };
+
+                const cleanup = () => {
+                    audio.removeEventListener('canplay', handleCanPlay);
+
+                    audio.removeEventListener('error', handleError);
+                };
+
+                audio.addEventListener('canplay', handleCanPlay, { once: true });
+
+                audio.addEventListener('error', handleError, { once: true });
+
+                audio.load();
+            });
+
+            // --------------------------------------------------------
+            // START PLAYBACK
+            // --------------------------------------------------------
             await audio.play();
 
             setActiveAudioId(msgId);
         } catch (error) {
-            console.error('Voice-note playback failed:', error);
+            console.error('[VOICE PLAYBACK] Failed:', error);
 
-            setActiveAudioId(null);
+            setActiveAudioId((current) => (current === msgId ? null : current));
+
+            delete audioRefs.current[msgId];
+
+            if (blobUrl) {
+                URL.revokeObjectURL(blobUrl);
+                blobUrl = null;
+            }
         }
     };
 
@@ -380,6 +520,10 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
             [msgId]: clamped,
         }));
     };
+
+    const handleWaveformSeek = React.useCallback((msgId: string, progress: number) => {
+        seekAudio(msgId, progress);
+    }, []);
 
     const cycleSpeed = () => {
         const nextSpeed = playbackSpeed === 1 ? 1.5 : playbackSpeed === 1.5 ? 2 : 1;
@@ -640,54 +784,18 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                             )}
                                                         </button>
 
-                                                        <div
-                                                            className="flex-1 flex items-center space-x-[2px] h-8 cursor-pointer select-none"
-                                                            onClick={(event) => {
-                                                                const rect =
-                                                                    event.currentTarget.getBoundingClientRect();
-
-                                                                const x = event.clientX - rect.left;
-
-                                                                const progress = x / rect.width;
-
-                                                                seekAudio(msg.id, progress);
-                                                            }}
-                                                        >
-                                                            {(
+                                                        <VoiceWaveform
+                                                            waveform={
                                                                 msg.media_metadata?.waveform || [
                                                                     0.4, 0.7, 0.9, 0.5, 0.8, 0.4,
                                                                     0.9, 0.6, 0.3,
                                                                 ]
-                                                            ).map((bar: number, i: number) => {
-                                                                const progress =
-                                                                    audioProgress[msg.id] || 0;
-
-                                                                const barProgress =
-                                                                    (i + 1) /
-                                                                    (msg.media_metadata?.waveform
-                                                                        ?.length || 9);
-
-                                                                const played =
-                                                                    barProgress <= progress;
-
-                                                                return (
-                                                                    <div
-                                                                        key={i}
-                                                                        className={`flex-1 rounded-full transition-all duration-75 ${
-                                                                            played
-                                                                                ? 'bg-[#3fc5f0]'
-                                                                                : 'bg-[#3fc5f0]/30'
-                                                                        }`}
-                                                                        style={{
-                                                                            height: `${Math.max(
-                                                                                15,
-                                                                                bar * 100
-                                                                            )}%`,
-                                                                        }}
-                                                                    />
-                                                                );
-                                                            })}
-                                                        </div>
+                                                            }
+                                                            progress={audioProgress[msg.id] || 0}
+                                                            onSeek={(progress) =>
+                                                                seekAudio(msg.id, progress)
+                                                            }
+                                                        />
 
                                                         <button
                                                             onClick={cycleSpeed}
