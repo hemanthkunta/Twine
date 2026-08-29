@@ -393,16 +393,14 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       pc.addTransceiver('audio', { direction: 'sendrecv' });
     }
 
-    // Only add video transceiver if callType is video
-    if (callType === 'video') {
-      const videoTransceiver = pc.getTransceivers().find(
-        (t) => t.sender.track?.kind === 'video' || t.receiver.track?.kind === 'video'
-      );
-      if (videoTransceiver) {
-        videoTransceiver.direction = 'sendrecv';
-      } else {
-        pc.addTransceiver('video', { direction: 'sendrecv' });
-      }
+    // Always add video transceiver so video can be enabled dynamically mid-call
+    const videoTransceiver = pc.getTransceivers().find(
+      (t) => t.sender.track?.kind === 'video' || t.receiver.track?.kind === 'video'
+    );
+    if (videoTransceiver) {
+      videoTransceiver.direction = callType === 'video' ? 'sendrecv' : 'recvonly';
+    } else {
+      pc.addTransceiver('video', { direction: callType === 'video' ? 'sendrecv' : 'recvonly' });
     }
 
     // Transmit local ICE candidates
@@ -599,7 +597,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       isMakingOfferRef.current = true;
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
-        offerToReceiveVideo: callType === 'video',
+        offerToReceiveVideo: true,
       });
       await pc.setLocalDescription(offer);
 
@@ -805,41 +803,114 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   };
 
   /**
-   * Toggle local camera video
+   * Toggle local camera video with on-demand hardware acquisition and SDP renegotiation
    */
   const toggleVideo = async () => {
     const nextVideoState = !isVideoActive;
-    setIsVideoActive(nextVideoState);
 
     const pc = pcRef.current;
-    if (localStreamRef.current && pc) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = nextVideoState;
-      }
-      const videoTransceiver = findVideoTransceiver();
-      if (videoTransceiver && !isScreenSharing) {
-        videoTransceiver.direction = nextVideoState ? 'sendrecv' : 'recvonly';
-        await videoTransceiver.sender.replaceTrack(nextVideoState ? videoTrack : null);
-        if (nextVideoState) {
-          await applySenderEncodingParams(videoTransceiver.sender, false);
+    if (!pc) return;
+
+    if (nextVideoState) {
+      // 1. User clicked Turn Camera ON
+      let videoTrack = localStreamRef.current?.getVideoTracks().find((t) => t.readyState === 'live');
+
+      if (!videoTrack) {
+        try {
+          const camStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280, max: 1920, min: 640 },
+              height: { ideal: 720, max: 1080, min: 480 },
+              frameRate: { ideal: 30, max: 30, min: 15 },
+              facingMode: 'user',
+            },
+            audio: false,
+          });
+          const newTrack = camStream.getVideoTracks()[0];
+          if (newTrack) {
+            videoTrack = newTrack;
+            if (localStreamRef.current) {
+              localStreamRef.current.addTrack(newTrack);
+            } else {
+              localStreamRef.current = new MediaStream([newTrack]);
+            }
+          }
+        } catch (camErr: any) {
+          console.error('[WebRTC] Camera access failed:', camErr);
+          alert('Could not access camera: ' + (camErr?.message || 'Permission denied'));
+          return;
         }
       }
 
-      // Renegotiate SDP on video enable/disable
+      if (videoTrack) {
+        videoTrack.enabled = true;
+      }
+      setIsVideoActive(true);
+
+      const videoTransceiver = findVideoTransceiver();
+      if (videoTransceiver && !isScreenSharing && videoTrack) {
+        videoTransceiver.direction = 'sendrecv';
+        await videoTransceiver.sender.replaceTrack(videoTrack);
+        await applySenderEncodingParams(videoTransceiver.sender, false);
+      } else if (videoTrack) {
+        const sender = pc.addTrack(videoTrack, localStreamRef.current!);
+        await applySenderEncodingParams(sender, false);
+      }
+
+      // Renegotiate SDP on video enable
       try {
         isMakingOfferRef.current = true;
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
         await pc.setLocalDescription(offer);
         wsClient.send('webrtc:renegotiate', {
           call_id: callIdRef.current,
           target_user_id: peer.id,
           offer,
           is_screen_sharing: isScreenSharing,
-          is_video_active: nextVideoState,
+          is_video_active: true,
         });
       } catch (err) {
-        console.warn('[WebRTC] Video toggle renegotiation notice:', err);
+        console.warn('[WebRTC] Video enable renegotiation error:', err);
+      } finally {
+        isMakingOfferRef.current = false;
+      }
+    } else {
+      // 2. User clicked Turn Camera OFF
+      setIsVideoActive(false);
+      if (localStreamRef.current) {
+        const videoTracks = localStreamRef.current.getVideoTracks();
+        videoTracks.forEach((t) => {
+          t.enabled = false;
+          t.stop();
+          localStreamRef.current?.removeTrack(t);
+        });
+      }
+      const videoTransceiver = findVideoTransceiver();
+      if (videoTransceiver && !isScreenSharing) {
+        videoTransceiver.direction = 'recvonly';
+        await videoTransceiver.sender.replaceTrack(null);
+      }
+
+      // Renegotiate SDP on video disable
+      try {
+        isMakingOfferRef.current = true;
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
+        await pc.setLocalDescription(offer);
+        wsClient.send('webrtc:renegotiate', {
+          call_id: callIdRef.current,
+          target_user_id: peer.id,
+          offer,
+          is_screen_sharing: isScreenSharing,
+          is_video_active: false,
+        });
+      } catch (err) {
+        console.warn('[WebRTC] Video disable renegotiation error:', err);
       } finally {
         isMakingOfferRef.current = false;
       }
@@ -1225,7 +1296,8 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   };
 
   const showVideoView =
-    (callType === 'video' && (isVideoActive || remoteHasVideo)) ||
+    isVideoActive ||
+    remoteHasVideo ||
     isScreenSharing ||
     remoteIsScreenSharing;
 
@@ -1233,13 +1305,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-6 bg-slate-950/75 backdrop-blur-xl animate-in fade-in duration-200">
       {/* Hidden dedicated audio element for continuous high-fidelity remote audio streaming */}
       <audio
-        ref={(el) => {
-          remoteAudioRef.current = el;
-          if (el && remoteStreamRef.current && el.srcObject !== remoteStreamRef.current) {
-            el.srcObject = remoteStreamRef.current;
-            el.play().catch(() => {});
-          }
-        }}
+        ref={remoteAudioRef}
         autoPlay
         playsInline
       />
