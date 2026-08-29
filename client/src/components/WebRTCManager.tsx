@@ -106,7 +106,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoActive, setIsVideoActive] = useState(callType === 'video');
   const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [remoteHasVideo, setRemoteHasVideo] = useState(false);
+  const [remoteHasVideo, setRemoteHasVideo] = useState(callType === 'video');
   const [remoteIsScreenSharing, setRemoteIsScreenSharing] = useState(false);
   const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
   const [callStatus, setCallStatus] = useState<
@@ -520,17 +520,13 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
       if (event.track.kind === 'video') {
         console.log(`[WebRTC ontrack] 📹 Remote video track registered: id=${event.track.id}, muted=${event.track.muted}`);
-        setRemoteHasVideo(!event.track.muted);
+        setRemoteHasVideo(true);
+        attachRemoteMedia();
 
         event.track.onunmute = () => {
-          console.log('[WebRTC ontrack] 📹 Remote video track unmuted! Switching to video view.');
+          console.log('[WebRTC ontrack] 📹 Remote video track unmuted! Refreshing media sinks.');
           setRemoteHasVideo(true);
           attachRemoteMedia();
-        };
-        event.track.onmute = () => {
-          console.log('[WebRTC ontrack] Remote video track muted.');
-          setRemoteHasVideo(false);
-          setRemoteIsScreenSharing(false);
         };
         event.track.onended = () => {
           console.log('[WebRTC ontrack] Remote video track ended.');
@@ -641,6 +637,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
         fetchIceConfiguration(),
       ]);
 
+      localStreamRef.current = stream;
+      attachRemoteMedia();
+
       const pc = createPeerConnection(stream, iceConfig);
 
       isMakingOfferRef.current = true;
@@ -684,6 +683,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
         getLocalMediaStream(),
         fetchIceConfiguration(),
       ]);
+
+      localStreamRef.current = stream;
+      attachRemoteMedia();
 
       const pc = createPeerConnection(stream, iceConfig);
 
