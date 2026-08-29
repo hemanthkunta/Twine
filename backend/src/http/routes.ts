@@ -20,9 +20,9 @@ import { config } from '../config/index.js';
 
 export const router = Router();
 
-const authRateLimiter = RateLimiter.createMiddleware(20, 0.33); // 20 burst, 20/min
-const apiRateLimiter = RateLimiter.createMiddleware(300, 5.0); // 300 burst, 300/min
-const uploadRateLimiter = RateLimiter.createMiddleware(30, 0.5); // 30 burst, 30/min
+const authRateLimiter = RateLimiter.createMiddleware(100, 5.0); // 100 burst
+const apiRateLimiter = RateLimiter.createMiddleware(500, 50.0); // 500 burst
+const uploadRateLimiter = RateLimiter.createMiddleware(50, 5.0); // 50 burst
 
 // Global request metric recording & general rate limit (300 req/min)
 router.use((req: Request, res: Response, next: NextFunction) => {

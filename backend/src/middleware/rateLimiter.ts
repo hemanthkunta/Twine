@@ -13,10 +13,10 @@ export class RateLimiter {
    * @param maxTokens Maximum burst capacity
    * @param refillRateTokensPerSec Refill rate in tokens per second
    */
-  static createMiddleware(maxTokens = 60, refillRateTokensPerSec = 1.0) {
+  static createMiddleware(maxTokens = 300, refillRateTokensPerSec = 20.0) {
     return (req: Request, res: Response, next: NextFunction): void => {
       const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
-      const userId = (req as any).user?.id || 'anonymous';
+      const userId = (req as any).user?.id || (req.headers.authorization ? 'auth_user' : 'anonymous');
       const key = `${clientIp}:${userId}:${req.baseUrl || req.path}`;
       const now = Date.now();
 

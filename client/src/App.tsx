@@ -635,6 +635,11 @@ export function App() {
         const unsubCall = wsClient.on('webrtc:incoming_call', (payload) => {
             console.log('📞 Received incoming WebRTC call from:', payload.caller?.display_name, payload);
             if (activeCallRef.current) {
+                // If this is a duplicate delivery for the same call_id, ignore it safely without hanging up
+                if (activeCallRef.current.callId === payload.call_id) {
+                    console.log('[WebRTC] Duplicate incoming_call event ignored for callId:', payload.call_id);
+                    return;
+                }
                 console.warn('[WebRTC] User is currently on another call. Replying with busy.');
                 wsClient.send('webrtc:hangup', {
                     call_id: payload.call_id,
@@ -643,13 +648,26 @@ export function App() {
                 });
                 return;
             }
-            setActiveCall({
+            // Clear any stale previous call summary
+            setCallSummaryData(null);
+            const callObj = {
                 peer: payload.caller,
                 type: payload.call_type,
                 isIncoming: true,
                 incomingOffer: payload.offer,
                 callId: payload.call_id,
-            });
+            };
+            activeCallRef.current = callObj;
+            setActiveCall(callObj);
+        });
+
+        // J2. WebRTC Call Ended (Global Fallback Cleanup)
+        const unsubCallEnded = wsClient.on('webrtc:call_ended', (payload) => {
+            console.log('📴 [App] WebRTC call ended event received:', payload);
+            if (activeCallRef.current && (!payload?.call_id || payload.call_id === activeCallRef.current.callId)) {
+                activeCallRef.current = null;
+                setActiveCall(null);
+            }
         });
 
         // K. Auth Ack
@@ -671,6 +689,7 @@ export function App() {
             unsubReceipt();
             unsubPresence();
             unsubCall();
+            unsubCallEnded();
             unsubAuth();
         };
     }, [currentUser]);
@@ -927,6 +946,7 @@ export function App() {
     const handleEndCall = async () => {
         if (activeCall) {
             const peerName = activeCall.peer.display_name;
+            activeCallRef.current = null;
             setActiveCall(null);
             try {
                 // Optional call summary
@@ -937,6 +957,8 @@ export function App() {
             } catch {
                 // Ignore
             }
+        } else {
+            activeCallRef.current = null;
         }
     };
 
@@ -1101,13 +1123,16 @@ export function App() {
                                                 alert('❌ Cannot start call with a blocked contact.');
                                                 return;
                                             }
+                                            setCallSummaryData(null);
                                             const newCallId = `call_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-                                            setActiveCall({
+                                            const callObj = {
                                                 peer: activeChat.peer_user,
                                                 type,
                                                 callId: newCallId,
                                                 isIncoming: false,
-                                            });
+                                            };
+                                            activeCallRef.current = callObj;
+                                            setActiveCall(callObj);
                                         }
                                     }}
                                 />
@@ -1387,7 +1412,7 @@ export function App() {
                 />
             )}
 
-            {callSummaryData && (
+            {callSummaryData && !activeCall && (
                 <CallSummaryModal
                     summaryData={callSummaryData}
                     onClose={() => setCallSummaryData(null)}

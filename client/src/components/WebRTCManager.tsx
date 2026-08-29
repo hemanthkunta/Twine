@@ -143,20 +143,52 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     );
   };
 
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+
   /**
-   * Resilient DOM stream attachment helper
+   * Resilient DOM & Web Audio Stream Attachment Helper
    */
   const attachRemoteMedia = useCallback(() => {
-    if (remoteAudioRef.current && remoteStreamRef.current) {
-      if (remoteAudioRef.current.srcObject !== remoteStreamRef.current) {
-        remoteAudioRef.current.srcObject = remoteStreamRef.current;
+    const stream = remoteStreamRef.current;
+    if (!stream) return;
+
+    // 1. Dedicated HTMLAudioElement Playback Pipeline
+    if (remoteAudioRef.current) {
+      const audioEl = remoteAudioRef.current;
+      audioEl.muted = isSpeakerMuted;
+      audioEl.volume = 1.0;
+      if (audioEl.srcObject !== stream) {
+        audioEl.srcObject = stream;
       }
-      remoteAudioRef.current.play().catch(() => {});
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('[WebRTC] HTMLAudioElement play() blocked or waiting for interaction:', err);
+          // 2. Web Audio API Destination Bridge Fallback
+          try {
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioCtx && !audioContextRef.current) {
+              const ctx = new AudioCtx();
+              audioContextRef.current = ctx;
+              if (ctx.state === 'suspended') {
+                ctx.resume().catch(() => {});
+              }
+              const source = ctx.createMediaStreamSource(stream);
+              audioSourceNodeRef.current = source;
+              source.connect(ctx.destination);
+              console.log('[WebRTC] 🔊 Web Audio API fallback bridge active and connected to destination.');
+            }
+          } catch (ctxErr) {
+            console.warn('[WebRTC] WebAudio bridge notice:', ctxErr);
+          }
+        });
+      }
     }
 
-    if (remoteVideoRef.current && remoteStreamRef.current) {
-      if (remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
-        remoteVideoRef.current.srcObject = remoteStreamRef.current;
+    if (remoteVideoRef.current) {
+      if (remoteVideoRef.current.srcObject !== stream) {
+        remoteVideoRef.current.srcObject = stream;
       }
       remoteVideoRef.current.play().catch(() => {});
     }
@@ -168,7 +200,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
         localVideoRef.current.play().catch(() => {});
       }
     }
-  }, [isScreenSharing]);
+  }, [isScreenSharing, isSpeakerMuted]);
 
   useEffect(() => {
     attachRemoteMedia();
@@ -299,6 +331,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     const pc = new RTCPeerConnection(iceConfig);
     pcRef.current = pc;
     localStreamRef.current = stream;
+    if (typeof window !== 'undefined') {
+      (window as any).__twine_active_pc = pc;
+    }
 
     // Attach local stream tracks to PC with explicit enabled flag
     stream.getTracks().forEach((track) => {
@@ -309,16 +344,26 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       }
     });
 
-    // Ensure transceiver structure exists without duplicates
-    const senders = pc.getSenders();
-    const hasAudioSender = senders.some((s) => s.track?.kind === 'audio');
-    const hasVideoSender = senders.some((s) => s.track?.kind === 'video');
-
-    if (!hasAudioSender) {
-      pc.addTransceiver('audio', { direction: 'recvonly' });
+    // Ensure audio transceiver direction is explicitly sendrecv
+    const audioTransceiver = pc.getTransceivers().find(
+      (t) => t.sender.track?.kind === 'audio' || t.receiver.track?.kind === 'audio'
+    );
+    if (audioTransceiver) {
+      audioTransceiver.direction = 'sendrecv';
+    } else {
+      pc.addTransceiver('audio', { direction: 'sendrecv' });
     }
-    if (!hasVideoSender) {
-      pc.addTransceiver('video', { direction: callType === 'video' ? 'sendrecv' : 'recvonly' });
+
+    // Only add video transceiver if callType is video
+    if (callType === 'video') {
+      const videoTransceiver = pc.getTransceivers().find(
+        (t) => t.sender.track?.kind === 'video' || t.receiver.track?.kind === 'video'
+      );
+      if (videoTransceiver) {
+        videoTransceiver.direction = 'sendrecv';
+      } else {
+        pc.addTransceiver('video', { direction: 'sendrecv' });
+      }
     }
 
     // Transmit local ICE candidates
@@ -376,12 +421,25 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
     // Handle incoming remote media tracks (Audio, Video, Screen Share)
     pc.ontrack = (event) => {
-      console.log(`[WebRTC] Remote track received: kind=${event.track.kind}, muted=${event.track.muted}`);
+      console.log(`[WebRTC] Remote track received: kind=${event.track.kind}, muted=${event.track.muted}, id=${event.track.id}`);
       const remoteStream = event.streams[0] || new MediaStream();
       if (!remoteStream.getTracks().includes(event.track)) {
         remoteStream.addTrack(event.track);
       }
       remoteStreamRef.current = remoteStream;
+
+      if (event.track.kind === 'audio') {
+        event.track.enabled = true;
+        
+        // Critical: Remote audio tracks start muted until the first RTP packet arrives
+        event.track.onunmute = () => {
+          console.log('[WebRTC] 🔊 Remote audio track unmuted (RTP packet stream active)! Attaching and triggering playback.');
+          attachRemoteMedia();
+        };
+        event.track.onmute = () => {
+          console.log('[WebRTC] Remote audio track muted temporarily.');
+        };
+      }
 
       if (event.track.kind === 'video') {
         setRemoteHasVideo(!event.track.muted);
@@ -398,10 +456,6 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           setRemoteHasVideo(false);
           setRemoteIsScreenSharing(false);
         };
-      }
-
-      if (event.track.kind === 'audio') {
-        event.track.enabled = true;
       }
 
       attachRemoteMedia();
@@ -504,7 +558,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       isMakingOfferRef.current = true;
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
-        offerToReceiveVideo: true,
+        offerToReceiveVideo: callType === 'video',
       });
       await pc.setLocalDescription(offer);
 
@@ -558,6 +612,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           answer,
         });
 
+        setCallStatus('connected');
         attachRemoteMedia();
       }
     } catch (err: any) {
@@ -805,6 +860,18 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       });
       remoteStreamRef.current = null;
     }
+    if (audioSourceNodeRef.current) {
+      try {
+        audioSourceNodeRef.current.disconnect();
+      } catch {}
+      audioSourceNodeRef.current = null;
+    }
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close();
+      } catch {}
+      audioContextRef.current = null;
+    }
     if (pcRef.current) {
       try {
         pcRef.current.getSenders().forEach((s) => {
@@ -815,6 +882,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
         pcRef.current.close();
       } catch {}
       pcRef.current = null;
+    }
+    if (typeof window !== 'undefined') {
+      (window as any).__twine_active_pc = null;
     }
     pendingIceCandidatesRef.current = [];
     isIceRestartingRef.current = false;
@@ -1032,6 +1102,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       sounds.stopRingtone();
       sounds.stopDialTone();
       sounds.playCallEnd();
+      setCallStatus('ended');
       if (payload?.reason === 'offline') {
         setErrorMessage('User is offline or unreachable.');
       } else if (payload?.reason === 'blocked') {
@@ -1063,7 +1134,10 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const showVideoView = isVideoActive || isScreenSharing || remoteHasVideo || remoteIsScreenSharing;
+  const showVideoView =
+    (callType === 'video' && (isVideoActive || remoteHasVideo)) ||
+    isScreenSharing ||
+    remoteIsScreenSharing;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-2xl">
