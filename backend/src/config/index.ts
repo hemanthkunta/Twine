@@ -41,9 +41,8 @@ if (process.env.TURN_URLS) {
 } else if (isProduction) {
     throw new Error('FATAL: TURN_URLS must be configured in production (e.g. "turn:turn.yourdomain.com:3478,turns:turn.yourdomain.com:5349")');
 } else {
-    // Development default pointing to standard coturn ports
-    turnUrls = ['turn:127.0.0.1:3478', 'turns:127.0.0.1:5349'];
-    console.warn('⚠️ [DEV WARNING] TURN_URLS is unset. Defaulting to local coturn [turn:127.0.0.1:3478, turns:127.0.0.1:5349].');
+    // Development default: empty array (STUN-only) unless explicitly configured
+    turnUrls = [];
 }
 
 export const config = {

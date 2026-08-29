@@ -168,15 +168,26 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     }
   };
 
+  const teardownWebAudioBridge = () => {
+    if (audioSourceNodeRef.current) {
+      audioSourceNodeRef.current.disconnect();
+      audioSourceNodeRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+  };
+
   /**
    * Resilient DOM & Web Audio Stream Attachment Helper
-   * Directly attaches native remote WebRTC MediaStream to <audio> and Web Audio API destination
+   * Mutually exclusive single audio route: HTMLAudioElement primary, WebAudio API fallback only on autoplay block
    */
   const attachRemoteMedia = useCallback(() => {
     const stream = remoteStreamRef.current;
     if (!stream) return;
 
-    // 1. Direct Native HTMLAudioElement Attachment
+    // 1. Direct Native HTMLAudioElement Attachment (Primary Audio Route)
     const audioTracks = stream.getAudioTracks();
     if (remoteAudioRef.current && audioTracks.length > 0) {
       const audioEl = remoteAudioRef.current;
@@ -188,32 +199,40 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
         audioEl.srcObject = stream;
       }
 
-      audioEl.play().catch((err) => {
-        console.warn('[WebRTC] HTMLAudioElement play() notice:', err);
-      });
-    }
+      audioEl.onplaying = () => {
+        teardownWebAudioBridge();
+        console.log('[WebRTC Audio Route] Active: HTMLAudioElement (Confirmed playing, single active route).');
+      };
 
-    // 2. Dual Web Audio API Hardware Route (Guarantees playback through system audio mixer)
-    if (audioTracks.length > 0 && !isSpeakerMuted) {
-      try {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtx) {
-          if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-            audioContextRef.current = new AudioCtx();
-          }
-          const ctx = audioContextRef.current;
-          if (ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
-          }
-          if (!audioSourceNodeRef.current) {
-            const source = ctx.createMediaStreamSource(stream);
-            audioSourceNodeRef.current = source;
-            source.connect(ctx.destination);
-            console.log('[WebRTC Audio Route] 🔊 Dual Audio Output Route active via Web Audio destination.');
-          }
-        }
-      } catch (webaudioErr) {
-        console.warn('[WebRTC Audio Route] Web Audio route notice:', webaudioErr);
+      const playPromise = audioEl.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            teardownWebAudioBridge();
+            console.log('[WebRTC Audio Route] Active: HTMLAudioElement (Confirmed playing, single active route).');
+          })
+          .catch((err) => {
+            console.warn('[WebRTC] HTMLAudioElement autoplay blocked, activating Web Audio fallback bridge:', err);
+            // 2. Mutually-Exclusive Fallback: Activate Web Audio bridge ONLY if HTMLAudioElement fails/blocks
+            if (!isSpeakerMuted) {
+              try {
+                const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+                if (AudioCtx && !audioContextRef.current) {
+                  const ctx = new AudioCtx();
+                  audioContextRef.current = ctx;
+                  if (ctx.state === 'suspended') {
+                    ctx.resume().catch(() => {});
+                  }
+                  const source = ctx.createMediaStreamSource(stream);
+                  audioSourceNodeRef.current = source;
+                  source.connect(ctx.destination);
+                  console.log('[WebRTC Audio Route] Active: WebAudioBridge Fallback (Single active route).');
+                }
+              } catch (webaudioErr) {
+                console.warn('[WebRTC Audio Route] Web Audio fallback notice:', webaudioErr);
+              }
+            }
+          });
       }
     }
 
@@ -416,9 +435,22 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       }
     };
 
+    const pcInitTimestamp = Date.now();
+    console.log(`[WebRTC Timeline] [${new Date().toISOString()}] Initializing RTCPeerConnection...`);
+
+    pc.onicegatheringstatechange = () => {
+      const elapsed = Date.now() - pcInitTimestamp;
+      console.log(
+        `[WebRTC Timeline] [${new Date().toISOString()}] ICE Gathering State: ${pc.iceGatheringState} (+${elapsed}ms)`
+      );
+    };
+
     // Monitor ICE connection state & trigger ICE restart on failure
     pc.oniceconnectionstatechange = () => {
-      console.log(`[WebRTC] ICE Connection State: ${pc.iceConnectionState}`);
+      const elapsed = Date.now() - pcInitTimestamp;
+      console.log(
+        `[WebRTC Timeline] [${new Date().toISOString()}] ICE Connection State: ${pc.iceConnectionState} (+${elapsed}ms)`
+      );
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         disarmConnectionWatchdog();
         sounds.stopDialTone();
