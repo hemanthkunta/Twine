@@ -161,28 +161,51 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       if (audioEl.srcObject !== stream) {
         audioEl.srcObject = stream;
       }
+
+      // Cleanup helper: ensures Web Audio bridge is torn down when HTMLAudioElement plays
+      const teardownWebAudioBridge = () => {
+        if (audioSourceNodeRef.current) {
+          audioSourceNodeRef.current.disconnect();
+          audioSourceNodeRef.current = null;
+        }
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close().catch(() => {});
+          audioContextRef.current = null;
+        }
+      };
+
+      audioEl.onplaying = () => {
+        teardownWebAudioBridge();
+        console.log('[WebRTC Audio Route] ✅ HTMLAudioElement actively playing (Web Audio bridge detached).');
+      };
+
       const playPromise = audioEl.play();
       if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn('[WebRTC] HTMLAudioElement play() blocked or waiting for interaction:', err);
-          // 2. Web Audio API Destination Bridge Fallback
-          try {
-            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-            if (AudioCtx && !audioContextRef.current) {
-              const ctx = new AudioCtx();
-              audioContextRef.current = ctx;
-              if (ctx.state === 'suspended') {
-                ctx.resume().catch(() => {});
+        playPromise
+          .then(() => {
+            teardownWebAudioBridge();
+            console.log('[WebRTC Audio Route] ✅ HTMLAudioElement playback confirmed (Web Audio bridge detached).');
+          })
+          .catch((err) => {
+            console.warn('[WebRTC] HTMLAudioElement play() blocked or waiting for interaction:', err);
+            // 2. Web Audio API Destination Bridge Fallback (Strictly Active only when HTMLAudioElement is blocked)
+            try {
+              const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+              if (AudioCtx && !audioContextRef.current) {
+                const ctx = new AudioCtx();
+                audioContextRef.current = ctx;
+                if (ctx.state === 'suspended') {
+                  ctx.resume().catch(() => {});
+                }
+                const source = ctx.createMediaStreamSource(stream);
+                audioSourceNodeRef.current = source;
+                source.connect(ctx.destination);
+                console.log('[WebRTC Audio Route] 🔊 Web Audio API fallback bridge active (single active audio route).');
               }
-              const source = ctx.createMediaStreamSource(stream);
-              audioSourceNodeRef.current = source;
-              source.connect(ctx.destination);
-              console.log('[WebRTC] 🔊 Web Audio API fallback bridge active and connected to destination.');
+            } catch (ctxErr) {
+              console.warn('[WebRTC] WebAudio bridge notice:', ctxErr);
             }
-          } catch (ctxErr) {
-            console.warn('[WebRTC] WebAudio bridge notice:', ctxErr);
-          }
-        });
+          });
       }
     }
 
@@ -504,7 +527,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           const osc = audioCtx.createOscillator();
           const dst = audioCtx.createMediaStreamDestination();
           const gain = audioCtx.createGain();
-          gain.gain.value = 0; // silent
+          gain.gain.value = 0.05; // Audible synthesized tone ensures non-zero audioLevel & RTP flow
           osc.connect(gain);
           gain.connect(dst);
           osc.start();
