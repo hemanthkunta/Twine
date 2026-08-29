@@ -13,6 +13,7 @@ import { FederationBridgeService } from '../services/federation.service.js';
 import { PushNotificationService } from '../services/push.service.js';
 import { BlockService } from '../services/block.service.js';
 import { RateLimiter } from '../middleware/rateLimiter.js';
+import { TurnService } from '../services/turn.service.js';
 import { MetricsService } from '../services/metrics.service.js';
 import { checkDbHealth, db } from '../db/index.js';
 import { config } from '../config/index.js';
@@ -802,7 +803,19 @@ router.get('/users/blocked', authMiddleware, (req: Request, res: Response) => {
     res.json({ blockedUserIds });
 });
 
-// 13. Health & Readiness Probes & Prometheus Metrics
+// 13. WebRTC Dynamic Time-Limited TURN Credentials (HMAC-SHA1 / Managed API)
+router.get('/turn-credentials', authMiddleware, async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const credentials = await TurnService.generateCredentials(userId);
+        res.json(credentials);
+    } catch (err: any) {
+        console.error('[TURN Endpoint Error]', err);
+        res.status(500).json({ error: 'Failed to generate TURN credentials' });
+    }
+});
+
+// 14. Health & Readiness Probes & Prometheus Metrics
 router.get('/health', (_req: Request, res: Response) => {
     res.json({
         status: 'ok',

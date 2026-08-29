@@ -1,16 +1,17 @@
 {
-    "name": "aether-messaging-platform",
-    "version": "2.0.0",
-    "description": "Telegram-grade real-time messaging platform with WebSockets, WebRTC, AI copilot, and multi-device sync",
-    "scripts": {
-        "dev": "concurrently -n \"BACKEND,CLIENT\" -c \"cyan,magenta\" \"npm --prefix backend run dev\" \"npm --prefix client run dev\"",
-        "dev:backend": "npm --prefix backend run dev",
-        "dev:client": "npm --prefix client run dev",
-        "build": "npm --prefix backend run build && npm --prefix client run build",
-        "test:backend": "npm --prefix backend run test:e2e",
-        "sync": "node scripts/sync.mjs"
-    },
-    "devDependencies": {
-        "concurrently": "^9.1.0"
-    }
+  "name": "aether-messaging-platform",
+  "version": "2.0.0",
+  "description": "Telegram-grade real-time messaging platform with WebSockets, WebRTC, AI copilot, and multi-device sync",
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,CLIENT\" -c \"cyan,magenta\" \"npm --prefix backend run dev\" \"npm --prefix client run dev\"",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix backend run build && npm --prefix client run build",
+    "test:backend": "npm --prefix backend run test:e2e",
+    "sync": "node scripts/sync.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "playwright": "^1.62.1"
+  }
 }

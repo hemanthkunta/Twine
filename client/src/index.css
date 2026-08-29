@@ -36,7 +36,9 @@
         -moz-osx-font-smoothing: grayscale;
         overflow: hidden;
         height: 100vh;
+        height: 100dvh;
         width: 100vw;
+        width: 100dvw;
         margin: 0;
         padding: 0;
         touch-action: pan-x pan-y;
@@ -44,12 +46,28 @@
 
     #root {
         height: 100vh;
+        height: 100dvh;
         width: 100vw;
+        width: 100dvw;
         display: flex;
         flex-direction: column;
         overflow: hidden;
         position: relative;
     }
+}
+
+/* iOS & Android Safe Area Utilities */
+.safe-area-top {
+  padding-top: max(env(safe-area-inset-top, 0px), 0px);
+}
+.safe-area-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+}
+.safe-area-left {
+  padding-left: max(env(safe-area-inset-left, 0px), 0px);
+}
+.safe-area-right {
+  padding-right: max(env(safe-area-inset-right, 0px), 0px);
 }
 
 /* Theme Utilities */

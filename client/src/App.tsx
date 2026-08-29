@@ -51,8 +51,6 @@ import { CreatePollModal } from './components/CreatePollModal';
 import { ThreadModal } from './components/ThreadModal';
 import { ChannelAdminDashboardModal } from './components/ChannelAdminDashboardModal';
 import { FederationBridgeModal } from './components/FederationBridgeModal';
-import { PushNotificationBanner } from './components/PushNotificationBanner';
-import { AndroidInstallBanner } from './components/AndroidInstallBanner';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { TwineGlowingLogo } from './components/TwineGlowingLogo';
 
@@ -113,6 +111,9 @@ export function App() {
     const activeChatRef = useRef<string | null>(null);
     activeChatRef.current = activeChatId;
 
+    const activeCallRef = useRef<any>(null);
+    activeCallRef.current = activeCall;
+
     // Load blocked users
     useEffect(() => {
         if (currentUser) {
@@ -140,8 +141,18 @@ export function App() {
                             CryptoService.initIdentityKey(meRes.user.id);
                             wsClient.connect();
                         })
-                        .catch(() => {
-                            ApiService.setToken(null);
+                        .catch(async () => {
+                            const refreshed = await ApiService.refreshSession();
+                            if (refreshed) {
+                                try {
+                                    const meRes = await ApiService.getMe();
+                                    setCurrentUser(meRes.user);
+                                    CryptoService.initIdentityKey(meRes.user.id);
+                                    wsClient.connect();
+                                    return;
+                                } catch {}
+                            }
+                            ApiService.setToken(null, null);
                             setCurrentUser(null);
                             setShowAuthModal(true);
                         });
@@ -150,8 +161,18 @@ export function App() {
                     setShowAuthModal(true);
                 }
             })
-            .catch((err) => {
+            .catch(async (err) => {
                 console.error(err);
+                const refreshed = await ApiService.refreshSession();
+                if (refreshed) {
+                    try {
+                        const meRes = await ApiService.getMe();
+                        setCurrentUser(meRes.user);
+                        CryptoService.initIdentityKey(meRes.user.id);
+                        wsClient.connect();
+                        return;
+                    } catch {}
+                }
                 setCurrentUser(null);
                 setShowAuthModal(true);
             });
@@ -613,6 +634,15 @@ export function App() {
         // J. WebRTC Incoming Call
         const unsubCall = wsClient.on('webrtc:incoming_call', (payload) => {
             console.log('📞 Received incoming WebRTC call from:', payload.caller?.display_name, payload);
+            if (activeCallRef.current) {
+                console.warn('[WebRTC] User is currently on another call. Replying with busy.');
+                wsClient.send('webrtc:hangup', {
+                    call_id: payload.call_id,
+                    target_user_id: payload.caller_id,
+                    reason: 'busy',
+                });
+                return;
+            }
             setActiveCall({
                 peer: payload.caller,
                 type: payload.call_type,
@@ -914,15 +944,9 @@ export function App() {
     const activeChat = chats.find((c) => c.id === activeChatId);
 
     return (
-        <div className="flex flex-col h-screen w-screen text-theme-primary bg-theme-primary overflow-hidden relative selection:bg-[#2f88ff]/30">
+        <div className="flex flex-col h-screen h-[100dvh] w-screen w-[100dvw] text-theme-primary bg-theme-primary overflow-hidden relative selection:bg-[#2f88ff]/30">
             {/* GPU-Accelerated Static Ambient Background */}
             <div className="ambient-glow-mesh" />
-
-            {/* Top Push Notification Banner */}
-            <PushNotificationBanner />
-
-            {/* Android Native Install & APK Banner */}
-            <AndroidInstallBanner />
 
             {/* Screenshot Warning Banner */}
             {screenshotAlert && (
@@ -939,24 +963,27 @@ export function App() {
                     </button>
                 </div>
             )}
-            {/* Frozen Clean Twine App Header */}
-            <header className="h-12 bg-theme-sidebar border-b border-theme px-4 flex items-center justify-between text-xs select-none flex-shrink-0 sticky top-0 z-30">
-                <div className="flex items-center space-x-3">
+            {/* Clean Twine App Header */}
+            <header className="h-12 bg-theme-sidebar border-b border-theme px-3 sm:px-4 flex items-center justify-between text-xs select-none flex-shrink-0 sticky top-0 z-30 min-w-0">
+                <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1 mr-2">
                     <TwineGlowingLogo size="sm" />
-                    <div className="flex items-center space-x-1.5">
-                        <span className="font-extrabold text-sm tracking-tight bg-gradient-to-r from-[#ff007f] via-[#ff758c] to-[#b829ea] bg-clip-text text-transparent">
+                    <div className="flex items-center space-x-1 sm:space-x-1.5 min-w-0">
+                        <span className="font-extrabold text-sm tracking-tight bg-gradient-to-r from-[#ff007f] via-[#ff758c] to-[#b829ea] bg-clip-text text-transparent truncate">
                             Twine
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.2 bg-[#ff007f]/15 text-[#ff758c] rounded-full font-mono font-medium hidden sm:inline">
+                        <span className="text-[10px] px-1.5 py-0.2 bg-[#ff007f]/15 text-[#ff758c] rounded-full font-mono font-medium hidden sm:inline flex-shrink-0">
                             Couples & Friends
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono font-bold border border-emerald-500/30 flex-shrink-0">
+                            v3.0.4 • CLEAN-UI-NO-BANNERS
                         </span>
                     </div>
 
-                    <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block" />
+                    <div className="h-4 w-px bg-white/10 mx-1 hidden md:block" />
 
-                    <div className="flex items-center space-x-1.5">
+                    <div className="flex items-center space-x-1.5 min-w-0">
                         <span
-                            className={`w-2 h-2 rounded-full ${
+                            className={`w-2 h-2 rounded-full flex-shrink-0 ${
                                 transportMode === 'CLOUD'
                                     ? 'bg-emerald-400 animate-pulse'
                                     : transportMode === 'MESH'
@@ -968,14 +995,14 @@ export function App() {
                             {transportMode === 'CLOUD' ? 'Cloud Connected' : 'Mesh Mode Active'}
                         </span>
                         {currentUser && (
-                            <span className="text-xs font-semibold text-theme-primary truncate max-w-[140px]">
+                            <span className="text-xs font-semibold text-theme-primary truncate max-w-[110px] sm:max-w-[140px] hidden xs:inline">
                                 • {currentUser.display_name}
                             </span>
                         )}
                     </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
                     <button
                         onClick={() => setShowMeshRadarModal(true)}
                         className="px-2.5 py-1 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-semibold flex items-center space-x-1.5 transition-all"
@@ -1201,6 +1228,29 @@ export function App() {
                         setShowAuthModal(false);
                         CryptoService.initIdentityKey(user.id);
                         wsClient.connect();
+
+                        // Automatically trigger native push notification permission request ONE TIME after successful new login
+                        if ('Notification' in window && Notification.permission === 'default') {
+                            setTimeout(() => {
+                                Notification.requestPermission()
+                                    .then(async (perm) => {
+                                        if (perm === 'granted') {
+                                            try {
+                                                await ApiService.subscribePush({
+                                                    endpoint: 'https://fcm.googleapis.com/fcm/send/twine_web_push',
+                                                    keys: {
+                                                        p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QT9Ac',
+                                                        auth: 'tBHItJI5svbpez7KI4CCXg',
+                                                    },
+                                                });
+                                            } catch (pushErr) {
+                                                console.warn('[Push] Background registration notice:', pushErr);
+                                            }
+                                        }
+                                    })
+                                    .catch(() => {});
+                            }, 500);
+                        }
                     }}
                     onClose={currentUser ? () => setShowAuthModal(false) : undefined}
                 />
@@ -1351,6 +1401,7 @@ export function App() {
                     isIncoming={activeCall.isIncoming}
                     incomingOffer={activeCall.incomingOffer}
                     callId={activeCall.callId}
+                    currentUserId={currentUser?.id}
                     onEndCall={handleEndCall}
                 />
             )}

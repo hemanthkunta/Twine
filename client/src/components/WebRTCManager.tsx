@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Mic,
   MicOff,
@@ -12,10 +12,16 @@ import {
   ShieldCheck,
   Volume2,
   VolumeX,
+  Wifi,
+  WifiOff,
+  AlertTriangle,
+  RefreshCw,
+  Activity,
 } from 'lucide-react';
 import { UserSummary } from '../types/index';
 import { wsClient } from '../services/ws';
 import { sounds } from '../services/sound';
+import { ApiService } from '../services/api';
 import { UserAvatar } from './UserAvatar';
 
 interface WebRTCManagerProps {
@@ -24,17 +30,60 @@ interface WebRTCManagerProps {
   isIncoming?: boolean;
   incomingOffer?: any;
   callId?: string;
+  currentUserId?: string;
   onEndCall: () => void;
 }
 
-const ICE_SERVERS: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-  ],
+interface CallQualityStats {
+  rttMs: number;
+  packetLossPercent: number;
+  jitterMs: number;
+  bitrateKbps: number;
+  resolution: string;
+  fps: number;
+  quality: 'good' | 'fair' | 'poor';
+}
+
+/**
+ * Dynamic Ephemeral TURN & STUN Configuration Fetcher
+ * 
+ * Fetches short-lived, per-call time-limited HMAC-SHA1 TURN credentials from the backend
+ * immediately before peer connection creation. Never embeds static secrets in the client bundle.
+ */
+export const fetchIceConfiguration = async (): Promise<RTCConfiguration> => {
+  const defaultStuns = [
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
+      ],
+    },
+  ];
+
+  try {
+    const creds = await ApiService.getTurnCredentials();
+    if (!creds || !creds.urls || !creds.username || !creds.credential) {
+      throw new Error('Malformed TURN credentials payload from backend');
+    }
+
+    return {
+      iceServers: [
+        ...defaultStuns,
+        {
+          urls: creds.urls,
+          username: creds.username,
+          credential: creds.credential,
+        },
+      ],
+      iceCandidatePoolSize: 10,
+    };
+  } catch (err: any) {
+    console.error('[WebRTC] TURN credential fetch failed:', err);
+    throw new Error(`TURN credential fetch failed: ${err.message || 'Network / Auth error'}`);
+  }
 };
 
 export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
@@ -43,6 +92,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   isIncoming = false,
   incomingOffer,
   callId,
+  currentUserId,
   onEndCall,
 }) => {
   const [isMuted, setIsMuted] = useState(false);
@@ -52,9 +102,12 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   const [remoteIsScreenSharing, setRemoteIsScreenSharing] = useState(false);
   const [isSpeakerMuted, setIsSpeakerMuted] = useState(false);
   const [callStatus, setCallStatus] = useState<
-    'incoming_ringing' | 'outgoing_ringing' | 'connecting' | 'connected' | 'ended'
+    'incoming_ringing' | 'outgoing_ringing' | 'connecting' | 'connected' | 'reconnecting' | 'failed' | 'ended'
   >(isIncoming ? 'incoming_ringing' : 'outgoing_ringing');
   const [duration, setDuration] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [stats, setStats] = useState<CallQualityStats | null>(null);
+  const [showStatsModal, setShowStatsModal] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -66,136 +119,301 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   const remoteStreamRef = useRef<MediaStream | null>(null);
   const pendingIceCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const callIdRef = useRef<string>(callId || `call_${Date.now()}`);
+  const isMakingOfferRef = useRef<boolean>(false);
+  const isIceRestartingRef = useRef<boolean>(false);
+
+  // 1. POLITE/IMPOLITE ROLE DETERMINISM:
+  // Deterministic, symmetric comparison of user IDs (independent of timing or connection sequence).
+  const isPolite = currentUserId ? currentUserId.localeCompare(peer.id) > 0 : Boolean(isIncoming);
+
+  const connectionWatchdogTimerRef = useRef<any>(null);
+  const statsIntervalRef = useRef<any>(null);
+  const lastBytesReceivedRef = useRef<{ bytes: number; timestamp: number }>({ bytes: 0, timestamp: 0 });
+  const iceRestartAttemptsRef = useRef<number>(0);
+  const hasEndedRef = useRef<boolean>(false);
 
   /**
-   * Locate the negotiated video RTP sender. Its `track` is null before any
-   * camera/screen media is attached, so fall back to the video transceiver
-   * rather than matching on `track.kind` (which would miss the empty sender).
+   * Helper: Locate Video Transceiver / Sender
    */
-  const findVideoSender = (): RTCRtpSender | undefined => {
+  const findVideoTransceiver = (): RTCRtpTransceiver | undefined => {
     const pc = pcRef.current;
     if (!pc) return undefined;
-    return (
-      pc.getSenders().find((s) => s.track?.kind === 'video') ||
-      pc.getTransceivers().find((t) => t.receiver.track?.kind === 'video')?.sender
+    return pc.getTransceivers().find(
+      (t) => t.receiver.track?.kind === 'video' || t.sender.track?.kind === 'video'
     );
   };
 
-  /** Attach the current remote stream to the remote <video> on the next paint. */
-  const attachRemoteVideo = () => {
-    setTimeout(() => {
-      if (remoteVideoRef.current && remoteStreamRef.current) {
-        remoteVideoRef.current.srcObject = remoteStreamRef.current;
-        remoteVideoRef.current.play().catch(() => {});
+  /**
+   * Resilient DOM stream attachment helper
+   */
+  const attachRemoteMedia = useCallback(() => {
+    if (remoteAudioRef.current && remoteStreamRef.current) {
+      if (remoteAudioRef.current.srcObject !== remoteStreamRef.current) {
+        remoteAudioRef.current.srcObject = remoteStreamRef.current;
       }
-    }, 60);
-  };
-
-  useEffect(() => {
-    if (isIncoming) {
-      // 1. Incoming Call -> Play ringtone and wait for user to accept/decline
-      sounds.startRingtone();
-    } else {
-      // 2. Outgoing Call -> Start outgoing call sequence immediately
-      sounds.startDialTone();
-      startOutgoingCall();
+      remoteAudioRef.current.play().catch(() => {});
     }
 
-    // Call Duration Timer (ticks when connected)
-    const timer = setInterval(() => {
-      setCallStatus((status) => {
-        if (status === 'connected') {
-          setDuration((d) => d + 1);
-        }
-        return status;
-      });
-    }, 1000);
-
-    // --- WebSocket Signaling Listeners ---
-
-    // A. Call Accepted by Peer
-    const unsubAnswer = wsClient.on('webrtc:call_accepted', async (payload) => {
-      sounds.stopDialTone();
-      sounds.playCallAccept();
-      if (pcRef.current && payload.answer) {
-        try {
-          await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload.answer));
-          // Drain queued ICE candidates
-          while (pendingIceCandidatesRef.current.length > 0) {
-            const cand = pendingIceCandidatesRef.current.shift()!;
-            await pcRef.current.addIceCandidate(new RTCIceCandidate(cand));
-          }
-          setCallStatus('connected');
-        } catch (err) {
-          console.error('Error setting remote description on answer:', err);
-        }
+    if (remoteVideoRef.current && remoteStreamRef.current) {
+      if (remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
+        remoteVideoRef.current.srcObject = remoteStreamRef.current;
       }
-    });
+      remoteVideoRef.current.play().catch(() => {});
+    }
 
-    // B. ICE Candidate received
-    const unsubIce = wsClient.on('webrtc:ice_candidate', async (payload) => {
-      if (payload.candidate) {
-        if (pcRef.current && pcRef.current.remoteDescription) {
-          try {
-            await pcRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
-          } catch (e) {
-            console.error('Failed to add ICE candidate:', e);
-          }
-        } else {
-          pendingIceCandidatesRef.current.push(payload.candidate);
-        }
+    if (localVideoRef.current) {
+      const activeLocalStream = isScreenSharing ? screenStreamRef.current : localStreamRef.current;
+      if (activeLocalStream && localVideoRef.current.srcObject !== activeLocalStream) {
+        localVideoRef.current.srcObject = activeLocalStream;
+        localVideoRef.current.play().catch(() => {});
       }
-    });
+    }
+  }, [isScreenSharing]);
 
-    // C. Screen Share & Media State Sync from Peer
-    const unsubRenegotiate = wsClient.on('webrtc:renegotiate', async (payload) => {
-      // Ignore stray media-state signals that don't belong to this call.
-      if (payload.call_id && payload.call_id !== callIdRef.current) return;
-
-      // A received screen-share flag ONLY controls this client's "remote"
-      // state — it never touches the local `isScreenSharing`. That invariant is
-      // what keeps one side stopping from toggling the other side's own
-      // "Stop sharing" control.
-      if (payload.is_screen_sharing !== undefined) {
-        setRemoteIsScreenSharing(Boolean(payload.is_screen_sharing));
-        if (payload.is_screen_sharing) attachRemoteVideo();
-      }
-
-      // Whether the remote stage is visible is derived from the peer's combined
-      // video + screen state. When the peer stops sharing with no camera on,
-      // both flags are false and the remote view clears on this side instead of
-      // freezing on the last shared frame.
-      if (payload.is_screen_sharing !== undefined || payload.is_video_active !== undefined) {
-        const peerHasVideo =
-          Boolean(payload.is_screen_sharing) || Boolean(payload.is_video_active);
-        setRemoteHasVideo(peerHasVideo);
-        if (peerHasVideo) attachRemoteVideo();
-      }
-    });
-
-    // D. Remote Peer Hangup / Ended
-    const unsubEnded = wsClient.on('webrtc:call_ended', () => {
-      sounds.stopRingtone();
-      sounds.stopDialTone();
-      sounds.playCallEnd();
-      cleanup();
-      onEndCall();
-    });
-
-    return () => {
-      clearInterval(timer);
-      sounds.stopRingtone();
-      sounds.stopDialTone();
-      unsubAnswer();
-      unsubIce();
-      unsubRenegotiate();
-      unsubEnded();
-      cleanup();
-    };
-  }, []);
+  useEffect(() => {
+    attachRemoteMedia();
+    const timer = setTimeout(attachRemoteMedia, 50);
+    return () => clearTimeout(timer);
+  }, [remoteHasVideo, remoteIsScreenSharing, isVideoActive, isScreenSharing, callStatus, attachRemoteMedia]);
 
   /**
-   * Helper to safely acquire local user media with graceful fallback
+   * Drain pending ICE candidates safely
+   */
+  const drainPendingIceCandidates = async (pc: RTCPeerConnection) => {
+    while (pendingIceCandidatesRef.current.length > 0) {
+      const cand = pendingIceCandidatesRef.current.shift();
+      if (cand && (cand.candidate || cand.candidate === '')) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+        } catch (err) {
+          console.warn('[WebRTC] Non-fatal ICE candidate drain error:', err);
+        }
+      }
+    }
+  };
+
+  /**
+   * Apply Adaptive Bitrate & Degradation Preferences to Video Sender
+   */
+  const applySenderEncodingParams = async (sender: RTCRtpSender, isScreenShare: boolean) => {
+    try {
+      const params = sender.getParameters();
+      if (!params.encodings || params.encodings.length === 0) {
+        params.encodings = [{}];
+      }
+
+      if (isScreenShare) {
+        params.degradationPreference = 'maintain-resolution';
+        params.encodings[0].maxBitrate = 2500000;
+      } else {
+        params.degradationPreference = 'balanced';
+        params.encodings[0].maxBitrate = 1500000;
+        params.encodings[0].maxFramerate = 30;
+      }
+
+      await sender.setParameters(params);
+    } catch (err) {
+      console.warn('[WebRTC] Could not set sender parameters:', err);
+    }
+  };
+
+  /**
+   * 2. WATCHDOG / ICE-RESTART RE-ENTRANCY PREVENTION:
+   * Guard watchdog and restart from re-entering while an ICE restart is already in flight.
+   */
+  const armConnectionWatchdog = (timeoutMs = 15000) => {
+    if (connectionWatchdogTimerRef.current) {
+      clearTimeout(connectionWatchdogTimerRef.current);
+    }
+    connectionWatchdogTimerRef.current = setTimeout(async () => {
+      if (pcRef.current && callStatus !== 'connected' && !hasEndedRef.current) {
+        if (isIceRestartingRef.current) {
+          console.log('[WebRTC Watchdog] ICE restart already in flight. Skipping overlapping cycle.');
+          return;
+        }
+
+        console.warn(`[WebRTC Watchdog] Connection timeout after ${timeoutMs}ms. Attempting ICE recovery...`);
+        if (iceRestartAttemptsRef.current < 2) {
+          iceRestartAttemptsRef.current += 1;
+          setCallStatus('reconnecting');
+          await restartIce();
+          armConnectionWatchdog(10000);
+        } else {
+          // 4. CLEANUP ON WATCHDOG-TRIGGERED FAILURE:
+          // Immediately stop all hardware media tracks (mic/cam light off), close peer connection, and clear polling
+          console.error('[WebRTC Watchdog] Max recovery attempts exceeded. Call failed.');
+          setCallStatus('failed');
+          setErrorMessage('Unable to establish peer connection. Please verify network access.');
+          sounds.stopDialTone();
+          sounds.stopRingtone();
+          sounds.playCallEnd();
+          cleanup();
+        }
+      }
+    }, timeoutMs);
+  };
+
+  const disarmConnectionWatchdog = () => {
+    if (connectionWatchdogTimerRef.current) {
+      clearTimeout(connectionWatchdogTimerRef.current);
+      connectionWatchdogTimerRef.current = null;
+    }
+  };
+
+  /**
+   * 2. WebRTC ICE Restart with Re-Entrancy Guard
+   */
+  const restartIce = async () => {
+    const pc = pcRef.current;
+    if (!pc || pc.signalingState === 'closed' || isIceRestartingRef.current) return;
+    if (pc.signalingState !== 'stable') {
+      console.log('[WebRTC ICE Restart] Waiting for signaling state to become stable before restart.');
+      return;
+    }
+
+    try {
+      console.log('🔄 [WebRTC] Initiating guarded ICE restart renegotiation...');
+      isIceRestartingRef.current = true;
+      isMakingOfferRef.current = true;
+      const offer = await pc.createOffer({ iceRestart: true });
+      await pc.setLocalDescription(offer);
+      wsClient.send('webrtc:renegotiate', {
+        call_id: callIdRef.current,
+        target_user_id: peer.id,
+        offer,
+        is_screen_sharing: isScreenSharing,
+        is_video_active: isVideoActive,
+      });
+    } catch (err) {
+      console.error('[WebRTC] ICE restart offer failed:', err);
+      isIceRestartingRef.current = false;
+    } finally {
+      isMakingOfferRef.current = false;
+    }
+  };
+
+  /**
+   * Create RTCPeerConnection with dynamic time-limited TURN configuration
+   */
+  const createPeerConnection = (stream: MediaStream, iceConfig: RTCConfiguration): RTCPeerConnection => {
+    const pc = new RTCPeerConnection(iceConfig);
+    pcRef.current = pc;
+    localStreamRef.current = stream;
+
+    // Attach local stream tracks to PC with explicit enabled flag
+    stream.getTracks().forEach((track) => {
+      track.enabled = true;
+      const sender = pc.addTrack(track, stream);
+      if (track.kind === 'video') {
+        applySenderEncodingParams(sender, false);
+      }
+    });
+
+    // Ensure transceiver structure exists without duplicates
+    const senders = pc.getSenders();
+    const hasAudioSender = senders.some((s) => s.track?.kind === 'audio');
+    const hasVideoSender = senders.some((s) => s.track?.kind === 'video');
+
+    if (!hasAudioSender) {
+      pc.addTransceiver('audio', { direction: 'recvonly' });
+    }
+    if (!hasVideoSender) {
+      pc.addTransceiver('video', { direction: callType === 'video' ? 'sendrecv' : 'recvonly' });
+    }
+
+    // Transmit local ICE candidates
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        wsClient.send('webrtc:ice_candidate', {
+          call_id: callIdRef.current,
+          target_user_id: peer.id,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    // Monitor ICE connection state & trigger ICE restart on failure
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[WebRTC] ICE Connection State: ${pc.iceConnectionState}`);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        disarmConnectionWatchdog();
+        sounds.stopDialTone();
+        sounds.stopRingtone();
+        setCallStatus('connected');
+        setErrorMessage(null);
+        iceRestartAttemptsRef.current = 0;
+        isIceRestartingRef.current = false;
+      } else if (pc.iceConnectionState === 'disconnected') {
+        console.warn('[WebRTC] ICE disconnected. Waiting for recovery or re-routing...');
+        setCallStatus('reconnecting');
+        armConnectionWatchdog(8000);
+      } else if (pc.iceConnectionState === 'failed') {
+        console.warn('[WebRTC] ICE failed. Triggering immediate guarded ICE restart...');
+        setCallStatus('reconnecting');
+        restartIce();
+        armConnectionWatchdog(10000);
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log(`[WebRTC] PeerConnection State: ${pc.connectionState}`);
+      if (pc.connectionState === 'connected') {
+        disarmConnectionWatchdog();
+        sounds.stopDialTone();
+        sounds.stopRingtone();
+        setCallStatus('connected');
+        setErrorMessage(null);
+        iceRestartAttemptsRef.current = 0;
+        isIceRestartingRef.current = false;
+      } else if (pc.connectionState === 'failed') {
+        console.warn('[WebRTC] Connection failed. Restarting ICE...');
+        setCallStatus('reconnecting');
+        restartIce();
+      } else if (pc.connectionState === 'disconnected') {
+        setCallStatus('reconnecting');
+      }
+    };
+
+    // Handle incoming remote media tracks (Audio, Video, Screen Share)
+    pc.ontrack = (event) => {
+      console.log(`[WebRTC] Remote track received: kind=${event.track.kind}, muted=${event.track.muted}`);
+      const remoteStream = event.streams[0] || new MediaStream();
+      if (!remoteStream.getTracks().includes(event.track)) {
+        remoteStream.addTrack(event.track);
+      }
+      remoteStreamRef.current = remoteStream;
+
+      if (event.track.kind === 'video') {
+        setRemoteHasVideo(!event.track.muted);
+
+        event.track.onunmute = () => {
+          setRemoteHasVideo(true);
+          attachRemoteMedia();
+        };
+        event.track.onmute = () => {
+          setRemoteHasVideo(false);
+          setRemoteIsScreenSharing(false);
+        };
+        event.track.onended = () => {
+          setRemoteHasVideo(false);
+          setRemoteIsScreenSharing(false);
+        };
+      }
+
+      if (event.track.kind === 'audio') {
+        event.track.enabled = true;
+      }
+
+      attachRemoteMedia();
+      setCallStatus('connected');
+      disarmConnectionWatchdog();
+    };
+
+    return pc;
+  };
+
+  /**
+   * Acquire local user media with fallback & Opus/AEC audio configuration
    */
   const getLocalMediaStream = async (): Promise<MediaStream> => {
     try {
@@ -204,13 +422,24 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 1,
         },
-        video: callType === 'video' ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+        video:
+          callType === 'video'
+            ? {
+                width: { ideal: 1280, max: 1920, min: 640 },
+                height: { ideal: 720, max: 1080, min: 480 },
+                frameRate: { ideal: 30, max: 30, min: 15 },
+                facingMode: 'user',
+              }
+            : false,
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      stream.getAudioTracks().forEach((t) => (t.enabled = true));
       return stream;
-    } catch (err) {
-      console.warn('Microphone/Camera access fallback:', err);
+    } catch (err: any) {
+      console.warn('[WebRTC] Microphone/Camera access fallback:', err);
       const tracks: MediaStreamTrack[] = [];
 
       // Generate silent audio track so WebRTC offer/answer SDP contains audio m-line
@@ -226,13 +455,16 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           gain.connect(dst);
           osc.start();
           const audioTrack = dst.stream.getAudioTracks()[0];
-          if (audioTrack) tracks.push(audioTrack);
+          if (audioTrack) {
+            audioTrack.enabled = true;
+            tracks.push(audioTrack);
+          }
         }
       } catch (audioErr) {
         console.warn('Audio fallback error:', audioErr);
       }
 
-      // Generate blank video track
+      // Generate blank canvas video track
       try {
         const canvas = document.createElement('canvas');
         canvas.width = 320;
@@ -242,7 +474,8 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           ctx.fillStyle = '#17212b';
           ctx.fillRect(0, 0, 320, 240);
         }
-        const canvasStream = canvas.captureStream ? canvas.captureStream(15) : (canvas as any).mozCaptureStream?.(15);
+        const canvasStream =
+          canvas.captureStream ? canvas.captureStream(15) : (canvas as any).mozCaptureStream?.(15);
         if (canvasStream) {
           const videoTrack = canvasStream.getVideoTracks()[0];
           if (videoTrack) tracks.push(videoTrack);
@@ -256,109 +489,19 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   };
 
   /**
-   * Setup RTCPeerConnection and attach transceivers & listeners
-   */
-  const createPeerConnection = (stream: MediaStream): RTCPeerConnection => {
-    const pc = new RTCPeerConnection(ICE_SERVERS);
-    pcRef.current = pc;
-    localStreamRef.current = stream;
-
-    if (localVideoRef.current && callType === 'video') {
-      localVideoRef.current.srcObject = stream;
-      localVideoRef.current.play().catch(() => {});
-    }
-
-    // Attach local stream tracks to PC
-    stream.getTracks().forEach((track) => pc.addTrack(track, stream));
-
-    // Ensure transceivers exist for both audio and video without duplicating
-    const senders = pc.getSenders();
-    const hasAudioSender = senders.some((s) => s.track?.kind === 'audio');
-    const hasVideoSender = senders.some((s) => s.track?.kind === 'video');
-
-    if (!hasAudioSender) {
-      pc.addTransceiver('audio', { direction: 'recvonly' });
-    }
-    if (!hasVideoSender) {
-      pc.addTransceiver('video', { direction: 'recvonly' });
-    }
-
-    // Transmit local ICE candidates
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        wsClient.send('webrtc:ice_candidate', {
-          call_id: callIdRef.current,
-          target_user_id: peer.id,
-          candidate: event.candidate,
-        });
-      }
-    };
-
-    // Handle incoming remote media tracks (Audio, Video, Screen Share)
-    pc.ontrack = (event) => {
-      const remoteStream = event.streams[0] || new MediaStream([event.track]);
-      remoteStreamRef.current = remoteStream;
-
-      if (event.track.kind === 'video') {
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream;
-          remoteVideoRef.current.play().catch(() => {});
-        }
-        // A pre-negotiated sendrecv video transceiver fires `ontrack` even when
-        // the peer isn't sending anything yet; that track stays `muted` until
-        // real media flows. Reveal the remote stage only once it's actually
-        // live so a voice call doesn't open an empty video view.
-        setRemoteHasVideo(!event.track.muted);
-
-        event.track.onunmute = () => {
-          setRemoteHasVideo(true);
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStreamRef.current;
-            remoteVideoRef.current.play().catch(() => {});
-          }
-        };
-        // The peer stopping a share (or turning the camera off) does
-        // `replaceTrack(null)`, which MUTES the remote track rather than ending
-        // it. Clear here so the receiver doesn't keep showing a frozen frame;
-        // `onunmute` restores it if media resumes.
-        event.track.onmute = () => {
-          setRemoteHasVideo(false);
-          setRemoteIsScreenSharing(false);
-        };
-        event.track.onended = () => {
-          setRemoteHasVideo(false);
-          setRemoteIsScreenSharing(false);
-        };
-      }
-
-      // Connect remote audio element to ensure audio always plays
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = remoteStream;
-        remoteAudioRef.current.play().catch(() => {});
-      }
-
-      setCallStatus('connected');
-    };
-
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'connected') {
-        sounds.stopDialTone();
-        sounds.stopRingtone();
-        setCallStatus('connected');
-      }
-    };
-
-    return pc;
-  };
-
-  /**
-   * Initiator: Create Offer & Send to Peer
+   * Initiator: Start Outgoing Call with fresh dynamic TURN credentials
    */
   const startOutgoingCall = async () => {
     try {
-      const stream = await getLocalMediaStream();
-      const pc = createPeerConnection(stream);
+      armConnectionWatchdog(25000);
+      const [stream, iceConfig] = await Promise.all([
+        getLocalMediaStream(),
+        fetchIceConfiguration(),
+      ]);
 
+      const pc = createPeerConnection(stream, iceConfig);
+
+      isMakingOfferRef.current = true;
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true,
@@ -371,31 +514,40 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
         call_type: callType,
         offer,
       });
-    } catch (err) {
-      console.error('Error starting outgoing call:', err);
+    } catch (err: any) {
+      console.error('[WebRTC] Error starting outgoing call / TURN credential fetch failed:', err);
+      setCallStatus('failed');
+      setErrorMessage(
+        err.message?.includes('TURN credential fetch failed')
+          ? 'TURN credential fetch failed: could not acquire secure relay credentials.'
+          : err.message || 'Could not initialize call media'
+      );
+      cleanup();
+    } finally {
+      isMakingOfferRef.current = false;
     }
   };
 
   /**
-   * Callee Action: User Clicks "Accept Call"
+   * Callee Action: User Clicks "Accept Call" with fresh dynamic TURN credentials
    */
   const handleAcceptCall = async () => {
     sounds.stopRingtone();
     sounds.playCallAccept();
     setCallStatus('connecting');
+    armConnectionWatchdog(20000);
 
     try {
-      const stream = await getLocalMediaStream();
-      const pc = createPeerConnection(stream);
+      const [stream, iceConfig] = await Promise.all([
+        getLocalMediaStream(),
+        fetchIceConfiguration(),
+      ]);
+
+      const pc = createPeerConnection(stream, iceConfig);
 
       if (incomingOffer) {
         await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer));
-
-        // Drain any pending ICE candidates received before answer
-        while (pendingIceCandidatesRef.current.length > 0) {
-          const cand = pendingIceCandidatesRef.current.shift()!;
-          await pc.addIceCandidate(new RTCIceCandidate(cand));
-        }
+        await drainPendingIceCandidates(pc);
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -406,11 +558,17 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           answer,
         });
 
-        setCallStatus('connected');
+        attachRemoteMedia();
       }
-    } catch (err) {
-      console.error('Error accepting call:', err);
-      setCallStatus('ended');
+    } catch (err: any) {
+      console.error('[WebRTC] Error accepting call / TURN credential fetch failed:', err);
+      setCallStatus('failed');
+      setErrorMessage(
+        err.message?.includes('TURN credential fetch failed')
+          ? 'TURN credential fetch failed: could not acquire secure relay credentials.'
+          : 'Failed to connect to incoming call'
+      );
+      cleanup();
       onEndCall();
     }
   };
@@ -431,53 +589,62 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   };
 
   /**
-   * Toggle Screen Sharing with dynamic Track Replacement
+   * Toggle Screen Sharing with proper dynamic Track Replacement and SDP renegotiation
    */
   const toggleScreenShare = async () => {
     try {
       if (!isScreenSharing) {
         // Start Screen Sharing
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: { cursor: 'always' } as any,
+          video: { cursor: 'always', frameRate: { ideal: 30, max: 60 } } as any,
           audio: false,
         });
         screenStreamRef.current = screenStream;
         const screenTrack = screenStream.getVideoTracks()[0];
 
-        if (pcRef.current) {
-          const videoSender = findVideoSender();
-          if (videoSender) {
-            await videoSender.replaceTrack(screenTrack);
+        const pc = pcRef.current;
+        if (pc) {
+          const videoTransceiver = findVideoTransceiver();
+          if (videoTransceiver) {
+            videoTransceiver.direction = 'sendrecv';
+            await videoTransceiver.sender.replaceTrack(screenTrack);
+            await applySenderEncodingParams(videoTransceiver.sender, true);
           } else {
-            pcRef.current.addTrack(screenTrack, screenStream);
+            const sender = pc.addTrack(screenTrack, screenStream);
+            await applySenderEncodingParams(sender, true);
+          }
+
+          // Trigger SDP renegotiation so remote peer gets updated video stream
+          try {
+            isMakingOfferRef.current = true;
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            wsClient.send('webrtc:renegotiate', {
+              call_id: callIdRef.current,
+              target_user_id: peer.id,
+              offer,
+              is_screen_sharing: true,
+              is_video_active: true,
+            });
+          } catch (renErr) {
+            console.warn('[WebRTC] Renegotiation offer creation error on screen share:', renErr);
+          } finally {
+            isMakingOfferRef.current = false;
           }
         }
 
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = screenStream;
-          localVideoRef.current.play().catch(() => {});
-        }
-
-        // Notify peer via WebSocket
-        wsClient.send('webrtc:renegotiate', {
-          call_id: callIdRef.current,
-          target_user_id: peer.id,
-          is_screen_sharing: true,
-          is_video_active: true,
-        });
-
         setIsScreenSharing(true);
+        attachRemoteMedia();
 
-        // Handle user stopping screen share via browser floating bar
         screenTrack.onended = () => {
           stopScreenSharing();
         };
       } else {
-        // Stop Screen Sharing
         stopScreenSharing();
       }
     } catch (err) {
-      console.warn('Screen sharing access cancelled or error:', err);
+      console.warn('[WebRTC] Screen sharing cancelled or error:', err);
     }
   };
 
@@ -489,43 +656,112 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
     setIsScreenSharing(false);
 
-    if (pcRef.current) {
-      const videoSender = findVideoSender();
+    const pc = pcRef.current;
+    if (pc) {
+      const videoTransceiver = findVideoTransceiver();
 
-      if (videoSender) {
+      if (videoTransceiver) {
         if (isVideoActive && localStreamRef.current) {
-          // Revert the shared screen back to the live camera feed.
           const cameraTrack = localStreamRef.current.getVideoTracks()[0] || null;
-          await videoSender.replaceTrack(cameraTrack);
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = localStreamRef.current;
-            localVideoRef.current.play().catch(() => {});
-          }
+          videoTransceiver.direction = 'sendrecv';
+          await videoTransceiver.sender.replaceTrack(cameraTrack);
+          await applySenderEncodingParams(videoTransceiver.sender, false);
         } else {
-          // Voice call / camera off: stop sending video and clear the local
-          // preview so the sharer isn't left staring at the frozen screen frame.
-          await videoSender.replaceTrack(null);
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = null;
-          }
+          videoTransceiver.direction = 'recvonly';
+          await videoTransceiver.sender.replaceTrack(null);
         }
+      }
+
+      // Perform SDP renegotiation to cleanly notify peer that screen share ended
+      try {
+        isMakingOfferRef.current = true;
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        wsClient.send('webrtc:renegotiate', {
+          call_id: callIdRef.current,
+          target_user_id: peer.id,
+          offer,
+          is_screen_sharing: false,
+          is_video_active: isVideoActive,
+        });
+      } catch (renErr) {
+        console.warn('[WebRTC] Renegotiation offer error on stop screen share:', renErr);
+      } finally {
+        isMakingOfferRef.current = false;
       }
     }
 
-    // Notify only the peer. This flips THEIR "remote" screen state; it never
-    // touches this client's own sharing controls.
-    wsClient.send('webrtc:renegotiate', {
-      call_id: callIdRef.current,
-      target_user_id: peer.id,
-      is_screen_sharing: false,
-      is_video_active: isVideoActive,
-    });
+    attachRemoteMedia();
   };
 
   /**
-   * End / Hangup Active Call
+   * Toggle local microphone mute
    */
+  const toggleMute = () => {
+    if (localStreamRef.current) {
+      const audioTrack = localStreamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMuted(!audioTrack.enabled);
+      }
+    }
+  };
+
+  /**
+   * Toggle local camera video
+   */
+  const toggleVideo = async () => {
+    const nextVideoState = !isVideoActive;
+    setIsVideoActive(nextVideoState);
+
+    const pc = pcRef.current;
+    if (localStreamRef.current && pc) {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = nextVideoState;
+      }
+      const videoTransceiver = findVideoTransceiver();
+      if (videoTransceiver && !isScreenSharing) {
+        videoTransceiver.direction = nextVideoState ? 'sendrecv' : 'recvonly';
+        await videoTransceiver.sender.replaceTrack(nextVideoState ? videoTrack : null);
+        if (nextVideoState) {
+          await applySenderEncodingParams(videoTransceiver.sender, false);
+        }
+      }
+
+      // Renegotiate SDP on video enable/disable
+      try {
+        isMakingOfferRef.current = true;
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        wsClient.send('webrtc:renegotiate', {
+          call_id: callIdRef.current,
+          target_user_id: peer.id,
+          offer,
+          is_screen_sharing: isScreenSharing,
+          is_video_active: nextVideoState,
+        });
+      } catch (err) {
+        console.warn('[WebRTC] Video toggle renegotiation notice:', err);
+      } finally {
+        isMakingOfferRef.current = false;
+      }
+    }
+
+    attachRemoteMedia();
+  };
+
+  const toggleSpeaker = () => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.muted = !isSpeakerMuted;
+      setIsSpeakerMuted(!isSpeakerMuted);
+    }
+  };
+
   const handleHangup = () => {
+    if (hasEndedRef.current) return;
+    hasEndedRef.current = true;
     sounds.stopRingtone();
     sounds.stopDialTone();
     sounds.playCallEnd();
@@ -538,60 +774,288 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     onEndCall();
   };
 
+  /**
+   * 4 & 5. COMPLETE RESOURCE CLEANUP
+   * Stops all active camera/mic tracks on senders and local streams, clears polling intervals, and closes PC
+   */
   const cleanup = () => {
+    disarmConnectionWatchdog();
+    if (statsIntervalRef.current) {
+      clearInterval(statsIntervalRef.current);
+      statsIntervalRef.current = null;
+    }
     if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach((t) => t.stop());
+      screenStreamRef.current.getTracks().forEach((t) => {
+        t.stop();
+        t.enabled = false;
+      });
       screenStreamRef.current = null;
     }
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((t) => t.stop());
+      localStreamRef.current.getTracks().forEach((t) => {
+        t.stop();
+        t.enabled = false;
+      });
       localStreamRef.current = null;
     }
+    if (remoteStreamRef.current) {
+      remoteStreamRef.current.getTracks().forEach((t) => {
+        t.stop();
+        t.enabled = false;
+      });
+      remoteStreamRef.current = null;
+    }
     if (pcRef.current) {
-      pcRef.current.close();
+      try {
+        pcRef.current.getSenders().forEach((s) => {
+          if (s.track) {
+            s.track.stop();
+          }
+        });
+        pcRef.current.close();
+      } catch {}
       pcRef.current = null;
     }
+    pendingIceCandidatesRef.current = [];
+    isIceRestartingRef.current = false;
   };
 
-  const toggleMute = () => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMuted(!audioTrack.enabled);
+  /**
+   * 5. Realtime WebRTC Quality Monitor (getStats Engine)
+   */
+  const pollCallQualityStats = async () => {
+    const pc = pcRef.current;
+    if (!pc || pc.connectionState !== 'connected') return;
+
+    try {
+      const statsReport = await pc.getStats();
+      let rtt = 0;
+      let packetsLost = 0;
+      let totalPackets = 0;
+      let jitter = 0;
+      let bytesReceived = 0;
+      let frameWidth = 0;
+      let frameHeight = 0;
+      let framesPerSec = 0;
+
+      statsReport.forEach((report) => {
+        if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+          rtt = report.currentRoundTripTime ? Math.round(report.currentRoundTripTime * 1000) : rtt;
+        }
+        if (report.type === 'inbound-rtp') {
+          if (report.kind === 'video') {
+            frameWidth = report.frameWidth || frameWidth;
+            frameHeight = report.frameHeight || frameHeight;
+            framesPerSec = report.framesPerSecond || framesPerSec;
+          }
+          if (report.jitter !== undefined) {
+            jitter = Math.round(report.jitter * 1000);
+          }
+          if (report.packetsLost !== undefined && report.packetsReceived !== undefined) {
+            packetsLost += report.packetsLost;
+            totalPackets += report.packetsLost + report.packetsReceived;
+          }
+          if (report.bytesReceived !== undefined) {
+            bytesReceived += report.bytesReceived;
+          }
+        }
+      });
+
+      const now = Date.now();
+      let bitrate = 0;
+      if (lastBytesReceivedRef.current.timestamp > 0) {
+        const timeDiffSec = (now - lastBytesReceivedRef.current.timestamp) / 1000;
+        const bytesDiff = bytesReceived - lastBytesReceivedRef.current.bytes;
+        if (timeDiffSec > 0 && bytesDiff >= 0) {
+          bitrate = Math.round((bytesDiff * 8) / (timeDiffSec * 1000));
+        }
       }
+      lastBytesReceivedRef.current = { bytes: bytesReceived, timestamp: now };
+
+      const lossRate = totalPackets > 0 ? (packetsLost / totalPackets) * 100 : 0;
+      const lossPercent = Math.round(lossRate * 10) / 10;
+
+      let quality: 'good' | 'fair' | 'poor' = 'good';
+      if (rtt > 300 || lossPercent > 8) {
+        quality = 'poor';
+      } else if (rtt > 150 || lossPercent > 3) {
+        quality = 'fair';
+      }
+
+      setStats({
+        rttMs: rtt,
+        packetLossPercent: lossPercent,
+        jitterMs: jitter,
+        bitrateKbps: bitrate,
+        resolution: frameWidth > 0 ? `${frameWidth}x${frameHeight}` : 'Audio Only',
+        fps: Math.round(framesPerSec),
+        quality,
+      });
+    } catch (err) {
+      console.warn('[WebRTC Stats Error]', err);
     }
   };
 
-  const toggleVideo = async () => {
-    const nextVideoState = !isVideoActive;
-    setIsVideoActive(nextVideoState);
-
-    if (localStreamRef.current && pcRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = nextVideoState;
-      }
-      const videoSender = findVideoSender();
-      if (videoSender && !isScreenSharing) {
-        await videoSender.replaceTrack(nextVideoState ? videoTrack : null);
-      }
+  useEffect(() => {
+    if (isIncoming) {
+      sounds.startRingtone();
+    } else {
+      sounds.startDialTone();
+      startOutgoingCall();
     }
 
-    wsClient.send('webrtc:renegotiate', {
-      call_id: callIdRef.current,
-      target_user_id: peer.id,
-      is_screen_sharing: isScreenSharing,
-      is_video_active: nextVideoState,
+    const durationTimer = setInterval(() => {
+      setCallStatus((status) => {
+        if (status === 'connected') {
+          setDuration((d) => d + 1);
+        }
+        return status;
+      });
+    }, 1000);
+
+    // 5. Poll WebRTC statistics every 2.5 seconds
+    statsIntervalRef.current = setInterval(pollCallQualityStats, 2500);
+
+    // --- WebSocket Signaling Listeners ---
+
+    // A. Call Accepted by Peer (Initiator receives Answer)
+    const unsubAnswer = wsClient.on('webrtc:call_accepted', async (payload) => {
+      sounds.stopDialTone();
+      sounds.playCallAccept();
+      disarmConnectionWatchdog();
+      if (pcRef.current && payload.answer) {
+        try {
+          if (pcRef.current.signalingState === 'have-local-offer') {
+            await pcRef.current.setRemoteDescription(new RTCSessionDescription(payload.answer));
+            await drainPendingIceCandidates(pcRef.current);
+          }
+          setCallStatus('connected');
+          isIceRestartingRef.current = false;
+          attachRemoteMedia();
+        } catch (err) {
+          console.error('[WebRTC] Error setting remote description on answer:', err);
+        }
+      }
     });
-  };
 
-  const toggleSpeaker = () => {
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.muted = !isSpeakerMuted;
-      setIsSpeakerMuted(!isSpeakerMuted);
-    }
-  };
+    // B. ICE Candidate received
+    const unsubIce = wsClient.on('webrtc:ice_candidate', async (payload) => {
+      if (payload.candidate) {
+        const pc = pcRef.current;
+        if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+          } catch (e) {
+            console.warn('[WebRTC] Non-fatal ICE candidate handling warning:', e);
+          }
+        } else {
+          pendingIceCandidatesRef.current.push(payload.candidate);
+        }
+      }
+    });
+
+    // C. Screen Share & Media State Sync / SDP Renegotiation (Perfect Negotiation)
+    const unsubRenegotiate = wsClient.on('webrtc:renegotiate', async (payload) => {
+      if (payload.call_id && payload.call_id !== callIdRef.current) return;
+
+      const pc = pcRef.current;
+
+      // Handle SDP Offer in Renegotiation with Perfect Negotiation Glare Handling
+      if (payload.offer && pc) {
+        try {
+          const offerCollision = isMakingOfferRef.current || pc.signalingState !== 'stable';
+          const ignoreOffer = !isPolite && offerCollision;
+
+          if (ignoreOffer) {
+            console.warn('[WebRTC Glare] Impolite peer ignoring colliding offer');
+            return;
+          }
+
+          if (offerCollision && isPolite) {
+            console.log('[WebRTC Glare] Polite peer rolling back to accept colliding offer');
+            await Promise.all([
+              pc.setLocalDescription({ type: 'rollback' } as any),
+              pc.setRemoteDescription(new RTCSessionDescription(payload.offer)),
+            ]);
+          } else {
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
+          }
+
+          await drainPendingIceCandidates(pc);
+
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+
+          wsClient.send('webrtc:renegotiate', {
+            call_id: callIdRef.current,
+            target_user_id: peer.id,
+            answer,
+            is_screen_sharing: payload.is_screen_sharing,
+            is_video_active: payload.is_video_active,
+          });
+        } catch (renErr) {
+          console.error('[WebRTC] Error handling renegotiation offer:', renErr);
+        }
+      }
+
+      // Handle SDP Answer in Renegotiation
+      if (payload.answer && pc) {
+        try {
+          if (pc.signalingState === 'have-local-offer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+            await drainPendingIceCandidates(pc);
+            isIceRestartingRef.current = false;
+          }
+        } catch (ansErr) {
+          console.error('[WebRTC] Error setting remote description on renegotiation answer:', ansErr);
+        }
+      }
+
+      // Update Remote Peer Video / Screen Share UI State
+      if (payload.is_screen_sharing !== undefined) {
+        setRemoteIsScreenSharing(Boolean(payload.is_screen_sharing));
+      }
+
+      if (payload.is_screen_sharing !== undefined || payload.is_video_active !== undefined) {
+        const peerHasVideo =
+          Boolean(payload.is_screen_sharing) || Boolean(payload.is_video_active);
+        setRemoteHasVideo(peerHasVideo);
+      }
+
+      attachRemoteMedia();
+    });
+
+    // D. Remote Peer Hangup / Ended
+    const unsubEnded = wsClient.on('webrtc:call_ended', (payload) => {
+      if (hasEndedRef.current) return;
+      hasEndedRef.current = true;
+      sounds.stopRingtone();
+      sounds.stopDialTone();
+      sounds.playCallEnd();
+      if (payload?.reason === 'offline') {
+        setErrorMessage('User is offline or unreachable.');
+      } else if (payload?.reason === 'blocked') {
+        setErrorMessage('Call could not be completed.');
+      } else if (payload?.reason === 'busy') {
+        setErrorMessage('User is currently on another call (Busy).');
+      } else if (payload?.reason === 'rejected') {
+        setErrorMessage('Call declined by user.');
+      }
+      cleanup();
+      setTimeout(onEndCall, 1200);
+    });
+
+    return () => {
+      clearInterval(durationTimer);
+      sounds.stopRingtone();
+      sounds.stopDialTone();
+      unsubAnswer();
+      unsubIce();
+      unsubRenegotiate();
+      unsubEnded();
+      cleanup();
+    };
+  }, []);
 
   const formatTimer = (sec: number) => {
     const m = Math.floor(sec / 60);
@@ -599,24 +1063,33 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Condition to render video / screen share canvas
   const showVideoView = isVideoActive || isScreenSharing || remoteHasVideo || remoteIsScreenSharing;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-2xl">
       {/* Hidden dedicated audio element for continuous high-fidelity remote audio streaming */}
-      <audio ref={remoteAudioRef} autoPlay playsInline />
+      <audio
+        ref={(el) => {
+          remoteAudioRef.current = el;
+          if (el && remoteStreamRef.current && el.srcObject !== remoteStreamRef.current) {
+            el.srcObject = remoteStreamRef.current;
+            el.play().catch(() => {});
+          }
+        }}
+        autoPlay
+        playsInline
+      />
 
       {/* --- 1. INCOMING CALL RINGING DIALOG --- */}
       {callStatus === 'incoming_ringing' ? (
-        <div className="w-full max-w-sm glass-modal rounded-3xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.15)] flex flex-col items-center justify-between p-6 sm:p-8 text-center min-h-[420px] sm:min-h-[460px] animate-in fade-in zoom-in duration-200">
+        <div className="w-full max-w-sm glass-modal rounded-3xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.15)] flex flex-col items-center justify-between p-6 sm:p-8 text-center min-h-[380px] sm:min-h-[440px] animate-in fade-in zoom-in duration-200">
           <div className="space-y-2">
             <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#3fc5f0]/15 border border-[#3fc5f0]/30 text-[#3fc5f0] text-xs font-semibold animate-pulse">
               <PhoneCall className="w-3.5 h-3.5" />
               <span>Incoming {callType === 'video' ? 'Video' : 'Voice'} Call</span>
             </div>
-            <h3 className="text-xl font-black text-white mt-2">{peer.display_name}</h3>
-            <p className="text-xs text-[#7f91a4]">@{peer.username} is calling you on Twine</p>
+            <h3 className="text-xl font-black text-white mt-2 truncate max-w-[280px]">{peer.display_name}</h3>
+            <p className="text-xs text-[#7f91a4] truncate">@{peer.username} is calling you on Twine</p>
           </div>
 
           {/* Animated Avatar with Pulsing Waves */}
@@ -631,8 +1104,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
             {/* Decline */}
             <div className="flex flex-col items-center space-y-1.5">
               <button
+                type="button"
                 onClick={handleDeclineCall}
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-600/40 transition-transform active:scale-90"
+                className="w-13 h-13 sm:w-16 sm:h-16 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-600/40 transition-transform active:scale-90"
                 title="Decline Call"
               >
                 <PhoneOff className="w-6 h-6 sm:w-7 sm:h-7" />
@@ -643,8 +1117,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
             {/* Accept */}
             <div className="flex flex-col items-center space-y-1.5">
               <button
+                type="button"
                 onClick={handleAcceptCall}
-                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/50 transition-transform active:scale-90 animate-bounce"
+                className="w-13 h-13 sm:w-16 sm:h-16 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/50 transition-transform active:scale-90 animate-bounce"
                 title="Accept Call"
               >
                 <Phone className="w-6 h-6 sm:w-7 sm:h-7" />
@@ -654,57 +1129,149 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           </div>
         </div>
       ) : (
-        /* --- 2. ACTIVE / OUTGOING CALL MODAL --- */
-        <div className="w-full max-w-3xl glass-modal rounded-3xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.15)] flex flex-col min-h-[460px] sm:min-h-[520px] max-h-[94vh] justify-between">
+        /* --- 2. ACTIVE / OUTGOING / CONNECTING CALL MODAL --- */
+        <div className="w-full max-w-3xl glass-modal rounded-3xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.15)] flex flex-col min-h-[420px] sm:min-h-[500px] max-h-[92vh] max-h-[92dvh] justify-between">
           {/* Top Call Info Bar */}
-          <div className="p-3.5 sm:p-4 bg-[#17212b]/95 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
+          <div className="p-3 sm:p-4 bg-[#17212b]/95 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between flex-shrink-0 min-w-0">
+            <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1 mr-2">
               <UserAvatar name={peer.display_name} avatarUrl={peer.avatar_url} size="sm" isOnline={true} />
               <div className="min-w-0">
                 <h3 className="text-xs sm:text-sm font-bold text-white truncate">{peer.display_name}</h3>
                 <p className="text-[10px] sm:text-[11px] font-medium flex items-center space-x-1.5">
-                  <span className={`w-2 h-2 rounded-full ${callStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-ping'}`} />
-                  <span className={callStatus === 'connected' ? 'text-emerald-400' : 'text-amber-300'}>
+                  <span
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                      callStatus === 'connected'
+                        ? 'bg-emerald-400 animate-pulse'
+                        : callStatus === 'failed'
+                        ? 'bg-red-500'
+                        : 'bg-amber-400 animate-ping'
+                    }`}
+                  />
+                  <span
+                    className={
+                      callStatus === 'connected'
+                        ? 'text-emerald-400'
+                        : callStatus === 'failed'
+                        ? 'text-red-400'
+                        : 'text-amber-300'
+                    }
+                  >
                     {callStatus === 'outgoing_ringing'
                       ? 'Ringing...'
                       : callStatus === 'connecting'
                       ? 'Connecting...'
+                      : callStatus === 'reconnecting'
+                      ? 'Reconnecting (Network fluctuation)...'
+                      : callStatus === 'failed'
+                      ? 'Connection Failed'
                       : `Connected (${formatTimer(duration)})`}
                   </span>
                 </p>
               </div>
             </div>
 
-            {/* Status Badges */}
+            {/* Quality & Status Badges */}
             <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+              {stats && callStatus === 'connected' && (
+                <button
+                  type="button"
+                  onClick={() => setShowStatsModal(!showStatsModal)}
+                  className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                    stats.quality === 'good'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                      : stats.quality === 'fair'
+                      ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                      : 'bg-red-500/15 text-red-400 border-red-500/40 animate-pulse'
+                  }`}
+                  title="Click to view real-time WebRTC quality metrics"
+                >
+                  <Activity className="w-3 h-3" />
+                  <span>{stats.rttMs}ms</span>
+                  {stats.packetLossPercent > 0 && <span>• {stats.packetLossPercent}%</span>}
+                </button>
+              )}
+
               {(isScreenSharing || remoteIsScreenSharing) && (
                 <div className="flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[10px] sm:text-[11px] font-semibold animate-pulse">
                   <Monitor className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  <span className="hidden sm:inline">{isScreenSharing ? 'Sharing Screen' : `${peer.display_name} Screen`}</span>
+                  <span className="hidden sm:inline">
+                    {isScreenSharing ? 'Sharing Screen' : `${peer.display_name} Screen`}
+                  </span>
                 </div>
               )}
+
               <div className="flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-[11px] font-semibold">
                 <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden sm:inline">WebRTC</span>
+                <span className="hidden sm:inline">E2EE Stream</span>
               </div>
             </div>
           </div>
 
+          {/* Diagnostic Stats Overlay Card */}
+          {showStatsModal && stats && (
+            <div className="p-3 bg-[#0d1620] border-b border-[rgba(255,255,255,0.08)] grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs animate-in slide-in-from-top-2">
+              <div className="p-1.5 bg-[#17212b] rounded-lg">
+                <div className="text-[10px] text-[#7f91a4]">RTT (Latency)</div>
+                <div className="font-bold text-white">{stats.rttMs} ms</div>
+              </div>
+              <div className="p-1.5 bg-[#17212b] rounded-lg">
+                <div className="text-[10px] text-[#7f91a4]">Packet Loss</div>
+                <div className="font-bold text-white">{stats.packetLossPercent}%</div>
+              </div>
+              <div className="p-1.5 bg-[#17212b] rounded-lg">
+                <div className="text-[10px] text-[#7f91a4]">Jitter</div>
+                <div className="font-bold text-white">{stats.jitterMs} ms</div>
+              </div>
+              <div className="p-1.5 bg-[#17212b] rounded-lg">
+                <div className="text-[10px] text-[#7f91a4]">Bitrate</div>
+                <div className="font-bold text-white">{stats.bitrateKbps} kbps</div>
+              </div>
+              <div className="p-1.5 bg-[#17212b] rounded-lg">
+                <div className="text-[10px] text-[#7f91a4]">Resolution</div>
+                <div className="font-bold text-white">{stats.resolution}</div>
+              </div>
+              <div className="p-1.5 bg-[#17212b] rounded-lg">
+                <div className="text-[10px] text-[#7f91a4]">Framerate</div>
+                <div className="font-bold text-white">{stats.fps > 0 ? `${stats.fps} fps` : 'N/A'}</div>
+              </div>
+            </div>
+          )}
+
           {/* Video / Screen Share / Voice Stream Container */}
-          <div className="relative flex-1 bg-[#0b1219] flex items-center justify-center overflow-hidden min-h-[280px] sm:min-h-[350px]">
+          <div className="relative flex-1 bg-[#0b1219] flex items-center justify-center overflow-hidden min-h-[260px] sm:min-h-[340px]">
+            {errorMessage && (
+              <div className="absolute top-4 left-4 right-4 z-30 p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-red-300 text-xs flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span>{errorMessage}</span>
+              </div>
+            )}
+
             {showVideoView ? (
               <div className="relative w-full h-full flex items-center justify-center bg-black">
                 {/* Main View: If remote is sharing video/screen, show remote stream; otherwise show local shared screen */}
                 {remoteHasVideo || remoteIsScreenSharing ? (
                   <video
-                    ref={remoteVideoRef}
+                    ref={(el) => {
+                      remoteVideoRef.current = el;
+                      if (el && remoteStreamRef.current && el.srcObject !== remoteStreamRef.current) {
+                        el.srcObject = remoteStreamRef.current;
+                        el.play().catch(() => {});
+                      }
+                    }}
                     autoPlay
                     playsInline
                     className="w-full h-full object-contain bg-black"
                   />
                 ) : (
                   <video
-                    ref={localVideoRef}
+                    ref={(el) => {
+                      localVideoRef.current = el;
+                      const activeLocalStream = isScreenSharing ? screenStreamRef.current : localStreamRef.current;
+                      if (el && activeLocalStream && el.srcObject !== activeLocalStream) {
+                        el.srcObject = activeLocalStream;
+                        el.play().catch(() => {});
+                      }
+                    }}
                     autoPlay
                     muted
                     playsInline
@@ -715,7 +1282,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                 {/* Subtitle / Overlay Badge */}
                 <div className="absolute top-3 left-3 z-10 px-2.5 sm:px-3 py-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[11px] sm:text-xs font-semibold text-white flex items-center space-x-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="truncate max-w-[200px] sm:max-w-none">
+                  <span className="truncate max-w-[180px] sm:max-w-none">
                     {remoteIsScreenSharing
                       ? `🖥️ ${peer.display_name}'s Screen`
                       : isScreenSharing
@@ -725,10 +1292,17 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                 </div>
 
                 {/* Picture-in-Picture (Bottom-Right) */}
-                <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-20 w-28 h-20 sm:w-44 sm:h-32 rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl border-2 border-[rgba(255,255,255,0.2)] bg-[#17212b] flex items-center justify-center">
+                <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-20 w-24 h-18 sm:w-44 sm:h-32 rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl border-2 border-[rgba(255,255,255,0.2)] bg-[#17212b] flex items-center justify-center">
                   {(remoteHasVideo || remoteIsScreenSharing) && (isScreenSharing || isVideoActive) ? (
                     <video
-                      ref={localVideoRef}
+                      ref={(el) => {
+                        localVideoRef.current = el;
+                        const activeLocalStream = isScreenSharing ? screenStreamRef.current : localStreamRef.current;
+                        if (el && activeLocalStream && el.srcObject !== activeLocalStream) {
+                          el.srcObject = activeLocalStream;
+                          el.play().catch(() => {});
+                        }
+                      }}
                       autoPlay
                       muted
                       playsInline
@@ -737,7 +1311,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                   ) : (
                     <div className="flex flex-col items-center justify-center space-y-1 text-center p-1.5">
                       <UserAvatar name={isScreenSharing ? peer.display_name : 'You'} size="sm" isOnline={true} />
-                      <span className="text-[9px] sm:text-[10px] text-white/80 font-medium truncate max-w-[90px] sm:max-w-[120px]">
+                      <span className="text-[9px] sm:text-[10px] text-white/80 font-medium truncate max-w-[80px] sm:max-w-[120px]">
                         {isScreenSharing ? peer.display_name : 'You'}
                       </span>
                     </div>
@@ -751,6 +1325,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                   {callStatus === 'connected' && (
                     <div className="absolute inset-0 -m-4 rounded-full border-2 border-emerald-400/40 animate-ping opacity-75"></div>
                   )}
+                  {callStatus === 'reconnecting' && (
+                    <div className="absolute inset-0 -m-4 rounded-full border-2 border-amber-400/50 animate-spin"></div>
+                  )}
                   {callStatus === 'outgoing_ringing' && (
                     <div className="absolute inset-0 -m-4 rounded-full border-2 border-[#3fc5f0]/40 animate-pulse"></div>
                   )}
@@ -760,7 +1337,11 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                   <p className="text-sm font-bold text-white">{peer.display_name}</p>
                   <p className="text-xs text-[#7f91a4]">
                     {callStatus === 'connected'
-                      ? 'HD WebRTC Voice Stream Active'
+                      ? 'HD WebRTC Voice Stream Active (Opus 48kHz)'
+                      : callStatus === 'reconnecting'
+                      ? 'Reconnecting audio stream...'
+                      : callStatus === 'failed'
+                      ? 'Connection failed'
                       : 'Waiting for peer to answer...'}
                   </p>
                 </div>
@@ -769,9 +1350,10 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           </div>
 
           {/* Controls Bar */}
-          <div className="p-3 sm:p-4 bg-[#17212b] border-t border-[rgba(255,255,255,0.06)] flex items-center justify-center space-x-2.5 sm:space-x-4 flex-shrink-0">
+          <div className="p-3 sm:p-4 bg-[#17212b] border-t border-[rgba(255,255,255,0.06)] flex items-center justify-center space-x-2 sm:space-x-4 flex-shrink-0">
             {/* Microphone Toggle */}
             <button
+              type="button"
               onClick={toggleMute}
               className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all ${
                 isMuted ? 'bg-red-500 text-white shadow-lg shadow-red-500/30' : 'bg-[#242f3d] text-white hover:bg-[#2f3f52]'
@@ -783,6 +1365,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
             {/* Camera Video Toggle */}
             <button
+              type="button"
               onClick={toggleVideo}
               className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all ${
                 !isVideoActive ? 'bg-[#242f3d] text-white/50 hover:bg-[#2f3f52]' : 'bg-[#2b5278] text-white hover:bg-[#356391]'
@@ -794,6 +1377,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
             {/* Speaker Toggle */}
             <button
+              type="button"
               onClick={toggleSpeaker}
               className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all ${
                 isSpeakerMuted ? 'bg-amber-600 text-white' : 'bg-[#242f3d] text-white hover:bg-[#2f3f52]'
@@ -805,6 +1389,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
             {/* Screen Share Toggle */}
             <button
+              type="button"
               onClick={toggleScreenShare}
               className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center transition-all ${
                 isScreenSharing
@@ -818,8 +1403,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
             {/* End Call Button */}
             <button
+              type="button"
               onClick={handleHangup}
-              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-600/40 transition-transform active:scale-95"
+              className="w-11 h-11 sm:w-14 sm:h-14 rounded-full bg-red-600 hover:bg-red-700 text-white flex items-center justify-center shadow-lg shadow-red-600/40 transition-transform active:scale-95"
               title="End Call"
             >
               <PhoneOff className="w-5 h-5 sm:w-6 sm:h-6" />

@@ -15,6 +15,8 @@ import {
   Ban,
   UserCheck,
   Heart,
+  Bell,
+  BellRing,
 } from 'lucide-react';
 import { User, UserSession, UserSummary } from '../types/index';
 import { ApiService } from '../services/api';
@@ -39,7 +41,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onProfileUpdated,
   onOpenLinkDevice,
 }) => {
-  const [tab, setTab] = useState<'profile' | 'sessions' | 'appearance' | 'blocked'>('profile');
+  const [tab, setTab] = useState<'profile' | 'notifications' | 'sessions' | 'appearance' | 'blocked'>('profile');
   const [displayName, setDisplayName] = useState(currentUser.display_name);
   const [username, setUsername] = useState(currentUser.username);
   const [bio, setBio] = useState(currentUser.bio || '');
@@ -52,6 +54,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [wpEnabled, setWpEnabled] = useState<boolean>(WallpaperService.isEnabled());
   const [wpId, setWpId] = useState<string>(WallpaperService.getSelectedId());
+  const [pushPermission, setPushPermission] = useState<NotificationPermission>(
+    typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
+  );
+  const [isSubscribingPush, setIsSubscribingPush] = useState(false);
+
+  const handleRequestPushPermission = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      setErrorMsg('Push notifications are not supported in this browser environment.');
+      return;
+    }
+    setIsSubscribingPush(true);
+    try {
+      const perm = await Notification.requestPermission();
+      setPushPermission(perm);
+      if (perm === 'granted') {
+        await ApiService.subscribePush({
+          endpoint: 'https://fcm.googleapis.com/fcm/send/twine_web_push',
+          keys: {
+            p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QT9Ac',
+            auth: 'tBHItJI5svbpez7KI4CCXg',
+          },
+        });
+        setSuccessMsg('Push notifications enabled successfully!');
+        setTimeout(() => setSuccessMsg(null), 3000);
+      } else if (perm === 'denied') {
+        setErrorMsg('Notification permission was denied in your browser settings.');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to enable notifications');
+    } finally {
+      setIsSubscribingPush(false);
+    }
+  };
 
   const toggleWallpaper = () => {
     const next = !wpEnabled;
@@ -179,6 +214,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
 
           <button
+            onClick={() => setTab('notifications')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all flex-shrink-0 ${
+              tab === 'notifications'
+                ? 'bg-[#2b5278] text-white shadow'
+                : 'text-[#7f91a4] hover:text-white hover:bg-[#242f3d]'
+            }`}
+          >
+            <Bell className="w-3.5 h-3.5" />
+            <span>Notifications</span>
+          </button>
+
+          <button
             onClick={() => setTab('appearance')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all flex-shrink-0 ${
               tab === 'appearance'
@@ -204,7 +251,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-4 sm:p-6 max-h-[75vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 max-h-[75vh] max-h-[75dvh] overflow-y-auto">
           {successMsg && (
             <div className="mb-4 p-3 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs rounded-xl flex items-center space-x-2">
               <Check className="w-4 h-4" />
@@ -266,6 +313,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {loading ? 'Saving...' : 'Save Profile Changes'}
               </button>
             </form>
+          )}
+
+          {tab === 'notifications' && (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-[#0f1822] border border-[rgba(255,255,255,0.06)] text-xs text-[#7f91a4] leading-relaxed">
+                Configure push notifications for incoming private messages, calls, and mentions when offline or in the background. Permissions are requested only when enabled.
+              </div>
+
+              <div className="p-4 bg-[#0f1822] border border-[rgba(255,255,255,0.06)] rounded-2xl flex items-center justify-between">
+                <div className="flex items-center space-x-3 min-w-0 mr-2">
+                  <div className="p-2.5 rounded-xl bg-[#2f88ff]/20 text-[#3fc5f0] flex-shrink-0">
+                    {pushPermission === 'granted' ? <BellRing className="w-5 h-5 text-emerald-400" /> : <Bell className="w-5 h-5" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white">Browser Push Notifications</p>
+                    <p className="text-[11px] text-[#7f91a4]">
+                      {pushPermission === 'granted'
+                        ? 'Active — You will receive instant notifications.'
+                        : pushPermission === 'denied'
+                        ? 'Blocked in browser settings.'
+                        : 'Not enabled — click to grant permission.'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isSubscribingPush || pushPermission === 'granted'}
+                  onClick={handleRequestPushPermission}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
+                    pushPermission === 'granted'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 cursor-default'
+                      : 'bg-gradient-to-r from-[#2f88ff] to-[#3fc5f0] hover:opacity-95 text-white shadow-md'
+                  }`}
+                >
+                  {isSubscribingPush
+                    ? 'Enabling...'
+                    : pushPermission === 'granted'
+                    ? 'Enabled ✓'
+                    : 'Enable Push'}
+                </button>
+              </div>
+            </div>
           )}
 
           {tab === 'blocked' && (

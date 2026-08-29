@@ -48,14 +48,22 @@ class RealtimeSocketClient {
         }
       };
 
-      this.socket.onclose = (event) => {
+      this.socket.onclose = async (event) => {
         this.isConnected = false;
         this.isAuthenticated = false;
         this.stopHeartbeat();
 
-        // If closed due to unauthorized (4001), do not loop reconnect
+        // If closed due to unauthorized (4001), try silent token refresh
         if (event.code === 4001) {
-          console.warn('WebSocket auth rejected (4001). Halting reconnect.');
+          console.warn('WebSocket auth rejected (4001). Attempting session refresh...');
+          const refreshed = await ApiService.refreshSession();
+          if (refreshed) {
+            console.log('Session refreshed. Reconnecting WebSocket with new token...');
+            this.reconnectAttempts = 0;
+            this.connect();
+            return;
+          }
+          console.warn('Session refresh failed. Halting reconnect.');
           this.clearPendingQueue();
           return;
         }
@@ -81,7 +89,7 @@ class RealtimeSocketClient {
     });
   }
 
-  private handleFrame(frame: WSFrame) {
+  private async handleFrame(frame: WSFrame) {
     if (frame.type === 'auth:ack') {
       this.isAuthenticated = true;
       this.reconnectAttempts = 0;
@@ -94,7 +102,13 @@ class RealtimeSocketClient {
     }
 
     if (frame.type === 'error' && frame.payload?.code === 'UNAUTHORIZED') {
-      console.warn('WebSocket auth failed: unauthorized token');
+      console.warn('WebSocket auth failed: unauthorized token. Attempting session refresh...');
+      const refreshed = await ApiService.refreshSession();
+      if (refreshed) {
+        this.disconnect();
+        this.connect();
+        return;
+      }
       this.disconnect();
       return;
     }

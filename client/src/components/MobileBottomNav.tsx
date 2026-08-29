@@ -1,6 +1,5 @@
 import React from 'react';
-import { MessageSquare, Phone, Compass, Settings, Download } from 'lucide-react';
-import { AndroidInstallerService } from '../services/androidInstaller.service';
+import { MessageSquare, Compass, Settings } from 'lucide-react';
 
 interface MobileBottomNavProps {
   activeTab: 'chats' | 'calls' | 'mesh' | 'settings';
@@ -22,11 +21,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     onSelectTab(tab);
     if (tab === 'mesh') onOpenMeshRadar();
     if (tab === 'settings') onOpenSettings();
-  };
-
-  const handleDownloadApk = async () => {
-    if ('vibrate' in navigator) navigator.vibrate([30, 60]);
-    await AndroidInstallerService.promptInstall();
   };
 
   return (
@@ -57,22 +51,10 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         }`}
       >
         <Compass className="w-5 h-5" />
-        <span className="text-[10px] font-semibold mt-0.5">Mesh</span>
+        <span className="text-[10px] font-semibold mt-0.5">Mesh Radar</span>
       </button>
 
-      {/* 3. Download APK Quick Action */}
-      <button
-        onClick={handleDownloadApk}
-        className="flex flex-col items-center justify-center flex-1 py-1 text-emerald-400 active:scale-95 transition-all"
-        title="Download Android APK"
-      >
-        <div className="p-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400">
-          <Download className="w-4 h-4" />
-        </div>
-        <span className="text-[9px] font-bold mt-0.5">Get APK</span>
-      </button>
-
-      {/* 4. Settings Tab */}
+      {/* 3. Settings Tab */}
       <button
         onClick={() => handleTabClick('settings')}
         className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
