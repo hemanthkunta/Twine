@@ -106,12 +106,16 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   >(isIncoming ? 'incoming_ringing' : 'outgoing_ringing');
   const [duration, setDuration] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [fallbackNotice, setFallbackNotice] = useState<string | null>(null);
   const [stats, setStats] = useState<CallQualityStats | null>(null);
   const [showStatsModal, setShowStatsModal] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const isVideoActiveRef = useRef(isVideoActive);
+  isVideoActiveRef.current = isVideoActive;
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -439,7 +443,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     };
 
     pc.onconnectionstatechange = () => {
-      console.log(`[WebRTC] PeerConnection State: ${pc.connectionState}`);
+      console.log(
+        `[WebRTC] PeerConnection State: ${pc.connectionState}, ICE Connection State: ${pc.iceConnectionState}`
+      );
       if (pc.connectionState === 'connected') {
         disarmConnectionWatchdog();
         sounds.stopDialTone();
@@ -448,19 +454,21 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
         setErrorMessage(null);
         iceRestartAttemptsRef.current = 0;
         isIceRestartingRef.current = false;
-      } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-        console.warn('[WebRTC] PeerConnection closed or failed. Ending call session.');
+      } else if (pc.connectionState === 'closed') {
+        console.warn('[WebRTC] PeerConnection closed. Ending call session.');
         cleanup();
         onEndCall(durationRef.current);
-      } else if (pc.connectionState === 'disconnected') {
+      } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
         setCallStatus('reconnecting');
-        armConnectionWatchdog(4000);
+        armConnectionWatchdog(5000);
       }
     };
 
     // Handle incoming remote media tracks (Audio, Video, Screen Share)
     pc.ontrack = (event) => {
-      console.log(`[WebRTC] Remote track received: kind=${event.track.kind}, muted=${event.track.muted}, id=${event.track.id}`);
+      console.log(
+        `[WebRTC ontrack] Track received: kind=${event.track.kind}, id=${event.track.id}, muted=${event.track.muted}, readyState=${event.track.readyState}, callStatus=${callStatus}`
+      );
       const remoteStream = event.streams[0] || new MediaStream();
       if (!remoteStream.getTracks().includes(event.track)) {
         remoteStream.addTrack(event.track);
@@ -469,29 +477,33 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
       if (event.track.kind === 'audio') {
         event.track.enabled = true;
-        
+
         // Critical: Remote audio tracks start muted until the first RTP packet arrives
         event.track.onunmute = () => {
-          console.log('[WebRTC] 🔊 Remote audio track unmuted (RTP packet stream active)! Attaching and triggering playback.');
+          console.log('[WebRTC ontrack] 🔊 Remote audio track unmuted (RTP packet stream active)! Attaching audio.');
           attachRemoteMedia();
         };
         event.track.onmute = () => {
-          console.log('[WebRTC] Remote audio track muted temporarily.');
+          console.log('[WebRTC ontrack] Remote audio track muted temporarily.');
         };
       }
 
       if (event.track.kind === 'video') {
+        console.log(`[WebRTC ontrack] 📹 Remote video track registered: id=${event.track.id}, muted=${event.track.muted}`);
         setRemoteHasVideo(!event.track.muted);
 
         event.track.onunmute = () => {
+          console.log('[WebRTC ontrack] 📹 Remote video track unmuted! Switching to video view.');
           setRemoteHasVideo(true);
           attachRemoteMedia();
         };
         event.track.onmute = () => {
+          console.log('[WebRTC ontrack] Remote video track muted.');
           setRemoteHasVideo(false);
           setRemoteIsScreenSharing(false);
         };
         event.track.onended = () => {
+          console.log('[WebRTC ontrack] Remote video track ended.');
           setRemoteHasVideo(false);
           setRemoteIsScreenSharing(false);
         };
@@ -530,9 +542,16 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       };
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       stream.getAudioTracks().forEach((t) => (t.enabled = true));
+      setFallbackNotice(null);
       return stream;
     } catch (err: any) {
-      console.warn('[WebRTC] Microphone/Camera access fallback:', err);
+      console.error(
+        '[CRITICAL] getUserMedia failed, using SYNTHETIC fallback audio/video instead of real mic/camera:',
+        err?.name,
+        err?.message,
+        err
+      );
+      setFallbackNotice(`Microphone/Camera hardware access failed (${err?.name || 'Permission Denied'})`);
       const tracks: MediaStreamTrack[] = [];
 
       // Generate silent audio track so WebRTC offer/answer SDP contains audio m-line
@@ -1188,6 +1207,24 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       // Handle SDP Offer in Renegotiation with Perfect Negotiation Glare Handling
       if (payload.offer && pc) {
         try {
+          const sdpLines = payload.offer.sdp?.split('\n') || [];
+          const videoIndex = sdpLines.findIndex((l: string) => l.startsWith('m=video'));
+          const videoLine = videoIndex !== -1 ? sdpLines[videoIndex] : 'none';
+          const videoDirectionLine =
+            videoIndex !== -1
+              ? sdpLines
+                  .slice(videoIndex, videoIndex + 10)
+                  .find((l: string) =>
+                    l.startsWith('a=sendrecv') ||
+                    l.startsWith('a=recvonly') ||
+                    l.startsWith('a=inactive') ||
+                    l.startsWith('a=sendonly')
+                  )
+              : 'none';
+          console.log(
+            `[WebRTC Renegotiate] Received Offer SDP Video Info: m-line="${videoLine?.trim()}", direction="${videoDirectionLine?.trim()}"`
+          );
+
           const offerCollision = isMakingOfferRef.current || pc.signalingState !== 'stable';
           const ignoreOffer = !isPolite && offerCollision;
 
@@ -1208,8 +1245,29 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
           await drainPendingIceCandidates(pc);
 
+          // Configure answering video transceiver direction appropriately
+          const videoTransceiver = findVideoTransceiver();
+          if (videoTransceiver) {
+            videoTransceiver.direction = isVideoActiveRef.current ? 'sendrecv' : 'recvonly';
+          }
+
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
+
+          const answerLines = answer.sdp?.split('\n') || [];
+          const answerVideoIndex = answerLines.findIndex((l: string) => l.startsWith('m=video'));
+          const answerVideoDir =
+            answerVideoIndex !== -1
+              ? answerLines
+                  .slice(answerVideoIndex, answerVideoIndex + 10)
+                  .find((l: string) =>
+                    l.startsWith('a=sendrecv') ||
+                    l.startsWith('a=recvonly') ||
+                    l.startsWith('a=inactive') ||
+                    l.startsWith('a=sendonly')
+                  )
+              : 'none';
+          console.log(`[WebRTC Renegotiate] Created Answer SDP Video Direction: "${answerVideoDir?.trim()}"`);
 
           wsClient.send('webrtc:renegotiate', {
             call_id: callIdRef.current,
@@ -1218,6 +1276,13 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
             is_screen_sharing: payload.is_screen_sharing,
             is_video_active: payload.is_video_active,
           });
+
+          if (
+            payload.is_video_active ||
+            (videoTransceiver?.receiver?.track && videoTransceiver.receiver.track.readyState === 'live')
+          ) {
+            setRemoteHasVideo(true);
+          }
         } catch (renErr) {
           console.error('[WebRTC] Error handling renegotiation offer:', renErr);
         }
@@ -1231,6 +1296,10 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
             await drainPendingIceCandidates(pc);
             isIceRestartingRef.current = false;
           }
+          const vTransceiver = findVideoTransceiver();
+          console.log(
+            `[WebRTC Renegotiate] Answer processed. Video Transceiver: direction=${vTransceiver?.direction}, currentDirection=${vTransceiver?.currentDirection}`
+          );
         } catch (ansErr) {
           console.error('[WebRTC] Error setting remote description on renegotiation answer:', ansErr);
         }
@@ -1476,30 +1545,52 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
               </div>
             )}
 
+            {fallbackNotice && (
+              <div className="absolute top-16 left-4 right-4 z-30 p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-200 text-xs flex items-center space-x-2 backdrop-blur-md animate-pulse">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-400" />
+                <span><strong>Hardware Warning:</strong> {fallbackNotice}. Placeholder audio/video is active.</span>
+              </div>
+            )}
+
             {showVideoView ? (
-              <div className="relative w-full h-full flex items-center justify-center bg-black">
-                {/* Main View: If remote is sharing video/screen, show remote stream; otherwise show local shared screen */}
-                {remoteHasVideo || remoteIsScreenSharing ? (
+              <div className="relative w-full h-full flex items-center justify-center bg-black overflow-hidden">
+                {/* 1. Dedicated Remote Video Sink (Active in main stage when remote has video/screen) */}
+                <div
+                  className={`w-full h-full flex items-center justify-center bg-black ${
+                    remoteHasVideo || remoteIsScreenSharing ? 'block' : 'hidden'
+                  }`}
+                >
                   <video
-                    ref={(el) => {
-                      remoteVideoRef.current = el;
-                    }}
+                    ref={remoteVideoRef}
                     autoPlay
                     muted
                     playsInline
                     className="w-full h-full object-cover sm:object-contain bg-black"
                   />
-                ) : (
+                </div>
+
+                {/* 2. Dedicated Local Video Sink (Main view if remote has no video, or in PiP when remote has video) */}
+                <div
+                  className={
+                    remoteHasVideo || remoteIsScreenSharing
+                      ? `absolute bottom-20 right-3 sm:bottom-4 sm:right-4 z-20 w-28 h-36 sm:w-44 sm:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-[#17212b] ${
+                          isVideoActive || isScreenSharing ? 'block' : 'hidden'
+                        }`
+                      : 'w-full h-full flex items-center justify-center bg-black'
+                  }
+                >
                   <video
-                    ref={(el) => {
-                      localVideoRef.current = el;
-                    }}
+                    ref={localVideoRef}
                     autoPlay
                     muted
                     playsInline
-                    className="w-full h-full object-cover sm:object-contain bg-black"
+                    className={
+                      remoteHasVideo || remoteIsScreenSharing
+                        ? 'w-full h-full object-cover'
+                        : 'w-full h-full object-cover sm:object-contain bg-black'
+                    }
                   />
-                )}
+                </div>
 
                 {/* Subtitle / Overlay Badge */}
                 <div className="absolute top-3 left-3 z-10 px-2.5 sm:px-3 py-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[11px] sm:text-xs font-semibold text-white flex items-center space-x-1.5">
@@ -1509,31 +1600,30 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                       ? `🖥️ ${peer.display_name}'s Screen`
                       : isScreenSharing
                       ? `🖥️ You are sharing screen`
-                      : `${peer.display_name}`}
+                      : remoteHasVideo
+                      ? `${peer.display_name}`
+                      : `${peer.display_name} (Voice Only)`}
                   </span>
                 </div>
 
-                {/* Picture-in-Picture (Bottom-Right corner with safe offset) */}
-                <div className="absolute bottom-20 right-3 sm:bottom-4 sm:right-4 z-20 w-28 h-36 sm:w-44 sm:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-[#17212b] flex items-center justify-center">
-                  {(remoteHasVideo || remoteIsScreenSharing) && (isScreenSharing || isVideoActive) ? (
-                    <video
-                      ref={(el) => {
-                        localVideoRef.current = el;
-                      }}
-                      autoPlay
-                      muted
-                      playsInline
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center space-y-1 text-center p-1.5">
-                      <UserAvatar name={isScreenSharing ? peer.display_name : 'You'} size="sm" isOnline={true} />
-                      <span className="text-[9px] sm:text-[10px] text-white/80 font-medium truncate max-w-[80px] sm:max-w-[120px]">
-                        {isScreenSharing ? peer.display_name : 'You'}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                {/* Picture-in-Picture Peer/Self Info Box when opposite side is not sending video */}
+                {(remoteHasVideo || remoteIsScreenSharing) && !isVideoActive && !isScreenSharing && (
+                  <div className="absolute bottom-20 right-3 sm:bottom-4 sm:right-4 z-20 w-28 h-36 sm:w-44 sm:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-[#17212b] flex flex-col items-center justify-center space-y-1 text-center p-1.5">
+                    <UserAvatar name="You" size="sm" isOnline={true} />
+                    <span className="text-[9px] sm:text-[10px] text-white/80 font-medium truncate max-w-[80px] sm:max-w-[120px]">
+                      Camera Off
+                    </span>
+                  </div>
+                )}
+
+                {!remoteHasVideo && !remoteIsScreenSharing && (
+                  <div className="absolute bottom-20 right-3 sm:bottom-4 sm:right-4 z-20 w-28 h-36 sm:w-44 sm:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-[#17212b] flex flex-col items-center justify-center space-y-1 text-center p-1.5">
+                    <UserAvatar name={peer.display_name} avatarUrl={peer.avatar_url} size="sm" isOnline={true} />
+                    <span className="text-[9px] sm:text-[10px] text-white/80 font-medium truncate max-w-[80px] sm:max-w-[120px]">
+                      {peer.display_name}
+                    </span>
+                  </div>
+                )}
               </div>
             ) : (
               /* Voice Call Audio View - Centered with Rich Ambient Glow */
