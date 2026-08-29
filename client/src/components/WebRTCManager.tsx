@@ -159,9 +159,14 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
+  const persistentAudioElRef = useRef<HTMLAudioElement | null>(null);
+
   const resumeAudioContext = () => {
     if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
       audioContextRef.current.resume().catch(() => {});
+    }
+    if (persistentAudioElRef.current && persistentAudioElRef.current.paused && remoteStreamRef.current) {
+      persistentAudioElRef.current.play().catch(() => {});
     }
     if (remoteAudioRef.current && remoteAudioRef.current.paused && remoteStreamRef.current) {
       remoteAudioRef.current.play().catch(() => {});
@@ -181,59 +186,40 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
   /**
    * Resilient DOM & Web Audio Stream Attachment Helper
-   * Mutually exclusive single audio route: HTMLAudioElement primary, WebAudio API fallback only on autoplay block
+   * Direct native audio playback via persistent HTMLAudioElement
    */
   const attachRemoteMedia = useCallback(() => {
     const stream = remoteStreamRef.current;
     if (!stream) return;
 
-    // 1. Direct Native HTMLAudioElement Attachment (Primary Audio Route)
+    // 1. Direct Native Audio Playback Pipeline
     const audioTracks = stream.getAudioTracks();
-    if (remoteAudioRef.current && audioTracks.length > 0) {
-      const audioEl = remoteAudioRef.current;
+    if (audioTracks.length > 0) {
+      if (!persistentAudioElRef.current) {
+        const audio = new Audio();
+        audio.autoplay = true;
+        persistentAudioElRef.current = audio;
+      }
+      const audioEl = persistentAudioElRef.current;
       audioEl.muted = isSpeakerMuted;
       audioEl.volume = 1.0;
 
-      // Assign the authentic WebRTC MediaStream directly (no wrapper copies)
       if (audioEl.srcObject !== stream) {
         audioEl.srcObject = stream;
       }
 
-      audioEl.onplaying = () => {
-        teardownWebAudioBridge();
-        console.log('[WebRTC Audio Route] Active: HTMLAudioElement (Confirmed playing, single active route).');
-      };
-
-      const playPromise = audioEl.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            teardownWebAudioBridge();
-            console.log('[WebRTC Audio Route] Active: HTMLAudioElement (Confirmed playing, single active route).');
-          })
-          .catch((err) => {
-            console.warn('[WebRTC] HTMLAudioElement autoplay blocked, activating Web Audio fallback bridge:', err);
-            // 2. Mutually-Exclusive Fallback: Activate Web Audio bridge ONLY if HTMLAudioElement fails/blocks
-            if (!isSpeakerMuted) {
-              try {
-                const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-                if (AudioCtx && !audioContextRef.current) {
-                  const ctx = new AudioCtx();
-                  audioContextRef.current = ctx;
-                  if (ctx.state === 'suspended') {
-                    ctx.resume().catch(() => {});
-                  }
-                  const source = ctx.createMediaStreamSource(stream);
-                  audioSourceNodeRef.current = source;
-                  source.connect(ctx.destination);
-                  console.log('[WebRTC Audio Route] Active: WebAudioBridge Fallback (Single active route).');
-                }
-              } catch (webaudioErr) {
-                console.warn('[WebRTC Audio Route] Web Audio fallback notice:', webaudioErr);
-              }
-            }
-          });
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.muted = isSpeakerMuted;
+        remoteAudioRef.current.volume = 1.0;
+        if (remoteAudioRef.current.srcObject !== stream) {
+          remoteAudioRef.current.srcObject = stream;
+        }
+        remoteAudioRef.current.play().catch(() => {});
       }
+
+      audioEl.play().catch((err) => {
+        console.warn('[WebRTC] Persistent Audio element play notice:', err);
+      });
     }
 
     // 3. Dedicated Remote Video Pipeline
@@ -550,11 +536,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     try {
       const constraints: MediaStreamConstraints = {
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
+          echoCancellation: false,
+          noiseSuppression: false,
           autoGainControl: true,
-          sampleRate: 48000,
-          channelCount: 1,
         },
         video:
           callType === 'video'
@@ -1050,6 +1034,13 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
         remoteAudioRef.current.pause();
         remoteAudioRef.current.srcObject = null;
       } catch {}
+    }
+    if (persistentAudioElRef.current) {
+      try {
+        persistentAudioElRef.current.pause();
+        persistentAudioElRef.current.srcObject = null;
+      } catch {}
+      persistentAudioElRef.current = null;
     }
     // 5. Disconnect and close AudioContext bridge
     if (audioSourceNodeRef.current) {
