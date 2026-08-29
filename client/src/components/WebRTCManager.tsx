@@ -1577,77 +1577,62 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
             )}
 
             {showVideoView ? (
-              <div className="relative w-full h-full flex items-center justify-center bg-black overflow-hidden">
-                {/* 1. Dedicated Remote Video Sink (Active in main stage when remote has video/screen) */}
-                <div
-                  className={`w-full h-full flex items-center justify-center bg-black ${
-                    remoteHasVideo || remoteIsScreenSharing ? 'block' : 'hidden'
-                  }`}
-                >
+              <div className="relative w-full h-full flex items-center justify-center bg-black overflow-hidden select-none">
+                {/* 1. Main Stage (Full-Screen View of Remote Peer's Camera or Screen Share) */}
+                <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-[#070b10] overflow-hidden">
                   <video
                     ref={remoteVideoRef}
                     autoPlay
                     muted
                     playsInline
-                    className="w-full h-full object-cover sm:object-contain bg-black"
+                    className="w-full h-full object-cover bg-black"
                   />
+
+                  {/* Fallback Overlay if Remote Video track hasn't delivered frames yet */}
+                  {!remoteHasVideo && !remoteIsScreenSharing && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 bg-gradient-to-b from-[#182533]/90 to-[#0e1621]/95 backdrop-blur-lg">
+                      <div className="relative">
+                        <div className="absolute w-36 h-36 rounded-full bg-cyan-500/20 blur-xl animate-pulse"></div>
+                        <div className="absolute inset-0 -m-4 rounded-full border border-cyan-400/40 animate-ping opacity-50"></div>
+                        <UserAvatar name={peer.display_name} avatarUrl={peer.avatar_url} size="xl" className="shadow-2xl relative z-10" />
+                      </div>
+                      <div className="text-center space-y-1">
+                        <p className="text-base sm:text-lg font-bold text-white">{peer.display_name}</p>
+                        <p className="text-xs text-[#7f91a4]">Connecting camera feed...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* 2. Dedicated Local Video Sink (Main view if remote has no video, or in PiP when remote has video) */}
+                {/* 2. WhatsApp/FaceTime Style Floating PiP Thumbnail (Your Own Self-Camera Preview) */}
                 <div
-                  className={
-                    remoteHasVideo || remoteIsScreenSharing
-                      ? `absolute bottom-20 right-3 sm:bottom-4 sm:right-4 z-20 w-28 h-36 sm:w-44 sm:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-[#17212b] ${
-                          isVideoActive || isScreenSharing ? 'block' : 'hidden'
-                        }`
-                      : 'w-full h-full flex items-center justify-center bg-black'
-                  }
+                  className={`absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-30 w-28 h-40 sm:w-40 sm:h-52 rounded-2xl overflow-hidden shadow-[0_12px_36px_rgba(0,0,0,0.7)] border-2 border-white/25 bg-[#17212b] transition-all duration-300 ${
+                    isVideoActive || isScreenSharing ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+                  }`}
                 >
                   <video
                     ref={localVideoRef}
                     autoPlay
                     muted
                     playsInline
-                    className={
-                      remoteHasVideo || remoteIsScreenSharing
-                        ? 'w-full h-full object-cover'
-                        : 'w-full h-full object-cover sm:object-contain bg-black'
-                    }
+                    className="w-full h-full object-cover transform scale-x-[-1]"
                   />
+                  <div className="absolute bottom-1.5 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-[10px] font-semibold text-white/90">
+                    You
+                  </div>
                 </div>
 
                 {/* Subtitle / Overlay Badge */}
-                <div className="absolute top-3 left-3 z-10 px-2.5 sm:px-3 py-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[11px] sm:text-xs font-semibold text-white flex items-center space-x-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="truncate max-w-[180px] sm:max-w-none">
+                <div className="absolute top-3 left-3 z-20 px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold text-white flex items-center space-x-2 shadow-lg">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="truncate max-w-[200px] sm:max-w-none">
                     {remoteIsScreenSharing
                       ? `🖥️ ${peer.display_name}'s Screen`
                       : isScreenSharing
                       ? `🖥️ You are sharing screen`
-                      : remoteHasVideo
-                      ? `${peer.display_name}`
-                      : `${peer.display_name} (Voice Only)`}
+                      : `${peer.display_name}`}
                   </span>
                 </div>
-
-                {/* Picture-in-Picture Peer/Self Info Box when opposite side is not sending video */}
-                {(remoteHasVideo || remoteIsScreenSharing) && !isVideoActive && !isScreenSharing && (
-                  <div className="absolute bottom-20 right-3 sm:bottom-4 sm:right-4 z-20 w-28 h-36 sm:w-44 sm:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-[#17212b] flex flex-col items-center justify-center space-y-1 text-center p-1.5">
-                    <UserAvatar name="You" size="sm" isOnline={true} />
-                    <span className="text-[9px] sm:text-[10px] text-white/80 font-medium truncate max-w-[80px] sm:max-w-[120px]">
-                      Camera Off
-                    </span>
-                  </div>
-                )}
-
-                {!remoteHasVideo && !remoteIsScreenSharing && (
-                  <div className="absolute bottom-20 right-3 sm:bottom-4 sm:right-4 z-20 w-28 h-36 sm:w-44 sm:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-[#17212b] flex flex-col items-center justify-center space-y-1 text-center p-1.5">
-                    <UserAvatar name={peer.display_name} avatarUrl={peer.avatar_url} size="sm" isOnline={true} />
-                    <span className="text-[9px] sm:text-[10px] text-white/80 font-medium truncate max-w-[80px] sm:max-w-[120px]">
-                      {peer.display_name}
-                    </span>
-                  </div>
-                )}
               </div>
             ) : (
               /* Voice Call Audio View - Centered with Rich Ambient Glow */
