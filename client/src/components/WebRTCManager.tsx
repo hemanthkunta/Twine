@@ -51,7 +51,7 @@ interface CallQualityStats {
  * immediately before peer connection creation. Never embeds static secrets in the client bundle.
  */
 export const fetchIceConfiguration = async (): Promise<RTCConfiguration> => {
-  const defaultStuns = [
+  const publicStuns: RTCIceServer[] = [
     {
       urls: [
         'stun:stun.l.google.com:19302',
@@ -59,30 +59,38 @@ export const fetchIceConfiguration = async (): Promise<RTCConfiguration> => {
         'stun:stun2.l.google.com:19302',
         'stun:stun3.l.google.com:19302',
         'stun:stun4.l.google.com:19302',
+        'stun:stun.cloudflare.com:3478',
       ],
     },
   ];
 
   try {
     const creds = await ApiService.getTurnCredentials();
-    if (!creds || !creds.urls || !creds.username || !creds.credential) {
-      throw new Error('Malformed TURN credentials payload from backend');
+    const iceServers: RTCIceServer[] = [...publicStuns];
+
+    if (creds?.urls && creds.username && creds.credential) {
+      const turnUrls = (Array.isArray(creds.urls) ? creds.urls : [creds.urls]).filter(
+        (u: string) => !u.includes('127.0.0.1') && !u.includes('localhost')
+      );
+      if (turnUrls.length > 0) {
+        iceServers.push({
+          urls: turnUrls,
+          username: creds.username,
+          credential: creds.credential,
+        });
+      }
     }
 
     return {
-      iceServers: [
-        ...defaultStuns,
-        {
-          urls: creds.urls,
-          username: creds.username,
-          credential: creds.credential,
-        },
-      ],
-      iceCandidatePoolSize: 10,
+      iceServers,
+      iceCandidatePoolSize: 2,
     };
   } catch (err: any) {
-    console.error('[WebRTC] TURN credential fetch failed:', err);
-    throw new Error(`TURN credential fetch failed: ${err.message || 'Network / Auth error'}`);
+    console.warn('[WebRTC] Using public STUN fallback:', err);
+    return {
+      iceServers: publicStuns,
+      iceCandidatePoolSize: 2,
+    };
   }
 };
 
@@ -125,6 +133,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
   const callIdRef = useRef<string>(callId || `call_${Date.now()}`);
   const isMakingOfferRef = useRef<boolean>(false);
   const isIceRestartingRef = useRef<boolean>(false);
+  const durationRef = useRef<number>(0);
 
   // 1. POLITE/IMPOLITE ROLE DETERMINISM:
   // Deterministic, symmetric comparison of user IDs (independent of timing or connection sequence).
@@ -143,101 +152,90 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     const pc = pcRef.current;
     if (!pc) return undefined;
     return pc.getTransceivers().find(
-      (t) => t.receiver.track?.kind === 'video' || t.sender.track?.kind === 'video'
+      (t) => t.sender.track?.kind === 'video' || t.receiver.track?.kind === 'video'
     );
   };
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
+  const resumeAudioContext = () => {
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
+    }
+    if (remoteAudioRef.current && remoteAudioRef.current.paused && remoteStreamRef.current) {
+      remoteAudioRef.current.play().catch(() => {});
+    }
+  };
+
   /**
    * Resilient DOM & Web Audio Stream Attachment Helper
-   * Separates audio and video into dedicated sinks to prevent browser media element contention
+   * Directly attaches native remote WebRTC MediaStream to <audio> and Web Audio API destination
    */
   const attachRemoteMedia = useCallback(() => {
     const stream = remoteStreamRef.current;
     if (!stream) return;
 
-    // 1. Dedicated HTMLAudioElement Playback Pipeline (Extract audio-only stream)
+    // 1. Direct Native HTMLAudioElement Attachment
     const audioTracks = stream.getAudioTracks();
     if (remoteAudioRef.current && audioTracks.length > 0) {
       const audioEl = remoteAudioRef.current;
       audioEl.muted = isSpeakerMuted;
       audioEl.volume = 1.0;
-      
-      const audioStream = new MediaStream(audioTracks);
-      if (!audioEl.srcObject || (audioEl.srcObject as MediaStream).getAudioTracks()[0]?.id !== audioTracks[0].id) {
-        audioEl.srcObject = audioStream;
+
+      // Assign the authentic WebRTC MediaStream directly (no wrapper copies)
+      if (audioEl.srcObject !== stream) {
+        audioEl.srcObject = stream;
       }
 
-      // Cleanup helper: ensures Web Audio bridge is torn down when HTMLAudioElement plays
-      const teardownWebAudioBridge = () => {
-        if (audioSourceNodeRef.current) {
-          audioSourceNodeRef.current.disconnect();
-          audioSourceNodeRef.current = null;
-        }
-        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-          audioContextRef.current.close().catch(() => {});
-          audioContextRef.current = null;
-        }
-      };
+      audioEl.play().catch((err) => {
+        console.warn('[WebRTC] HTMLAudioElement play() notice:', err);
+      });
+    }
 
-      audioEl.onplaying = () => {
-        teardownWebAudioBridge();
-        console.log('[WebRTC Audio Route] ✅ HTMLAudioElement actively playing (Web Audio bridge detached).');
-      };
-
-      const playPromise = audioEl.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            teardownWebAudioBridge();
-            console.log('[WebRTC Audio Route] ✅ HTMLAudioElement playback confirmed (Web Audio bridge detached).');
-          })
-          .catch((err) => {
-            console.warn('[WebRTC] HTMLAudioElement play() blocked or waiting for interaction:', err);
-            // 2. Web Audio API Destination Bridge Fallback (Strictly Active only when HTMLAudioElement is blocked)
-            try {
-              const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-              if (AudioCtx && !audioContextRef.current) {
-                const ctx = new AudioCtx();
-                audioContextRef.current = ctx;
-                if (ctx.state === 'suspended') {
-                  ctx.resume().catch(() => {});
-                }
-                const source = ctx.createMediaStreamSource(audioStream);
-                audioSourceNodeRef.current = source;
-                source.connect(ctx.destination);
-                console.log('[WebRTC Audio Route] 🔊 Web Audio API fallback bridge active (single active audio route).');
-              }
-            } catch (ctxErr) {
-              console.warn('[WebRTC] WebAudio bridge notice:', ctxErr);
-            }
-          });
+    // 2. Dual Web Audio API Hardware Route (Guarantees playback through system audio mixer)
+    if (audioTracks.length > 0 && !isSpeakerMuted) {
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+            audioContextRef.current = new AudioCtx();
+          }
+          const ctx = audioContextRef.current;
+          if (ctx.state === 'suspended') {
+            ctx.resume().catch(() => {});
+          }
+          if (!audioSourceNodeRef.current) {
+            const source = ctx.createMediaStreamSource(stream);
+            audioSourceNodeRef.current = source;
+            source.connect(ctx.destination);
+            console.log('[WebRTC Audio Route] 🔊 Dual Audio Output Route active via Web Audio destination.');
+          }
+        }
+      } catch (webaudioErr) {
+        console.warn('[WebRTC Audio Route] Web Audio route notice:', webaudioErr);
       }
     }
 
-    // 2. Dedicated Remote Video Pipeline (Muted to prevent audio hijacking)
+    // 3. Dedicated Remote Video Pipeline
     const videoTracks = stream.getVideoTracks();
     if (remoteVideoRef.current && videoTracks.length > 0) {
       const videoEl = remoteVideoRef.current;
       videoEl.muted = true; // Video element is muted so audio element has exclusive audio control
-      const videoStream = new MediaStream(videoTracks);
-      if (!videoEl.srcObject || (videoEl.srcObject as MediaStream).getVideoTracks()[0]?.id !== videoTracks[0].id) {
-        videoEl.srcObject = videoStream;
+      if (videoEl.srcObject !== stream) {
+        videoEl.srcObject = stream;
       }
       videoEl.play().catch(() => {});
     }
 
-    // 3. Local Video Preview Pipeline
+    // 4. Local Video Preview Pipeline
     if (localVideoRef.current) {
       const activeLocalStream = isScreenSharing ? screenStreamRef.current : localStreamRef.current;
       if (activeLocalStream) {
         const localVideoTracks = activeLocalStream.getVideoTracks();
         if (localVideoTracks.length > 0) {
-          const localVideoStream = new MediaStream(localVideoTracks);
-          if (!localVideoRef.current.srcObject || (localVideoRef.current.srcObject as MediaStream).getVideoTracks()[0]?.id !== localVideoTracks[0].id) {
-            localVideoRef.current.srcObject = localVideoStream;
+          if (localVideoRef.current.srcObject !== activeLocalStream) {
+            localVideoRef.current.srcObject = activeLocalStream;
           }
           localVideoRef.current.play().catch(() => {});
         }
@@ -945,8 +943,6 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     }
   };
 
-  const durationRef = useRef(0);
-
   const handleHangup = () => {
     if (hasEndedRef.current) return;
     hasEndedRef.current = true;
@@ -1371,7 +1367,10 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     remoteIsScreenSharing;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-6 bg-slate-950/75 backdrop-blur-xl animate-in fade-in duration-200">
+    <div
+      onClick={resumeAudioContext}
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-6 bg-slate-950/75 backdrop-blur-xl animate-in fade-in duration-200"
+    >
       {/* Hidden dedicated audio element for continuous high-fidelity remote audio streaming */}
       <audio
         ref={remoteAudioRef}
