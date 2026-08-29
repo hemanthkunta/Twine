@@ -430,12 +430,13 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
       } else if (pc.iceConnectionState === 'disconnected') {
         console.warn('[WebRTC] ICE disconnected. Waiting for recovery or re-routing...');
         setCallStatus('reconnecting');
-        armConnectionWatchdog(8000);
+        armConnectionWatchdog(4000);
       } else if (pc.iceConnectionState === 'failed') {
-        console.warn('[WebRTC] ICE failed. Triggering immediate guarded ICE restart...');
-        setCallStatus('reconnecting');
-        restartIce();
-        armConnectionWatchdog(10000);
+        console.warn('[WebRTC] ICE failed. Closing call...');
+        setCallStatus('failed');
+        setErrorMessage('Call disconnected');
+        cleanup();
+        setTimeout(() => onEndCall(durationRef.current), 1000);
       }
     };
 
@@ -449,12 +450,13 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
         setErrorMessage(null);
         iceRestartAttemptsRef.current = 0;
         isIceRestartingRef.current = false;
-      } else if (pc.connectionState === 'failed') {
-        console.warn('[WebRTC] Connection failed. Restarting ICE...');
-        setCallStatus('reconnecting');
-        restartIce();
+      } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        console.warn('[WebRTC] PeerConnection closed or failed. Ending call session.');
+        cleanup();
+        onEndCall(durationRef.current);
       } else if (pc.connectionState === 'disconnected') {
         setCallStatus('reconnecting');
+        armConnectionWatchdog(4000);
       }
     };
 
@@ -1228,7 +1230,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     remoteIsScreenSharing;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-black/90 sm:bg-black/85 backdrop-blur-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-6 bg-slate-950/75 backdrop-blur-xl animate-in fade-in duration-200">
       {/* Hidden dedicated audio element for continuous high-fidelity remote audio streaming */}
       <audio
         ref={(el) => {
@@ -1244,7 +1246,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
       {/* --- 1. INCOMING CALL RINGING DIALOG --- */}
       {callStatus === 'incoming_ringing' ? (
-        <div className="w-full max-w-sm glass-modal sm:rounded-3xl rounded-2xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.15)] flex flex-col items-center justify-between p-6 sm:p-8 text-center min-h-[380px] sm:min-h-[440px] animate-in fade-in zoom-in duration-200 m-4">
+        <div className="w-full max-w-sm bg-gradient-to-b from-[#1e2c3a] to-[#0f1720] sm:rounded-3xl rounded-2xl overflow-hidden shadow-2xl border border-white/15 flex flex-col items-center justify-between p-6 sm:p-8 text-center min-h-[380px] sm:min-h-[440px] animate-in fade-in zoom-in duration-200 m-4">
           <div className="space-y-2">
             <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#3fc5f0]/15 border border-[#3fc5f0]/30 text-[#3fc5f0] text-xs font-semibold animate-pulse">
               <PhoneCall className="w-3.5 h-3.5" />
@@ -1291,10 +1293,10 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           </div>
         </div>
       ) : (
-        /* --- 2. ACTIVE / OUTGOING / CONNECTING CALL MODAL (Fully Responsive Mobile + Desktop) --- */
-        <div className="w-full h-full sm:h-auto sm:max-w-3xl glass-modal sm:rounded-3xl rounded-none overflow-hidden shadow-2xl border-0 sm:border sm:border-[rgba(255,255,255,0.15)] flex flex-col min-h-[100dvh] sm:min-h-[520px] max-h-[100dvh] sm:max-h-[92vh] sm:max-h-[92dvh] justify-between">
+        /* --- 2. ACTIVE / OUTGOING / CONNECTING CALL MODAL (Premium Glassmorphism Design) --- */
+        <div className="w-full h-full sm:h-auto sm:max-w-2xl bg-gradient-to-b from-[#182533]/95 via-[#0e1621]/98 to-[#090e14]/99 sm:rounded-3xl rounded-none shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] border-0 sm:border sm:border-white/10 flex flex-col min-h-[100dvh] sm:min-h-[520px] max-h-[100dvh] sm:max-h-[85vh] justify-between overflow-hidden">
           {/* Top Call Info Bar */}
-          <div className="p-3 sm:p-4 bg-[#17212b]/95 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between flex-shrink-0 min-w-0 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <div className="p-3.5 sm:p-4 bg-[#17212b]/85 backdrop-blur-md border-b border-white/10 flex items-center justify-between flex-shrink-0 min-w-0 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <div className="flex items-center space-x-2.5 sm:space-x-3 min-w-0 flex-1 mr-2">
               <UserAvatar name={peer.display_name} avatarUrl={peer.avatar_url} size="sm" isOnline={true} />
               <div className="min-w-0">
@@ -1338,7 +1340,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowStatsModal(!showStatsModal)}
-                  className={`flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                  className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all ${
                     stats.quality === 'good'
                       ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                       : stats.quality === 'fair'
@@ -1354,7 +1356,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
               )}
 
               {(isScreenSharing || remoteIsScreenSharing) && (
-                <div className="flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[10px] sm:text-[11px] font-semibold animate-pulse">
+                <div className="flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[10px] sm:text-[11px] font-semibold animate-pulse">
                   <Monitor className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   <span className="hidden sm:inline">
                     {isScreenSharing ? 'Sharing Screen' : `${peer.display_name} Screen`}
@@ -1362,8 +1364,8 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center space-x-1 sm:space-x-1.5 px-2 sm:px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-[11px] font-semibold">
-                <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <div className="flex items-center space-x-1 sm:space-x-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[10px] sm:text-[11px] font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">E2EE Stream</span>
               </div>
             </div>
@@ -1371,7 +1373,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
           {/* Diagnostic Stats Overlay Card */}
           {showStatsModal && stats && (
-            <div className="p-3 bg-[#0d1620] border-b border-[rgba(255,255,255,0.08)] grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs animate-in slide-in-from-top-2">
+            <div className="p-3 bg-[#0d1620]/90 backdrop-blur-md border-b border-white/10 grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs animate-in slide-in-from-top-2">
               <div className="p-1.5 bg-[#17212b] rounded-lg">
                 <div className="text-[10px] text-[#7f91a4]">RTT (Latency)</div>
                 <div className="font-bold text-white">{stats.rttMs} ms</div>
@@ -1400,9 +1402,9 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           )}
 
           {/* Video / Screen Share / Voice Stream Container */}
-          <div className="relative flex-1 bg-[#0b1219] flex items-center justify-center overflow-hidden min-h-[260px] sm:min-h-[340px]">
+          <div className="relative flex-1 flex items-center justify-center overflow-hidden min-h-[260px] sm:min-h-[340px]">
             {errorMessage && (
-              <div className="absolute top-4 left-4 right-4 z-30 p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-red-300 text-xs flex items-center space-x-2">
+              <div className="absolute top-4 left-4 right-4 z-30 p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-red-300 text-xs flex items-center space-x-2 backdrop-blur-md">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />
                 <span>{errorMessage}</span>
               </div>
@@ -1446,7 +1448,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                 </div>
 
                 {/* Picture-in-Picture (Bottom-Right corner with safe offset) */}
-                <div className="absolute bottom-20 right-3 sm:bottom-4 sm:right-4 z-20 w-28 h-36 sm:w-44 sm:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-[rgba(255,255,255,0.2)] bg-[#17212b] flex items-center justify-center">
+                <div className="absolute bottom-20 right-3 sm:bottom-4 sm:right-4 z-20 w-28 h-36 sm:w-44 sm:h-32 rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 bg-[#17212b] flex items-center justify-center">
                   {(remoteHasVideo || remoteIsScreenSharing) && (isScreenSharing || isVideoActive) ? (
                     <video
                       ref={(el) => {
@@ -1468,30 +1470,40 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                 </div>
               </div>
             ) : (
-              /* Voice Call Audio View - Centered and Fluid */
-              <div className="flex flex-col items-center justify-center space-y-4 py-8 px-4 w-full">
-                <div className="relative">
+              /* Voice Call Audio View - Centered with Rich Ambient Glow */
+              <div className="flex flex-col items-center justify-center space-y-5 py-8 px-4 w-full">
+                <div className="relative flex items-center justify-center">
                   {callStatus === 'connected' && (
-                    <div className="absolute inset-0 -m-4 rounded-full border-2 border-emerald-400/40 animate-ping opacity-75"></div>
+                    <>
+                      <div className="absolute w-40 h-40 rounded-full bg-emerald-500/10 blur-xl animate-pulse"></div>
+                      <div className="absolute inset-0 -m-6 rounded-full border border-emerald-400/30 animate-ping opacity-60"></div>
+                      <div className="absolute inset-0 -m-3 rounded-full border border-emerald-400/50 animate-pulse"></div>
+                    </>
                   )}
                   {callStatus === 'reconnecting' && (
-                    <div className="absolute inset-0 -m-4 rounded-full border-2 border-amber-400/50 animate-spin"></div>
+                    <>
+                      <div className="absolute w-40 h-40 rounded-full bg-amber-500/15 blur-xl animate-pulse"></div>
+                      <div className="absolute inset-0 -m-4 rounded-full border-2 border-amber-400/50 animate-spin"></div>
+                    </>
                   )}
                   {callStatus === 'outgoing_ringing' && (
-                    <div className="absolute inset-0 -m-4 rounded-full border-2 border-[#3fc5f0]/40 animate-pulse"></div>
+                    <>
+                      <div className="absolute w-40 h-40 rounded-full bg-cyan-500/15 blur-xl animate-pulse"></div>
+                      <div className="absolute inset-0 -m-5 rounded-full border border-[#3fc5f0]/40 animate-pulse"></div>
+                    </>
                   )}
-                  <UserAvatar name={peer.display_name} avatarUrl={peer.avatar_url} size="xl" className="shadow-2xl" />
+                  <UserAvatar name={peer.display_name} avatarUrl={peer.avatar_url} size="xl" className="shadow-[0_10px_35px_rgba(0,0,0,0.6)] relative z-10 scale-105" />
                 </div>
                 <div className="text-center space-y-1.5 px-4 max-w-sm">
-                  <p className="text-base sm:text-lg font-bold text-white truncate">{peer.display_name}</p>
-                  <p className="text-xs text-[#7f91a4]">
+                  <p className="text-lg sm:text-2xl font-bold text-white tracking-wide truncate">{peer.display_name}</p>
+                  <p className="text-xs text-[#7f91a4] font-medium">
                     {callStatus === 'connected'
-                      ? 'HD WebRTC Voice Stream Active (Opus 48kHz)'
+                      ? 'HD Voice Stream Active • Opus 48kHz'
                       : callStatus === 'reconnecting'
                       ? 'Reconnecting audio stream...'
                       : callStatus === 'failed'
                       ? 'Connection failed'
-                      : 'Waiting for peer to answer...'}
+                      : 'Calling...'}
                   </p>
                 </div>
               </div>
@@ -1499,7 +1511,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
           </div>
 
           {/* Controls Bar (Mobile touch-friendly >= 48px touch targets, bottom safe-area) */}
-          <div className="p-3 sm:p-4 bg-[#17212b]/95 backdrop-blur-md border-t border-[rgba(255,255,255,0.06)] flex items-center justify-center space-x-3 sm:space-x-5 flex-shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="p-3.5 sm:p-4 bg-[#17212b]/85 backdrop-blur-md border-t border-white/10 flex items-center justify-center space-x-3 sm:space-x-5 flex-shrink-0 pb-[max(0.85rem,env(safe-area-inset-bottom))]">
             {/* Microphone Toggle */}
             <button
               type="button"

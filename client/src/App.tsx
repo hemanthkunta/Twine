@@ -664,9 +664,14 @@ export function App() {
         // J2. WebRTC Call Ended (Global Fallback Cleanup)
         const unsubCallEnded = wsClient.on('webrtc:call_ended', (payload) => {
             console.log('📴 [App] WebRTC call ended event received:', payload);
-            if (activeCallRef.current && (!payload?.call_id || payload.call_id === activeCallRef.current.callId)) {
-                activeCallRef.current = null;
-                setActiveCall(null);
+            if (activeCallRef.current) {
+                const matchesCallId = !payload?.call_id || payload.call_id === activeCallRef.current.callId;
+                const matchesPeer = !payload?.user_id || payload.user_id === activeCallRef.current.peer?.id;
+                if (matchesCallId || matchesPeer) {
+                    activeCallRef.current = null;
+                    setActiveCall(null);
+                    setCallSummaryData(null);
+                }
             }
         });
 
