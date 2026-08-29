@@ -40,8 +40,8 @@ async function runLiveCallTest() {
       const data = await res.json();
       localStorage.setItem('auth_token', data.token);
       localStorage.setItem('refresh_token', data.refreshToken);
-      window.location.reload();
     });
+    await alicePage.reload();
 
     await alicePage.waitForSelector('text="Cloud Connected"', { timeout: 15000 });
     console.log('   ✓ Alice logged in & Cloud Connected.');
@@ -61,8 +61,8 @@ async function runLiveCallTest() {
       const data = await res.json();
       localStorage.setItem('auth_token', data.token);
       localStorage.setItem('refresh_token', data.refreshToken);
-      window.location.reload();
     });
+    await bobPage.reload();
 
     await bobPage.waitForSelector('text="Cloud Connected"', { timeout: 15000 });
     console.log('   ✓ Bob logged in & Cloud Connected.');

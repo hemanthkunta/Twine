@@ -19,12 +19,19 @@ export class PresenceService {
         deviceId?: string
     ): ConnectedClient {
         let userClients = this.connections.get(userId);
-        const isFirstConnection = !userClients || userClients.size === 0;
-
         if (!userClients) {
             userClients = new Set();
             this.connections.set(userId, userClients);
         }
+
+        // Clean out any dead/closing sockets for this user
+        for (const existing of Array.from(userClients)) {
+            if (existing.socket.readyState !== WebSocket.OPEN) {
+                userClients.delete(existing);
+            }
+        }
+
+        const isFirstConnection = userClients.size === 0;
 
         const client: ConnectedClient = {
             userId,
@@ -58,11 +65,17 @@ export class PresenceService {
 
     static isUserOnline(userId: string): boolean {
         const clients = this.connections.get(userId);
-        return Boolean(clients && clients.size > 0);
+        if (!clients) return false;
+        for (const c of Array.from(clients)) {
+            if (c.socket.readyState !== WebSocket.OPEN) {
+                clients.delete(c);
+            }
+        }
+        return clients.size > 0;
     }
 
     static getOnlineUserIds(): string[] {
-        return Array.from(this.connections.keys());
+        return Array.from(this.connections.keys()).filter((userId) => this.isUserOnline(userId));
     }
 
     static sendToUser(userId: string, frame: WSFrame) {
@@ -74,13 +87,18 @@ export class PresenceService {
 
         const data = JSON.stringify(frame);
         let sentCount = 0;
-        for (const client of clients) {
+        for (const client of Array.from(clients)) {
             if (client.socket.readyState === WebSocket.OPEN) {
                 client.socket.send(data);
                 sentCount++;
+            } else {
+                clients.delete(client);
             }
         }
-        console.log(`[PresenceService] sendToUser: Sent frame "${frame.type}" to ${sentCount}/${clients.size} sockets of user ${userId}`);
+        if (clients.size === 0) {
+            this.connections.delete(userId);
+        }
+        console.log(`[PresenceService] sendToUser: Sent frame "${frame.type}" to ${sentCount} active sockets of user ${userId}`);
     }
 
     static broadcastToUsers(userIds: string[], frame: WSFrame, exclude?: string | WebSocket) {

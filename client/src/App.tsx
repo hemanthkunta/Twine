@@ -635,12 +635,12 @@ export function App() {
         const unsubCall = wsClient.on('webrtc:incoming_call', (payload) => {
             console.log('📞 Received incoming WebRTC call from:', payload.caller?.display_name, payload);
             if (activeCallRef.current) {
-                // If this is a duplicate delivery for the same call_id, ignore it safely without hanging up
-                if (activeCallRef.current.callId === payload.call_id) {
-                    console.log('[WebRTC] Duplicate incoming_call event ignored for callId:', payload.call_id);
+                // If this is a duplicate delivery for the same call or same caller, ignore safely without hanging up
+                if (activeCallRef.current.callId === payload.call_id || activeCallRef.current.peer?.id === payload.caller_id) {
+                    console.log('[WebRTC] Duplicate/redundant incoming_call event received for active call with peer:', payload.caller_id);
                     return;
                 }
-                console.warn('[WebRTC] User is currently on another call. Replying with busy.');
+                console.warn('[WebRTC] User is currently on another call with a different peer. Replying with busy.');
                 wsClient.send('webrtc:hangup', {
                     call_id: payload.call_id,
                     target_user_id: payload.caller_id,
@@ -943,22 +943,27 @@ export function App() {
         }
     };
 
-    const handleEndCall = async () => {
+    const handleEndCall = async (callDuration = 0) => {
         if (activeCall) {
             const peerName = activeCall.peer.display_name;
             activeCallRef.current = null;
             setActiveCall(null);
-            try {
-                // Optional call summary
-                const summary = await ApiService.getCallSummary(60, peerName);
-                if (summary) {
-                    setCallSummaryData(summary);
+            if (callDuration >= 15) {
+                try {
+                    // Only request AI summary for calls lasting 15+ seconds
+                    const summary = await ApiService.getCallSummary(callDuration, peerName);
+                    if (summary) {
+                        setCallSummaryData(summary);
+                    }
+                } catch {
+                    // Ignore
                 }
-            } catch {
-                // Ignore
+            } else {
+                setCallSummaryData(null);
             }
         } else {
             activeCallRef.current = null;
+            setCallSummaryData(null);
         }
     };
 
