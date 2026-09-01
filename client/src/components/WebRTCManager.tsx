@@ -182,6 +182,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     const iceRestartAttemptsRef = useRef<number>(0);
     const hasEndedRef = useRef<boolean>(false);
     const outgoingCallStartedRef = useRef(false);
+    const callGenerationRef = useRef(0);
 
     /**
      * Helper: Locate Video Transceiver / Sender
@@ -690,12 +691,20 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
      * Initiator: Start Outgoing Call with fresh dynamic TURN credentials
      */
     const startOutgoingCall = async () => {
+        const generation = callGenerationRef.current;
+
         try {
             armConnectionWatchdog(25000);
             const [stream, iceConfig] = await Promise.all([
                 getLocalMediaStream(),
                 fetchIceConfiguration(),
             ]);
+
+            if (generation !== callGenerationRef.current || hasEndedRef.current) {
+                console.log('[WebRTC] Outgoing call initialization was cancelled.');
+                stream.getTracks().forEach((track) => track.stop());
+                return;
+            }
 
             localStreamRef.current = stream;
             attachRemoteMedia();
@@ -1069,6 +1078,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
      * Stops all active camera/mic tracks on senders and local streams, clears polling intervals, and closes PC
      */
     const cleanup = () => {
+        callGenerationRef.current += 1;
         disarmConnectionWatchdog();
         if (statsIntervalRef.current) {
             clearInterval(statsIntervalRef.current);
