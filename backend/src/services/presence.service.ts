@@ -43,6 +43,11 @@ export class PresenceService {
         userClients.add(client);
         AuthService.updateLastSeen(userId);
 
+        console.log(
+            `[PresenceService] REGISTERED user=${userId} device=${deviceId || 'unknown'} ` +
+                `connections=${userClients.size} socketState=${socket.readyState}`
+        );
+
         if (isFirstConnection) {
             this.broadcastPresence(userId, true);
         }
@@ -55,6 +60,12 @@ export class PresenceService {
         if (!userClients) return;
 
         userClients.delete(client);
+
+        console.log(
+            `[PresenceService] REMOVED user=${client.userId} ` +
+                `device=${client.deviceId || 'unknown'} ` +
+                `remaining=${userClients.size} socketState=${client.socket.readyState}`
+        );
 
         if (userClients.size === 0) {
             this.connections.delete(client.userId);
@@ -81,7 +92,9 @@ export class PresenceService {
     static sendToUser(userId: string, frame: WSFrame) {
         const clients = this.connections.get(userId);
         if (!clients || clients.size === 0) {
-            console.warn(`[PresenceService] sendToUser: No active client connections for user ${userId}`);
+            console.warn(
+                `[PresenceService] sendToUser: No active client connections for user ${userId}`
+            );
             return;
         }
 
@@ -98,7 +111,9 @@ export class PresenceService {
         if (clients.size === 0) {
             this.connections.delete(userId);
         }
-        console.log(`[PresenceService] sendToUser: Sent frame "${frame.type}" to ${sentCount} active sockets of user ${userId}`);
+        console.log(
+            `[PresenceService] sendToUser: Sent frame "${frame.type}" to ${sentCount} active sockets of user ${userId}`
+        );
     }
 
     static broadcastToUsers(userIds: string[], frame: WSFrame, exclude?: string | WebSocket) {

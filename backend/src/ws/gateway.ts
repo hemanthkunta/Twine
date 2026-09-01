@@ -82,7 +82,10 @@ export function setupWebSocketGateway(server: Server) {
                     }
 
                     // Enforce session validity (revocation check)
-                    if (!decoded.session_id || !AuthService.isSessionValid(decoded.session_id, decoded.id)) {
+                    if (
+                        !decoded.session_id ||
+                        !AuthService.isSessionValid(decoded.session_id, decoded.id)
+                    ) {
                         sendError('UNAUTHORIZED', 'Session revoked or invalid', correlation_id);
                         socket.close(4001, 'Session revoked');
                         return;
@@ -144,7 +147,11 @@ export function setupWebSocketGateway(server: Server) {
 
                     // Block check: verify if sender or recipient has blocked the other
                     if (peerId && BlockService.isBlocked(senderId, peerId)) {
-                        sendError('BLOCKED', 'Message cannot be delivered due to blocking', correlation_id);
+                        sendError(
+                            'BLOCKED',
+                            'Message cannot be delivered due to blocking',
+                            correlation_id
+                        );
                         return;
                     }
 
@@ -196,10 +203,7 @@ export function setupWebSocketGateway(server: Server) {
                     // 🤖 Check for AI Bot trigger (@ai or Direct AI Chat)
                     const isDirectAIChat = memberIds.includes('usr_ai_bot');
                     const text = message.content_text || '';
-                    const hasAITrigger = text
-                        .trim()
-                        .toLowerCase()
-                        .startsWith('@ai');
+                    const hasAITrigger = text.trim().toLowerCase().startsWith('@ai');
 
                     if (isDirectAIChat || hasAITrigger) {
                         setTimeout(() => {
@@ -377,7 +381,10 @@ export function setupWebSocketGateway(server: Server) {
                 // 6. Chat: Pin Message
                 if (type === 'chat:pin_message') {
                     const pinPayload = payload as WSPinMessagePayload;
-                    if (!pinPayload.chat_id || !ChatService.isChatMember(pinPayload.chat_id, senderId)) {
+                    if (
+                        !pinPayload.chat_id ||
+                        !ChatService.isChatMember(pinPayload.chat_id, senderId)
+                    ) {
                         sendError('FORBIDDEN', 'You are not a member of this chat', correlation_id);
                         return;
                     }
@@ -489,25 +496,47 @@ export function setupWebSocketGateway(server: Server) {
                     if (!caller) return;
 
                     if (BlockService.isBlocked(senderId, callPayload.target_user_id)) {
-                        sendFrame('webrtc:call_ended', {
-                            call_id: callPayload.call_id,
-                            user_id: callPayload.target_user_id,
-                            reason: 'blocked',
-                        }, correlation_id);
+                        sendFrame(
+                            'webrtc:call_ended',
+                            {
+                                call_id: callPayload.call_id,
+                                user_id: callPayload.target_user_id,
+                                reason: 'blocked',
+                            },
+                            correlation_id
+                        );
                         return;
                     }
 
-                    if (!PresenceService.isUserOnline(callPayload.target_user_id)) {
-                        console.warn(`[WebRTC Call] Target user ${callPayload.target_user_id} is currently offline.`);
-                        sendFrame('webrtc:call_ended', {
-                            call_id: callPayload.call_id,
-                            user_id: callPayload.target_user_id,
-                            reason: 'offline',
-                        }, correlation_id);
+                    const targetOnline = PresenceService.isUserOnline(callPayload.target_user_id);
+
+                    console.log(
+                        `[WebRTC Call] Presence check: ` +
+                            `caller=${senderId} ` +
+                            `target=${callPayload.target_user_id} ` +
+                            `targetOnline=${targetOnline} ` +
+                            `onlineUsers=${PresenceService.getOnlineUserIds().join(',') || 'NONE'}`
+                    );
+
+                    if (!targetOnline) {
+                        console.warn(
+                            `[WebRTC Call] Target user ${callPayload.target_user_id} is currently offline.`
+                        );
+                        sendFrame(
+                            'webrtc:call_ended',
+                            {
+                                call_id: callPayload.call_id,
+                                user_id: callPayload.target_user_id,
+                                reason: 'offline',
+                            },
+                            correlation_id
+                        );
                         return;
                     }
 
-                    console.log(`[WebRTC Call] Dispatching incoming call from ${caller.display_name} (${senderId}) to user ${callPayload.target_user_id}`);
+                    console.log(
+                        `[WebRTC Call] Dispatching incoming call from ${caller.display_name} (${senderId}) to user ${callPayload.target_user_id}`
+                    );
 
                     PresenceService.sendToUser(callPayload.target_user_id, {
                         type: 'webrtc:incoming_call',
@@ -591,7 +620,6 @@ export function setupWebSocketGateway(server: Server) {
                     return;
                 }
 
-
                 // 13. Presence: Heartbeat
                 if (type === 'presence:heartbeat') {
                     AuthService.updateLastSeen(senderId);
@@ -617,18 +645,31 @@ export function setupWebSocketGateway(server: Server) {
             }
         });
 
-        socket.on('close', () => {
+        socket.on('close', (code, reason) => {
+            console.warn(
+                `[WebSocket] CLOSED user=${clientSession?.userId || 'unauthenticated'} ` +
+                    `code=${code} reason=${reason.toString()}`
+            );
+
             MetricsService.decrementWsConnections();
+
             if (registeredClient) {
                 PresenceService.removeConnection(registeredClient);
+                registeredClient = null;
             }
         });
 
         socket.on('error', (err) => {
+            console.error(
+                `[WebSocket] ERROR user=${clientSession?.userId || 'unauthenticated'}:`,
+                err
+            );
+
             MetricsService.decrementWsConnections();
-            console.error('Socket error:', err);
+
             if (registeredClient) {
                 PresenceService.removeConnection(registeredClient);
+                registeredClient = null;
             }
         });
     });

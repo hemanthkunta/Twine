@@ -177,7 +177,6 @@ export function App() {
                 setShowAuthModal(true);
             });
 
-
         // Network Online / Offline Detection
         const handleOnline = () => {
             setTransportMode('CLOUD');
@@ -394,7 +393,9 @@ export function App() {
 
                 // Preserve local QUEUED or pending optimistic messages that haven't landed yet
                 setMessages((prev) => {
-                    const pending = prev.filter((m) => m.id.startsWith('temp_') || m.status === 'QUEUED');
+                    const pending = prev.filter(
+                        (m) => m.id.startsWith('temp_') || m.status === 'QUEUED'
+                    );
                     const loadedIds = new Set(loadedMessages.map((m) => m.id));
                     const pendingNotLoaded = pending.filter((m) => !loadedIds.has(m.id));
                     return [...loadedMessages, ...pendingNotLoaded];
@@ -633,14 +634,26 @@ export function App() {
 
         // J. WebRTC Incoming Call
         const unsubCall = wsClient.on('webrtc:incoming_call', (payload) => {
-            console.log('📞 Received incoming WebRTC call from:', payload.caller?.display_name, payload);
+            console.log(
+                '📞 Received incoming WebRTC call from:',
+                payload.caller?.display_name,
+                payload
+            );
             if (activeCallRef.current) {
                 // If this is a duplicate delivery for the same call or same caller, ignore safely without hanging up
-                if (activeCallRef.current.callId === payload.call_id || activeCallRef.current.peer?.id === payload.caller_id) {
-                    console.log('[WebRTC] Duplicate/redundant incoming_call event received for active call with peer:', payload.caller_id);
+                if (
+                    activeCallRef.current.callId === payload.call_id ||
+                    activeCallRef.current.peer?.id === payload.caller_id
+                ) {
+                    console.log(
+                        '[WebRTC] Duplicate/redundant incoming_call event received for active call with peer:',
+                        payload.caller_id
+                    );
                     return;
                 }
-                console.warn('[WebRTC] User is currently on another call with a different peer. Replying with busy.');
+                console.warn(
+                    '[WebRTC] User is currently on another call with a different peer. Replying with busy.'
+                );
                 wsClient.send('webrtc:hangup', {
                     call_id: payload.call_id,
                     target_user_id: payload.caller_id,
@@ -664,15 +677,23 @@ export function App() {
         // J2. WebRTC Call Ended (Global Fallback Cleanup)
         const unsubCallEnded = wsClient.on('webrtc:call_ended', (payload) => {
             console.log('📴 [App] WebRTC call ended event received:', payload);
-            if (activeCallRef.current) {
-                const matchesCallId = !payload?.call_id || payload.call_id === activeCallRef.current.callId;
-                const matchesPeer = !payload?.user_id || payload.user_id === activeCallRef.current.peer?.id;
-                if (matchesCallId || matchesPeer) {
-                    activeCallRef.current = null;
-                    setActiveCall(null);
-                    setCallSummaryData(null);
-                }
+
+            const active = activeCallRef.current;
+            if (!active) return;
+
+            const matchesCallId = !payload?.call_id || payload.call_id === active.callId;
+
+            const matchesPeer = !payload?.user_id || payload.user_id === active.peer?.id;
+
+            if (!matchesCallId && !matchesPeer) {
+                return;
             }
+
+            // Do NOT immediately setActiveCall(null) here.
+            //
+            // WebRTCManager owns media/peer-connection cleanup.
+            // It will call onEndCall() after cleanup is complete.
+            console.log('[App] Matching call-ended event. Waiting for WebRTCManager cleanup.');
         });
 
         // K. Auth Ack
@@ -941,7 +962,9 @@ export function App() {
     };
 
     const handleClearChat = (chatId: string) => {
-        if (window.confirm('Are you sure you want to clear message history for this conversation?')) {
+        if (
+            window.confirm('Are you sure you want to clear message history for this conversation?')
+        ) {
             setMessages([]);
             offlineStorage.saveMessagesLocally([]);
             alert('🧹 Conversation history cleared.');
@@ -971,7 +994,6 @@ export function App() {
             setCallSummaryData(null);
         }
     };
-
 
     const activeChat = chats.find((c) => c.id === activeChatId);
 
@@ -1101,9 +1123,10 @@ export function App() {
                                             : false
                                     }
                                     isTyping={typingUsers.has(activeChat.id)}
-                                    isBlocked={
-                                        Boolean(activeChat.peer_user && blockedUserIds.has(activeChat.peer_user.id))
-                                    }
+                                    isBlocked={Boolean(
+                                        activeChat.peer_user &&
+                                        blockedUserIds.has(activeChat.peer_user.id)
+                                    )}
                                     isMuted={mutedChatIds.has(activeChat.id)}
                                     transportMode={transportMode}
                                     meshPeerCount={meshService.getPeers().length}
@@ -1130,7 +1153,9 @@ export function App() {
                                     onStartCall={(type) => {
                                         if (activeChat.peer_user) {
                                             if (blockedUserIds.has(activeChat.peer_user.id)) {
-                                                alert('❌ Cannot start call with a blocked contact.');
+                                                alert(
+                                                    '❌ Cannot start call with a blocked contact.'
+                                                );
                                                 return;
                                             }
                                             setCallSummaryData(null);
@@ -1166,14 +1191,21 @@ export function App() {
                                     onSelectReply={(replyText) => handleSendMessage(replyText)}
                                 />
 
-                                {activeChat.peer_user && blockedUserIds.has(activeChat.peer_user.id) ? (
+                                {activeChat.peer_user &&
+                                blockedUserIds.has(activeChat.peer_user.id) ? (
                                     <div className="p-4 bg-[#17212b] border-t border-theme flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-red-300 select-none">
                                         <div className="flex items-center space-x-2">
                                             <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse flex-shrink-0"></span>
-                                            <span>You have blocked this contact. Unblock to send messages or start calls.</span>
+                                            <span>
+                                                You have blocked this contact. Unblock to send
+                                                messages or start calls.
+                                            </span>
                                         </div>
                                         <button
-                                            onClick={() => activeChat.peer_user && handleToggleBlock(activeChat.peer_user.id)}
+                                            onClick={() =>
+                                                activeChat.peer_user &&
+                                                handleToggleBlock(activeChat.peer_user.id)
+                                            }
                                             className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl shadow transition-all flex-shrink-0"
                                         >
                                             Unblock Contact
@@ -1231,7 +1263,8 @@ export function App() {
                             Twine Messenger
                         </h3>
                         <p className="text-xs text-[#7f91a4] mb-6">
-                            Private real-time messenger. Please sign in to access your conversations.
+                            Private real-time messenger. Please sign in to access your
+                            conversations.
                         </p>
                         <button
                             onClick={() => setShowAuthModal(true)}
@@ -1242,7 +1275,6 @@ export function App() {
                     </div>
                 )}
             </div>
-
 
             {/* Telegram-Style Mobile Bottom Navigation Bar */}
             {currentUser && !mobileChatOpen && (
@@ -1272,14 +1304,18 @@ export function App() {
                                         if (perm === 'granted') {
                                             try {
                                                 await ApiService.subscribePush({
-                                                    endpoint: 'https://fcm.googleapis.com/fcm/send/twine_web_push',
+                                                    endpoint:
+                                                        'https://fcm.googleapis.com/fcm/send/twine_web_push',
                                                     keys: {
                                                         p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QT9Ac',
                                                         auth: 'tBHItJI5svbpez7KI4CCXg',
                                                     },
                                                 });
                                             } catch (pushErr) {
-                                                console.warn('[Push] Background registration notice:', pushErr);
+                                                console.warn(
+                                                    '[Push] Background registration notice:',
+                                                    pushErr
+                                                );
                                             }
                                         }
                                     })
