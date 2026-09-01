@@ -15,6 +15,7 @@ import { BlockService } from '../services/block.service.js';
 import { RateLimiter } from '../middleware/rateLimiter.js';
 import { TurnService } from '../services/turn.service.js';
 import { MetricsService } from '../services/metrics.service.js';
+import { LinkPreviewService } from '../services/LinkPreviewService.js';
 import { checkDbHealth, db } from '../db/index.js';
 import { config } from '../config/index.js';
 
@@ -824,6 +825,43 @@ router.get('/turn-credentials', authMiddleware, async (req: Request, res: Respon
     } catch (err: any) {
         console.error('[TURN Endpoint Error]', err);
         res.status(500).json({ error: 'Failed to generate TURN credentials' });
+    }
+});
+
+// Link Preview Endpoint
+router.post('/links/preview', authMiddleware, async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { url } = req.body;
+
+    if (!url || typeof url !== 'string') {
+        res.status(400).json({
+            error: 'URL is required',
+            code: 'VALIDATION_001',
+        });
+        return;
+    }
+
+    try {
+        // Check if we have a cached preview first
+        const cachedPreview = LinkPreviewService.getCachedPreview(url);
+        if (cachedPreview) {
+            res.json({ preview: cachedPreview });
+            return;
+        }
+
+        // Fetch fresh preview
+        const preview = await LinkPreviewService.fetchPreview(url);
+        if (preview) {
+            res.json({ preview });
+        } else {
+            res.status(404).json({
+                error: 'Unable to fetch preview for the provided URL',
+                code: 'LINK_PREVIEW_001',
+            });
+        }
+    } catch (err: any) {
+        console.error('[Link Preview Endpoint Error]', err);
+        res.status(500).json({ error: 'Failed to generate link preview' });
     }
 });
 

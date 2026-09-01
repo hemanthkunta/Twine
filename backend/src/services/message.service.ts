@@ -511,11 +511,24 @@ export class MessageService {
 
         let mediaMetadata = undefined;
         let poll: Poll | undefined = undefined;
+        let linkPreview: LinkPreviewData | undefined = undefined;
         if (row.media_metadata) {
             try {
                 mediaMetadata = JSON.parse(row.media_metadata);
                 if (mediaMetadata && mediaMetadata.pollId) {
                     poll = this.pollsStore.get(mediaMetadata.pollId);
+                }
+                // Extract link preview data if present
+                if (mediaMetadata && mediaMetadata.url) {
+                    linkPreview = {
+                        url: mediaMetadata.url,
+                        title: mediaMetadata.title,
+                        description: mediaMetadata.description,
+                        imageUrl: mediaMetadata.imageUrl,
+                        siteName: mediaMetadata.siteName,
+                        faviconUrl: mediaMetadata.faviconUrl,
+                        type: mediaMetadata.type
+                    };
                 }
             } catch {}
         }
@@ -552,6 +565,7 @@ export class MessageService {
             is_deleted: Boolean(row.is_deleted),
             created_at: row.created_at,
             status,
+            linkPreview,
             sender: {
                 id: row.sender_id,
                 username: row.sender_username,

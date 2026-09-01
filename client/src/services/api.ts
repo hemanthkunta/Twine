@@ -593,4 +593,15 @@ export class ApiService {
     }> {
         return this.request('/turn-credentials');
     }
+
+    /**
+     * Fetch link preview data for a URL
+     * Uses the backend link preview service to extract Open Graph/Twitter Card metadata
+     */
+    static async getLinkPreview(url: string): Promise<{ preview: any }> {
+        return this.request('/links/preview', {
+            method: 'POST',
+            body: JSON.stringify({ url }),
+        });
+    }
 }

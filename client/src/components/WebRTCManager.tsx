@@ -1059,19 +1059,37 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     };
 
     const handleHangup = () => {
-        if (hasEndedRef.current) return;
+        console.trace('[WebRTC DEBUG] handleHangup() CALLED');
+
+        if (hasEndedRef.current) {
+            console.log('[WebRTC DEBUG] handleHangup ignored: call already ended');
+            return;
+        }
+
         hasEndedRef.current = true;
+
         sounds.stopRingtone();
         sounds.stopDialTone();
         sounds.playCallEnd();
+
+        console.log('[WebRTC DEBUG] Sending hangup:', {
+            call_id: callIdRef.current,
+            target_user_id: peer.id,
+            reason: 'user_ended',
+        });
+
         wsClient.send('webrtc:hangup', {
             call_id: callIdRef.current,
             target_user_id: peer.id,
             reason: 'user_ended',
         });
+
         cleanup();
         onEndCall(durationRef.current);
     };
+
+    /**
+ * 4 & 5. COMPLETE RESOURCE CLEANUP
 
     /**
      * 4 & 5. COMPLETE RESOURCE CLEANUP (Hardware camera/mic release on ALL paths)

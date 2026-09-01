@@ -983,6 +983,23 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                     />
                                                 )}
 
+                                                {/* Link Preview */}
+                                                {(msg.linkPreview || (msg.media_metadata && msg.media_metadata.url)) && (
+                                                    <div className="my-2">
+                                                        <LinkPreview
+                                                            url={msg.linkPreview?.url || msg.media_metadata?.url}
+                                                            previewData={msg.linkPreview}
+                                                            onPreviewGenerated={(data) => {
+                                                                // Update message with link preview data if missing
+                                                                if (!msg.linkPreview) {
+                                                                    console.log('[MessageArea] Link preview generated:', data);
+                                                                    // Note: In a real app, you might want to update the message in state or backend
+                                                                }
+                                                            }}
+                                                        />
+                                                    </div>
+                                                )}
+
                                                 {/* Text Body with Clean Formatting */}
                                                 {msg.content_text && msg.type !== 'POLL' && (
                                                     <div className="text-sm font-normal leading-relaxed break-words pr-14 pb-0.5">
