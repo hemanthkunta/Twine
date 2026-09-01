@@ -39,8 +39,9 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const header = req.headers.authorization;
 
     if (!header || !header.startsWith('Bearer ')) {
-        res.status(401).json({
+        res.status(419).json({
             error: 'Missing or malformed Authorization header',
+            code: 'AUTH_001',
         });
         return;
     }
@@ -48,8 +49,9 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const token = header.slice('Bearer '.length).trim();
 
     if (!token) {
-        res.status(401).json({
+        res.status(419).json({
             error: 'Missing access token',
+            code: 'AUTH_002',
         });
         return;
     }
@@ -57,16 +59,18 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const decoded = AuthService.verifyToken(token);
 
     if (!decoded) {
-        res.status(401).json({
+        res.status(419).json({
             error: 'Invalid or expired token',
+            code: 'AUTH_003',
         });
         return;
     }
 
     // Every access token must be bound to a real database session.
     if (!decoded.session_id) {
-        res.status(401).json({
+        res.status(419).json({
             error: 'Invalid session',
+            code: 'AUTH_004',
         });
         return;
     }
@@ -75,8 +79,9 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const sessionValid = AuthService.isSessionValid(decoded.session_id, decoded.id);
 
     if (!sessionValid) {
-        res.status(401).json({
+        res.status(419).json({
             error: 'Session expired or revoked',
+            code: 'AUTH_005',
         });
         return;
     }
@@ -97,6 +102,7 @@ router.post('/auth/register', authRateLimiter, (req: Request, res: Response) => 
         if (!phoneNumber || !username || !displayName || !password) {
             res.status(400).json({
                 error: 'phoneNumber, username, displayName, and password are required',
+                code: 'VALIDATION_001',
             });
             return;
         }
@@ -128,6 +134,7 @@ router.post('/auth/login', authRateLimiter, (req: Request, res: Response) => {
         if (!identifier || !password) {
             res.status(400).json({
                 error: 'identifier and password are required',
+                code: 'VALIDATION_002',
             });
             return;
         }
@@ -153,6 +160,7 @@ router.post('/auth/refresh', authRateLimiter, (req: Request, res: Response) => {
         if (!refreshToken || typeof refreshToken !== 'string') {
             res.status(400).json({
                 error: 'refreshToken is required',
+                code: 'VALIDATION_003',
             });
             return;
         }
@@ -169,7 +177,10 @@ router.post('/auth/refresh', authRateLimiter, (req: Request, res: Response) => {
 
 router.post('/auth/demo-login', authRateLimiter, (req: Request, res: Response) => {
     if (config.isProduction) {
-        res.status(403).json({ error: 'Demo login is disabled in production environments' });
+        res.status(403).json({
+            error: 'Demo login is disabled in production environments',
+            code: 'AUTH_006',
+        });
         return;
     }
 
@@ -190,6 +201,7 @@ router.get('/auth/demo-users', authRateLimiter, (_req: Request, res: Response) =
     if (config.isProduction) {
         res.status(403).json({
             error: 'Demo user directory is disabled in production environments',
+            code: 'AUTH_007',
         });
         return;
     }

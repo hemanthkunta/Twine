@@ -1,6 +1,6 @@
 import { User, UserSummary, Chat, Message, UserSession } from '../types/index';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '/api';
 
 export class ApiService {
     private static token: string | null = localStorage.getItem('auth_token');

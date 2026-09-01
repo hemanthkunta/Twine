@@ -157,19 +157,19 @@ export interface WebRTCCallPayload {
   target_user_id: string;
   call_type: 'voice' | 'video';
   caller: UserSummary;
-  offer?: any; // RTCSessionDescriptionInit
+  offer: RTCSessionDescriptionInit;
 }
 
 export interface WebRTCAnswerPayload {
   call_id: string;
   target_user_id: string;
-  answer: any; // RTCSessionDescriptionInit
+  answer: RTCSessionDescriptionInit;
 }
 
 export interface WebRTCIceCandidatePayload {
   call_id: string;
   target_user_id: string;
-  candidate: any; // RTCIceCandidateInit
+  candidate: RTCIceCandidateInit;
 }
 
 export interface WebRTCHangupPayload {
@@ -185,6 +185,17 @@ export interface WSAuthHandshakePayload {
   device_type?: string;
 }
 
+export interface MediaMetadata {
+  width?: number;
+  height?: number;
+  duration?: number;
+  size?: number;
+  blurhash?: string;
+  mime_type?: string;
+  file_name?: string;
+  waveform?: number[];
+}
+
 export interface WSSendMessagePayload {
   temp_id: string;
   chat_id: string;
@@ -193,8 +204,8 @@ export interface WSSendMessagePayload {
   reply_to_id?: string;
   ciphertext_payload?: string;
   media_url?: string;
-  media_metadata?: any;
-  poll?: any;
+  media_metadata?: MediaMetadata;
+  poll?: Poll;
 }
 
 export interface WSEditMessagePayload {
@@ -232,6 +243,28 @@ export interface WSReadReceiptPayload {
 
 export interface WSHeartbeatPayload {
   status: 'online' | 'away';
+}
+
+// E2EE Group Key Distribution
+export interface WSSenderKeyDistributionPayload {
+  chat_id: string;
+  sender_id: string;
+  chain_key_hex: string;
+  iteration: number;
+  signing_pub_key_hex: string;
+}
+
+export interface WSSenderKeyDistributionBroadcastPayload {
+  chat_id: string;
+  sender_id: string;
+  chain_key_hex: string;
+  iteration: number;
+  signing_pub_key_hex: string;
+}
+
+export interface WSRequestSenderKeyPayload {
+  chat_id: string;
+  sender_id: string;
 }
 
 // Server -> Client Broadcast Payloads

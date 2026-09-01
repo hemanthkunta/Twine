@@ -76,6 +76,19 @@ export function initDatabase() {
         updated_at TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS group_sender_keys (
+        id TEXT PRIMARY KEY,
+        chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+        sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        chain_key_hex TEXT NOT NULL,
+        iteration INTEGER NOT NULL DEFAULT 0,
+        signing_pub_key_hex TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(chat_id, sender_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_group_sender_keys_chat ON group_sender_keys(chat_id);
+
 
     CREATE TABLE IF NOT EXISTS chats (
       id TEXT PRIMARY KEY,

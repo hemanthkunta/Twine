@@ -23,6 +23,7 @@ import { wsClient } from '../services/ws';
 import { sounds } from '../services/sound';
 import { ApiService } from '../services/api';
 import { UserAvatar } from './UserAvatar';
+import { getIceServers } from '../config/webrtc';
 
 interface WebRTCManagerProps {
   peer: UserSummary;
@@ -46,7 +47,7 @@ interface CallQualityStats {
 
 /**
  * Dynamic Ephemeral TURN & STUN Configuration Fetcher
- * 
+ *
  * Fetches short-lived, per-call time-limited HMAC-SHA1 TURN credentials from the backend
  * immediately before peer connection creation. Never embeds static secrets in the client bundle.
  */
