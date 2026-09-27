@@ -99,6 +99,6 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 
 These two suites cover the Phase 1 pillars (Auth/OTP, 1:1 chat, real-time WS, media):
 
-- `cd backend && npm run test:otp` — in-process OTP regression suite (no server needed).
-- `cd backend && npm run test:phase1` — live integration suite; requires the backend to
+- `cd backend && npm run test:otp` â€” in-process OTP regression suite (no server needed).
+- `cd backend && npm run test:phase1` â€” live integration suite; requires the backend to
   already be listening (`cd backend && npm run dev` in another shell).
