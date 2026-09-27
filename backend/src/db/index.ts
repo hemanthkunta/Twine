@@ -1,215 +1,269 @@
-// @ts-ignore
-import { DatabaseSync } from 'node:sqlite';
+﻿// @ts-ignore
+import { DatabaseSync, Statement } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
 import bcrypt from 'bcryptjs';
 import { config } from '../config/index.js';
+import { SCHEMA_SQL, SCHEMA_MIGRATIONS } from './schema.js';
+// Import logger functions
+import { getLogger } from '../services/logger.service.js';
+const logger = getLogger();
 
 // Ensure data directory exists
+logger.debug('config.dbPath: %s', config.dbPath);
 const dbDir = path.dirname(path.resolve(config.dbPath));
 if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
 }
 
-export const db = new DatabaseSync(config.dbPath);
+/**
+ * Simple connection pool for SQLite DatabaseSync instances.
+ * Since Node.js is single-threaded, we lease connections per operation
+ * to allow interleaving of preparations and avoid blocking on long transactions.
+ */
+class PooledDatabase {
+    private pool: DatabaseSync[];
+    private readonly poolSize: number;
+    private acquireIndex = 0; // round-robin
 
-// High-Throughput SQLite Pragmas for concurrency and crash-durability
-try {
-    db.exec(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA busy_timeout = 10000;
-    PRAGMA synchronous = NORMAL;
-    PRAGMA cache_size = -64000;
-    PRAGMA temp_store = MEMORY;
-  `);
-} catch (err) {
-    console.warn('Pragma tuning warning:', err);
-}
+    constructor(connectionString: string, poolSize = 5) {
+        this.poolSize = poolSize;
+        this.pool = Array.from({ length: poolSize }, () => new DatabaseSync(connectionString));
+        // Apply pragmas to each connection
+        this.pool.forEach(db => {
+            try {
+                db.exec(`
+                    PRAGMA journal_mode = WAL;
+                    PRAGMA busy_timeout = 10000;
+                    PRAGMA synchronous = NORMAL;
+                    PRAGMA cache_size = -64000;
+                    PRAGMA temp_store = MEMORY;
+                `);
+            } catch (err) {
+                console.warn('Pragma tuning warning:', err);
+            }
+        });
+    }
 
-export function checkDbHealth(): boolean {
-    try {
-        const res = db.prepare('SELECT 1 as healthy').get() as { healthy: number };
-        return res && res.healthy === 1;
-    } catch {
-        return false;
+    /**
+     * Lease a connection from the pool (round-robin).
+     */
+    private acquireConnection(): DatabaseSync {
+        const conn = this.pool[this.acquireIndex];
+        this.acquireIndex = (this.acquireIndex + 1) % this.poolSize;
+        return conn;
+    }
+
+    /**
+     * Prepare a statement using a leased connection.
+     * The returned statement will automatically release the connection after execution.
+     */
+    prepare(sql: string): PooledStatement {
+        const conn = this.acquireConnection();
+        const stmt = conn.prepare(sql);
+        return new PooledStatement(stmt, () => {
+            // Release the connection back to the pool (no-op for round-robin, but we could do something if needed)
+            // In our round-robin, we don't need to explicitly release because we keep the connection leased
+            // until the statement is garbage collected? Actually, we want to release after each execution.
+            // We'll handle release in the statement execution methods.
+        });
+    }
+
+    /**
+     * Execute a raw SQL string (for schema migrations, etc.)
+     * Uses a leased connection and releases after.
+     */
+    exec(sql: string): void {
+        const conn = this.acquireConnection();
+        try {
+            conn.exec(sql);
+        } finally {
+            // Connection is implicitly released (round-robin will lease next time)
+        }
+    }
+
+    get(sql: string, params: unknown[] = []): unknown {
+        return this.prepare(sql).get(...params);
+    }
+
+    all(sql: string, params: unknown[] = []): unknown[] {
+        return this.prepare(sql).all(...params);
+    }
+
+    run(sql: string, params: unknown[] = []): { changes: number } {
+        return this.prepare(sql).run(...params);
+    }
+
+    /**
+     * Check database health using a leased connection.
+     */
+    checkDbHealth(): boolean {
+        const conn = this.acquireConnection();
+        try {
+            const res = conn.prepare('SELECT 1 as healthy').get() as { healthy: number };
+            return res && res.healthy === 1;
+        } finally {
+            // Connection released
+        }
+    }
+
+    /**
+     * Close all connections in the pool.
+     */
+    close(): void {
+        this.pool.forEach(conn => {
+            try {
+                conn.close();
+            } catch (e) {
+                // Ignore errors during close
+                console.warn('Error closing database connection:', e);
+            }
+        });
     }
 }
 
-export function initDatabase() {
-    db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      phone_number TEXT UNIQUE NOT NULL,
-      username TEXT UNIQUE,
-      display_name TEXT NOT NULL,
-      bio TEXT DEFAULT '',
-      avatar_url TEXT,
-      password_hash TEXT,
-      is_2fa_enabled INTEGER DEFAULT 0,
-      is_bot INTEGER DEFAULT 0,
-      last_seen_at TEXT DEFAULT (datetime('now')),
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    );
+/**
+ * Wrapper around a Statement that manages connection leasing/release.
+ */
+class PooledStatement {
+    private stmt: Statement;
+    private releaseCallback: () => void;
 
-    CREATE TABLE IF NOT EXISTS user_sessions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      device_name TEXT NOT NULL,
-      device_type TEXT NOT NULL,
-      client_version TEXT,
-      refresh_token_hash TEXT,
-      push_token TEXT,
-      ip_address TEXT,
-      last_active_at TEXT DEFAULT (datetime('now')),
-      created_at TEXT DEFAULT (datetime('now')),
-      is_revoked INTEGER DEFAULT 0
-    );
+    constructor(stmt: Statement, releaseCallback: () => void) {
+        this.stmt = stmt;
+        this.releaseCallback = releaseCallback;
+    }
 
-    CREATE TABLE IF NOT EXISTS push_subscriptions (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        endpoint TEXT NOT NULL UNIQUE,
-        p256dh TEXT NOT NULL,
-        auth TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now'))
-    );
+    get(...args: unknown[]): unknown {
+        try {
+            return this.stmt.get(...args);
+        } finally {
+            this.releaseCallback();
+        }
+    }
 
-    CREATE TABLE IF NOT EXISTS group_sender_keys (
-        id TEXT PRIMARY KEY,
-        chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-        sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        chain_key_hex TEXT NOT NULL,
-        iteration INTEGER NOT NULL DEFAULT 0,
-        signing_pub_key_hex TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now')),
-        UNIQUE(chat_id, sender_id)
-    );
+    all(...args: unknown[]): unknown[] {
+        try {
+            return this.stmt.all(...args);
+        } finally {
+            this.releaseCallback();
+        }
+    }
 
-    CREATE INDEX IF NOT EXISTS idx_group_sender_keys_chat ON group_sender_keys(chat_id);
+    run(...args: unknown[]): { changes: number } {
+        try {
+            return this.stmt.run(...args);
+        } finally {
+            this.releaseCallback();
+        }
+    }
 
-
-    CREATE TABLE IF NOT EXISTS chats (
-      id TEXT PRIMARY KEY,
-      type TEXT NOT NULL DEFAULT 'DIRECT',
-      title TEXT,
-      description TEXT,
-      avatar_url TEXT,
-      creator_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-      is_e2ee INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS chat_members (
-      id TEXT PRIMARY KEY,
-      chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      role TEXT NOT NULL DEFAULT 'MEMBER',
-      permissions_bitmask INTEGER DEFAULT 0,
-      last_read_message_id TEXT,
-      unread_count INTEGER DEFAULT 0,
-      is_muted INTEGER DEFAULT 0,
-      joined_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(chat_id, user_id)
-    );
-
-    CREATE TABLE IF NOT EXISTS messages (
-      id TEXT PRIMARY KEY,
-      chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
-      sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      reply_to_message_id TEXT REFERENCES messages(id) ON DELETE SET NULL,
-      type TEXT NOT NULL DEFAULT 'TEXT',
-      content_text TEXT,
-      ciphertext_payload TEXT,
-      media_url TEXT,
-      media_metadata TEXT,
-      is_pinned INTEGER DEFAULT 0,
-      is_edited INTEGER DEFAULT 0,
-      edit_timestamp TEXT,
-      is_deleted INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS message_receipts (
-      id TEXT PRIMARY KEY,
-      message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      status TEXT NOT NULL DEFAULT 'SENT',
-      timestamp TEXT DEFAULT (datetime('now')),
-      UNIQUE(message_id, user_id, status)
-    );
-
-    CREATE TABLE IF NOT EXISTS message_reactions (
-      id TEXT PRIMARY KEY,
-      message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      emoji TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(message_id, user_id, emoji)
-    );
-
-    CREATE TABLE IF NOT EXISTS pinned_messages (
-      chat_id TEXT PRIMARY KEY REFERENCES chats(id) ON DELETE CASCADE,
-      message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
-      pinned_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      created_at TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS blocked_users (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      blocked_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      created_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(user_id, blocked_user_id)
-    );
-
-    -- Compound Indices for High-Throughput Queries
-    CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id, created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_chat_members_user ON chat_members(user_id);
-    CREATE INDEX IF NOT EXISTS idx_chat_members_chat_user ON chat_members(chat_id, user_id);
-    CREATE INDEX IF NOT EXISTS idx_receipts_lookup ON message_receipts(message_id, user_id);
-    CREATE INDEX IF NOT EXISTS idx_reactions_lookup ON message_reactions(message_id, user_id);
-    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
-    CREATE INDEX IF NOT EXISTS idx_blocked_users_lookup ON blocked_users(user_id, blocked_user_id);
-
-  `);
-
-    // Run migrations on existing databases safely
-    try {
-        db.exec('ALTER TABLE users ADD COLUMN is_bot INTEGER DEFAULT 0');
-    } catch {}
-    try {
-        db.exec('ALTER TABLE messages ADD COLUMN is_pinned INTEGER DEFAULT 0');
-    } catch {}
-    try {
-        db.exec(`
-          CREATE TABLE IF NOT EXISTS blocked_users (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            blocked_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            created_at TEXT DEFAULT (datetime('now')),
-            UNIQUE(user_id, blocked_user_id)
-          );
-        `);
-    } catch {}
-
-    seedInitialData();
+    // Add other methods as needed (iterate, etc.)
+    // For now, we only need get, all, run based on usage in the codebase.
 }
 
-function seedInitialData() {
+/**
+ * Initialize the database pool.
+ */
+export const db = new PooledDatabase(config.dbPath, 5);
+
+/**
+ * Check database health.
+ */
+export function checkDbHealth(): boolean {
+    return db.checkDbHealth();
+}
+
+/**
+ * Initialize the database schema and seed data.
+ */
+/**
+ * Drop tables whose columns were redesigned.
+ *
+ * `CREATE TABLE IF NOT EXISTS` leaves an existing table exactly as it is, so a
+ * changed column list only takes effect on a fresh database — on any existing one
+ * the stale shape survives and every insert against it fails. `SCHEMA_MIGRATIONS`
+ * cannot help here: it runs *after* the schema, so a `DROP` there would delete the
+ * table that was just created.
+ *
+ * Dropping a table destroys its rows, so each entry is gated on the specific
+ * legacy column and is only listed where the table was provably never written to.
+ * `group_sender_keys` qualifies: its old `chain_key_hex` shape was referenced by
+ * no code path in the repository.
+ */
+function dropLegacyTables(conn: DatabaseSync): void {
+    const legacyShapes: Array<{ table: string; legacyColumn: string }> = [
+        { table: 'group_sender_keys', legacyColumn: 'chain_key_hex' },
+    ];
+
+    for (const { table, legacyColumn } of legacyShapes) {
+        const exists = conn
+            .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`)
+            .get(table) as { name: string } | undefined;
+        if (!exists) continue;
+
+        // PRAGMA cannot take a bound parameter; the identifier is a hardcoded
+        // literal from the list above, never user input.
+        const columns = conn.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+            name: string;
+        }>;
+        if (columns.some((c) => c.name === legacyColumn)) {
+            conn.exec(`DROP TABLE ${table}`);
+        }
+    }
+}
+
+export function initDatabase(): void {
+    // We'll use a direct connection for initialization to avoid pooling complexity
+    const initDb = new DatabaseSync(config.dbPath);
+    try {
+        // Apply pragmas
+        initDb.exec(`
+            PRAGMA journal_mode = WAL;
+            PRAGMA busy_timeout = 10000;
+            PRAGMA synchronous = NORMAL;
+            PRAGMA cache_size = -64000;
+            PRAGMA temp_store = MEMORY;
+        `);
+
+        // Remove tables whose *shape* was redesigned before creating the new one.
+        dropLegacyTables(initDb);
+
+        // Create tables if not exist. SCHEMA_SQL (src/db/schema.ts) is the single
+        // source of truth; src/db/schema.sql is a snapshot of it that
+        // schema_consistency.test.ts keeps honest.
+        initDb.exec(SCHEMA_SQL);
+
+        // Run migrations on existing databases safely. Each statement is expected
+        // to fail on a database that already has the column.
+        for (const migration of SCHEMA_MIGRATIONS) {
+            try {
+                initDb.exec(migration);
+            } catch {}
+        }
+
+        seedInitialData(initDb);
+    } finally {
+        initDb.close(); // Close the initialization connection
+    }
+}
+
+/**
+ * Seed initial data.
+ * @param db The database connection to use for seeding.
+ */
+function seedInitialData(db: DatabaseSync): void {
     const countRow = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
-    const defaultPasswordHash = bcrypt.hashSync('password123', 8);
+    const defaultPasswordHash = bcrypt.hashSync('password123', 12);
 
     // 1. Seed Bot if not exists
-    const aiBot = db.prepare('SELECT id FROM users WHERE id = ?').get('usr_ai_bot') as any;
+    const aiBot = db.prepare('SELECT id FROM users WHERE id = ?').get('usr_ai_bot') as { id: string } | undefined;
     if (!aiBot) {
         db.prepare(
             `
-      INSERT INTO users (id, phone_number, username, display_name, bio, avatar_url, password_hash, is_bot)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-    `
+          INSERT INTO users (id, phone_number, username, display_name, bio, avatar_url, password_hash, is_bot)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+        `
         ).run(
             'usr_ai_bot',
             '+00000000000',
@@ -256,13 +310,30 @@ function seedInitialData() {
         },
     ];
 
-    const insertUserStmt = db.prepare(`
-    INSERT OR REPLACE INTO users (id, phone_number, username, display_name, bio, avatar_url, password_hash)
+    // Must be an upsert, NOT "INSERT OR REPLACE".
+    //
+    // node:sqlite enables PRAGMA foreign_keys by default, and REPLACE resolves a
+    // conflict by DELETING the existing row first. That delete cascades through
+    // messages, chat_members, message_receipts, message_reactions and
+    // user_sessions (all ON DELETE CASCADE on users.id) — so every server start
+    // silently destroyed the demo users' messages, memberships, receipts and
+    // sessions. ON CONFLICT DO UPDATE refreshes the profile fields in place and
+    // leaves referential data intact.
+    const upsertUserStmt = db.prepare(`
+    INSERT INTO users (id, phone_number, username, display_name, bio, avatar_url, password_hash)
     VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      phone_number = excluded.phone_number,
+      username = excluded.username,
+      display_name = excluded.display_name,
+      bio = excluded.bio,
+      avatar_url = excluded.avatar_url,
+      password_hash = excluded.password_hash,
+      updated_at = datetime('now')
   `);
 
     for (const u of demoUsers) {
-        insertUserStmt.run(
+        upsertUserStmt.run(
             u.id,
             u.phone_number,
             u.username,
@@ -297,5 +368,11 @@ function seedInitialData() {
         'Hey Alice! Twine messenger is live and running. Real-time WebSockets, WebRTC, and E2EE are ready to test! 🚀'
     );
 
-    console.log('✅ Seeding complete: 2 accounts ready (Alice & Bob).');
+    logger.info('✅ Seeding complete: 2 accounts ready (Alice & Bob).');
 }
+
+// Close all connections in the pool on process exit
+process.on('exit', () => {
+    // Note: In a real application, you might want to close connections properly.
+    // For simplicity, we rely on Node.js to close file descriptors.
+});

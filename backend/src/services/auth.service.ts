@@ -2,10 +2,12 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '../db/index.js';
+import { BaseService } from './base.service.js';
+import { OTPService } from './otp.service.js';
 import { config } from '../config/index.js';
 import { User, UserSession, UserSummary } from '../types/protocol.js';
 
-interface AccessTokenPayload {
+export interface AccessTokenPayload {
     id: string;
     username: string | null;
     phone_number: string;
@@ -65,18 +67,17 @@ export class AuthService {
      * been revoked.
      */
     static isSessionValid(sessionId: string, userId: string): boolean {
-        const session = db
-            .prepare(
-                `
-                SELECT id
-                FROM user_sessions
-                WHERE id = ?
-                  AND user_id = ?
-                  AND is_revoked = 0
-                LIMIT 1
-                `
-            )
-            .get(sessionId, userId);
+        const session = BaseService.queryOne<{ id: string }>(
+            `
+            SELECT id
+            FROM user_sessions
+            WHERE id = ?
+              AND user_id = ?
+              AND is_revoked = 0
+            LIMIT 1
+            `,
+            [sessionId, userId]
+        );
 
         return Boolean(session);
     }
@@ -300,26 +301,25 @@ export class AuthService {
     }
 
     static getUserById(id: string): User | null {
-        const row = db
-            .prepare(
-                `
-                SELECT
-                    id,
-                    phone_number,
-                    username,
-                    display_name,
-                    bio,
-                    avatar_url,
-                    is_2fa_enabled,
-                    is_bot,
-                    last_seen_at,
-                    created_at,
-                    updated_at
-                FROM users
-                WHERE id = ?
-                `
-            )
-            .get(id) as any;
+        const row = BaseService.queryOne<User>(
+            `
+            SELECT
+                id,
+                phone_number,
+                username,
+                display_name,
+                bio,
+                avatar_url,
+                is_2fa_enabled,
+                is_bot,
+                last_seen_at,
+                created_at,
+                updated_at
+            FROM users
+            WHERE id = ?
+            `,
+            [id]
+        );
 
         if (!row) {
             return null;
@@ -381,9 +381,8 @@ export class AuthService {
     }
 
     static getAllDemoUsers(): UserSummary[] {
-        const rows = db
-            .prepare(
-                `
+        const rows = BaseService.query<UserSummary>(
+            `
                 SELECT
                     id,
                     username,
@@ -394,22 +393,21 @@ export class AuthService {
                 FROM users
                 WHERE is_bot = 0
                 ORDER BY created_at ASC
-                `
-            )
-            .all() as any[];
+            `,
+            []
+        );
 
         return rows.map((r) => ({
             ...r,
-            is_bot: false,
+            is_bot: Boolean(r.is_bot),
         }));
     }
 
     static searchUsers(query: string, currentUserId: string): UserSummary[] {
         const q = `%${query.trim().toLowerCase()}%`;
 
-        const rows = db
-            .prepare(
-                `
+        const rows = BaseService.query<UserSummary>(
+            `
                 SELECT
                     id,
                     username,
@@ -425,9 +423,9 @@ export class AuthService {
                       OR phone_number LIKE ?
                   )
                 LIMIT 20
-                `
-            )
-            .all(currentUserId, q, q, q) as any[];
+            `,
+            [currentUserId, q, q, q]
+        );
 
         return rows.map((r) => ({
             ...r,
@@ -436,7 +434,7 @@ export class AuthService {
     }
 
     static updateLastSeen(userId: string): void {
-        db.prepare(`UPDATE users SET last_seen_at = datetime('now') WHERE id = ?`).run(userId);
+        BaseService.execute(`UPDATE users SET last_seen_at = datetime('now') WHERE id = ?`, [userId]);
     }
 
     static createSession(
@@ -598,5 +596,120 @@ export class AuthService {
             .run(sessionId, userId);
 
         return result.changes > 0;
+    }
+    /**
+     * Request an OTP for the given phone number.
+     * If the phone number is not registered, a new user will be created upon OTP verification.
+     *
+     * Resends are throttled per phone number (independent of the HTTP rate limiter)
+     * and, outside production, the generated code is echoed back so the flow can be
+     * completed without an SMS provider.
+     */
+    static async requestOTP(params: { phoneNumber: string }): Promise<{
+        phoneNumber: string;
+        expiresInSeconds: number;
+        resendAfterSeconds: number;
+        devCode?: string;
+    }> {
+        const phone = params.phoneNumber.trim();
+        if (!phone) {
+            throw new Error('Phone number is required');
+        }
+
+        const cooldown = OTPService.getResendCooldownSeconds(phone);
+        if (cooldown > 0) {
+            throw new Error(`Please wait ${cooldown}s before requesting another code`);
+        }
+
+        const otp = OTPService.generateOTP();
+        OTPService.storeOTP(phone, otp);
+        OTPService.sendOTP(phone, otp);
+
+        return {
+            phoneNumber: phone,
+            expiresInSeconds: Math.floor(OTPService.OTP_EXPIRY_TIME / 1000),
+            resendAfterSeconds: Math.floor(OTPService.RESEND_COOLDOWN_TIME / 1000),
+            // Dev-only echo. Gated on isProduction so a production deployment can
+            // never leak a live login code to an unauthenticated caller.
+            ...(config.isProduction ? {} : { devCode: OTPService.peekOTP(phone) ?? undefined }),
+        };
+    }
+
+    /**
+     * Verify OTP and sign in or create a user.
+     * Returns user, access token, session ID, and refresh token.
+     */
+    static async verifyOTPAndSignIn(params: { phoneNumber: string; otp: string }): Promise<{
+        user: User;
+        token: string;
+        sessionId: string;
+        refreshToken: string;
+    }> {
+        const { phoneNumber, otp } = params;
+        const phone = phoneNumber.trim();
+        const enteredOTP = otp.trim();
+
+        if (!OTPService.verifyOTP(phone, enteredOTP)) {
+            throw new Error('Invalid or expired OTP');
+        }
+
+        // Check if user exists with this phone number
+        let user = db.prepare('SELECT * FROM users WHERE phone_number = ?').get(phone) as User | null | undefined;
+
+        if (!user) {
+            // Create a new user with minimal info
+            const userId = `usr_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+            // Use phone number as display name temporarily; user can update later
+            const displayName = phone;
+            db.prepare(
+                `
+            INSERT INTO users (
+                id,
+                phone_number,
+                username,
+                display_name,
+                bio,
+                avatar_url,
+                password_hash
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            `
+            ).run(
+                userId,
+                phone,
+                null, // username not set yet
+                displayName,
+                '', // bio empty
+                null, // avatar URL
+                null // password_hash null because no password set
+            );
+            user = this.getUserById(userId);
+            if (!user) {
+                throw new Error('Failed to create user');
+            }
+        } else {
+            // Ensure user record is fresh
+            user = this.getUserById(user.id);
+            if (!user) {
+                throw new Error('User not found');
+            }
+        }
+
+        // Create session
+        const session = this.createSession(
+            user.id,
+            'OTP Login', // device name
+            'unknown',   // device type
+            undefined    // IP address optional
+        );
+
+        const token = this.generateToken(user, session.sessionId);
+
+        return {
+            user,
+            token,
+            sessionId: session.sessionId,
+            refreshToken: session.refreshToken,
+        };
     }
 }

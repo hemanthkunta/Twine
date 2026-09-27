@@ -8,14 +8,35 @@ services:
     environment:
       - PORT=4000
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-production-secret-must-be-provided-via-env-file-or-secrets}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be configured}
       - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:3000}
       - DB_PATH=/app/data/messaging.db
+      - UPLOADS_DIR=/app/uploads
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - TURN_SHARED_SECRET=${TURN_SHARED_SECRET:?TURN_SHARED_SECRET must be configured}
+      - TURN_URLS=${TURN_URLS:?TURN_URLS must be configured}
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes:
       - aether_data:/app/data
       - aether_uploads:/app/uploads
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - aether_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
 volumes:
   aether_data:
   aether_uploads:
+  aether_redis:

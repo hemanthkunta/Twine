@@ -1,7 +1,10 @@
 import { Message, MeshPacket } from '../types/index';
 
 const DB_NAME = 'aerogram_offline_db';
-const DB_VERSION = 1;
+// v2 adds the `sender_keys` store for group E2EE ratchet state. `onupgradeneeded`
+// creates stores by name-guard, so an existing v1 database upgrades in place and
+// keeps its cached messages.
+const DB_VERSION = 2;
 
 class OfflineStorageService {
   private dbPromise: Promise<IDBDatabase> | null = null;
@@ -37,6 +40,18 @@ class OfflineStorageService {
         // 4. ECDH & Device Identity Keys Store
         if (!db.objectStoreNames.contains('identity_keys')) {
           db.createObjectStore('identity_keys', { keyPath: 'id' });
+        }
+
+        // 5. Group Sender Key Ratchet State
+        //
+        // Holds this device's own send chain plus one receive chain per group peer,
+        // including any message keys skipped by out-of-order arrival. This is
+        // persistent state, not a cache: losing it means the device can no longer
+        // read its own group history, so `clearUserData()` leaves it alone (see the
+        // note on `identity_keys` there).
+        if (!db.objectStoreNames.contains('sender_keys')) {
+          const skStore = db.createObjectStore('sender_keys', { keyPath: 'id' });
+          skStore.createIndex('chat_id', 'chat_id', { unique: false });
         }
       };
 
@@ -84,6 +99,30 @@ class OfflineStorageService {
         resolve(msgs);
       };
       req.onerror = () => reject(req.error);
+    });
+  }
+
+  /**
+   * Remove every locally cached message for a chat.
+   * Used by "clear history", which only affects the requesting member's view.
+   */
+  async clearMessagesForChat(chatId: string): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('messages', 'readwrite');
+      const store = tx.objectStore('messages');
+      const index = store.index('chat_id');
+      const req = index.openCursor(IDBKeyRange.only(chatId));
+
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (cursor) {
+          cursor.delete();
+          cursor.continue();
+        }
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
   }
 
@@ -180,7 +219,62 @@ class OfflineStorageService {
     });
   }
 
+  // --- Group Sender Key Ratchet State ---
+  /**
+   * Persist one ratchet record.
+   *
+   * Two shapes share this store, keyed by `id`:
+   *   - `"<chatId>::self"`   — the chain this device sends with, plus the members
+   *                            it has distributed to (used to spot a membership change)
+   *   - `"<chatId>:<senderId>"` — a peer's chain, plus message keys skipped by
+   *                            out-of-order arrival
+   */
+  async saveSenderKeyState<T extends { id: string; chat_id: string }>(record: T): Promise<void> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('sender_keys', 'readwrite');
+      tx.objectStore('sender_keys').put(record);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async getSenderKeyState<T = any>(id: string): Promise<T | null> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('sender_keys', 'readonly');
+      const req = tx.objectStore('sender_keys').get(id);
+      req.onsuccess = () => resolve((req.result as T) || null);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async listSenderKeyStatesForChat<T = any>(chatId: string): Promise<T[]> {
+    const db = await this.getDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('sender_keys', 'readonly');
+      const req = tx.objectStore('sender_keys').index('chat_id').getAll(chatId);
+      req.onsuccess = () => resolve((req.result as T[]) || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
   // --- Session & Cache Invalidation ---
+  /**
+   * Wipe cached conversation data on logout / account switch.
+   *
+   * Deliberately does NOT clear `identity_keys`. An earlier revision did, which
+   * looked like the safe choice but was a data-loss bug: the E2EE identity key
+   * is the account's long-term keypair, so deleting it on logout means the next
+   * sign-in mints a *different* keypair — every message previously encrypted to
+   * the old key becomes permanently unreadable, and peers see the published key
+   * change (which is indistinguishable from a key-substitution attack).
+   *
+   * Keeping it leaks nothing: records are keyed by user id and only ever read for
+   * the signed-in user, so a second account on the same browser reads its own key.
+   * The in-memory key material is what must not survive a session change, and
+   * `CryptoService.reset()` handles that.
+   */
   async clearUserData(): Promise<void> {
     const db = await this.getDB();
     return new Promise((resolve, reject) => {

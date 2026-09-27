@@ -1,4 +1,6 @@
 import { config } from '../config/index.js';
+import dns from 'node:dns/promises';
+import { isIP } from 'node:net';
 
 export interface LinkPreviewData {
   url: string;
@@ -10,12 +12,17 @@ export interface LinkPreviewData {
   type?: string;
 }
 
+interface CacheEntry {
+  data: LinkPreviewData;
+  timestamp: number;
+}
+
 /**
  * Service for extracting and caching link preview metadata from URLs
  * Supports Open Graph, Twitter Card, and basic HTML meta tags
  */
 export class LinkPreviewService {
-  private static previewCache: Map<string, LinkPreviewData> = new Map();
+  private static previewCache: Map<string, CacheEntry> = new Map();
   private static readonly CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
   /**
@@ -25,54 +32,74 @@ export class LinkPreviewService {
    */
   static async fetchPreview(url: string): Promise<LinkPreviewData | null> {
     // Validate URL format
-    if (!this.isValidUrl(url)) {
+    if (!(await this.isValidUrl(url))) {
       return null;
     }
 
     // Check cache first
     const cached = this.previewCache.get(url);
-    if (cached && Date.now() - cached.timestamp! < this.CACHE_TTL_MS) {
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
       return cached.data;
     }
 
     try {
-      // Fetch the webpage content
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'Aether-LinkPreview/1.0 (+https://aether-messaging.app/bot)',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate',
-          'Connection': 'keep-alive',
-        },
-        redirect: 'follow',
-        timeout: 10000, // 10 second timeout
-      });
+      let currentUrl = url;
 
-      if (!response.ok) {
-        console.warn(`[LinkPreview] HTTP ${response.status} for ${url}`);
-        return null;
-      }
+      // Manually follow redirects so we can re-validate each hop and prevent
+      // SSRF through a redirect that ends at a private/reserved address.
+      for (let redirects = 0; redirects < 5; redirects++) {
+        if (!(await this.isValidUrl(currentUrl))) {
+          return null;
+        }
 
-      // Check content type
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
-        console.warn(`[LinkPreview] Non-HTML content for ${url}: ${contentType}`);
-        return null;
-      }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      // Get response size limit (5MB max)
-      const contentLength = parseInt(response.headers.get('content-length') || '0');
-      if (contentLength > 5 * 1024 * 1024) {
-        console.warn(`[LinkPreview] Response too large for ${url}: ${contentLength} bytes`);
-        return null;
-      }
+        const response = await fetch(currentUrl, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Aether-LinkPreview/1.0 (+https://aether-messaging.app/bot)',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+          },
+          redirect: 'manual',
+          signal: controller.signal,
+        });
 
-      const html = await response.text();
+        clearTimeout(timeoutId);
 
-      // Parse HTML for meta tags
-      const previewData = this.parseHtmlForPreview(html, url);
+        if (response.status >= 300 && response.status < 400) {
+          const location = response.headers.get('location');
+          if (!location) return null;
+          currentUrl = new URL(location, currentUrl).toString();
+          continue;
+        }
+
+        if (!response.ok) {
+          console.warn(`[LinkPreview] HTTP ${response.status} for ${currentUrl}`);
+          return null;
+        }
+
+        // Check content type
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+          console.warn(`[LinkPreview] Non-HTML content for ${currentUrl}: ${contentType}`);
+          return null;
+        }
+
+        // Get response size limit (5MB max)
+        const contentLength = parseInt(response.headers.get('content-length') || '0');
+        if (contentLength > 5 * 1024 * 1024) {
+          console.warn(`[LinkPreview] Response too large for ${currentUrl}: ${contentLength} bytes`);
+          return null;
+        }
+
+        const html = await response.text();
+
+        // Parse HTML for meta tags
+        const previewData = this.parseHtmlForPreview(html, currentUrl);
 
       // Cache the result
       if (previewData) {
@@ -85,7 +112,10 @@ export class LinkPreviewService {
         this.cleanupCache();
       }
 
-      return previewData;
+        return previewData;
+      }
+
+      return null;
     } catch (error) {
       console.error(`[LinkPreview] Error fetching preview for ${url}:`, error);
       return null;
@@ -95,9 +125,9 @@ export class LinkPreviewService {
   /**
    * Validate URL format and prevent SSRF attacks
    * @param url - URL to validate
-   * @returns true if URL is valid and safe
+   * @returns Promise resolving to true if URL is valid and safe
    */
-  private static isValidUrl(url: string): boolean {
+  private static async isValidUrl(url: string): Promise<boolean> {
     try {
       const urlObj = new URL(url);
 
@@ -106,156 +136,143 @@ export class LinkPreviewService {
         return false;
       }
 
-      // Prevent SSRF to localhost and private networks
+      // Only allow standard ports (80 for http, 443 for https)
+      if (urlObj.port) {
+        const parsedPort = parseInt(urlObj.port, 10);
+        if (urlObj.protocol === 'https:' && parsedPort !== 443) return false;
+        if (urlObj.protocol === 'http:' && parsedPort !== 80) return false;
+      }
+
       const hostname = urlObj.hostname.toLowerCase();
-      const blockedHosts = [
-        'localhost',
-        '127.0.0.1',
-        '0.0.0.0',
-        '::1',
-        '[::1]'
-      ];
-
-      if (blockedHosts.includes(hostname)) {
+      if (!this.isValidHostname(hostname)) {
         return false;
       }
 
-      // Block private IP ranges (simple check)
-      if (
-        hostname.startsWith('192.168.') ||
-        hostname.startsWith('10.') ||
-        hostname.startsWith('172.16.') ||
-        hostname.startsWith('172.17.') ||
-        hostname.startsWith('172.18.') ||
-        hostname.startsWith('172.19.') ||
-        hostname.startsWith('172.20.') ||
-        hostname.startsWith('172.21.') ||
-        hostname.startsWith('172.22.') ||
-        hostname.startsWith('172.23.') ||
-        hostname.startsWith('172.24.') ||
-        hostname.startsWith('172.25.') ||
-        hostname.startsWith('172.26.') ||
-        hostname.startsWith('172.27.') ||
-        hostname.startsWith('172.28.') ||
-        hostname.startsWith('172.29.') ||
-        hostname.startsWith('172.30.') ||
-        hostname.startsWith('172.31.')
-      ) {
-        return false;
-      }
-
-      return true;
+      // Fail closed: if DNS resolution fails or resolves to a private/reserved
+      // address, treat the URL as unsafe (SSRF guard).
+      return !(await this.hostnameResolvesToPrivate(hostname));
     } catch {
       return false;
     }
   }
 
+  private static isValidHostname(hostname: string): boolean {
+    const lower = hostname.toLowerCase();
+    if (lower === 'localhost' || lower.endsWith('.localhost')) return false;
+    if (isIP(lower) !== 0) {
+      return !this.isPrivateIp(lower);
+    }
+    return true;
+  }
+
+  private static isPrivateIp(ip: string): boolean {
+    if (isIP(ip) === 4) {
+      const octets = ip.split('.').map(Number);
+      const [a, b] = octets;
+      if (a === 0 || a === 10 || a === 127) return true;
+      if (a === 169 && b === 254) return true; // link-local
+      if (a === 172 && b >= 16 && b <= 31) return true; // private 172.16/12
+      if (a === 192 && b === 168) return true; // private 192.168/16
+      if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT 100.64/10
+      if (a >= 224) return true; // multicast/reserved
+      return false;
+    }
+    if (isIP(ip) === 6) {
+      const lower = ip.toLowerCase();
+      if (lower === '::1' || lower === '::') return true;
+      if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // fc00::/7
+      if (lower.startsWith('fe8') || lower.startsWith('fe9') || lower.startsWith('fea') || lower.startsWith('feb')) return true; // fe80::/10
+      return false;
+    }
+    return false;
+  }
+
+  private static async hostnameResolvesToPrivate(hostname: string): Promise<boolean> {
+    try {
+      const addresses = await dns.lookup(hostname, { all: true, verbatim: true });
+      return addresses.some((addr) => this.isPrivateIp(addr.address));
+    } catch {
+      // Fail closed on DNS failure.
+      return true;
+    }
+  }
   /**
-   * Parse HTML string to extract Open Graph, Twitter Card, and basic meta tags
+   * Parse HTML string to extract Open Graph, Twitter Card, and basic meta tags.
+   *
+   * Implemented with targeted regexes rather than a DOM parser on purpose. The
+   * browser's DOMParser does not exist in Node, so the previous implementation
+   * threw on every request and link previews silently never resolved; adding a
+   * full HTML parser dependency is not warranted just to read <meta>, <title>
+   * and <link> tags.
+   *
    * @param html - Raw HTML content
    * @param url - Original URL for fallback values
-   * @returns Extracted preview data
+   * @returns Extracted preview data or null if insufficient data
    */
-  private static parseHtmlForPreview(html: string, url: string): LinkPreviewData {
-    const parser = new DOMParser();
-    let doc: Document;
-
-    try {
-      doc = parser.parseFromString(html, 'text/html');
-    } catch (e) {
-      console.warn('[LinkPreview] Failed to parse HTML:', e);
-      return { url };
-    }
-
-    const head = doc.head;
-    if (!head) {
-      return { url };
-    }
-
+  private static parseHtmlForPreview(html: string, url: string): LinkPreviewData | null {
     const previewData: LinkPreviewData = { url };
 
-    // Helper to get meta tag content
-    const getMetaContent = (selectors: string[]): string | null => {
-      for (const selector of selectors) {
-        const element = head.querySelector(selector);
-        if (element) {
-          const content = element.getAttribute('content');
-          if (content) {
-            return content.trim();
-          }
+    // Index every <meta> tag by its property/name key. The first occurrence
+    // wins, matching the precedence consumers expect for repeated og:* tags.
+    const metaTags = new Map<string, string>();
+    for (const tag of html.match(/<meta\b[^>]*>/gi) ?? []) {
+      const attributes = this.parseHtmlAttributes(tag);
+      const key = (attributes.property || attributes.name || '').toLowerCase();
+      if (!key || !('content' in attributes)) {
+        continue;
+      }
+      if (!metaTags.has(key)) {
+        metaTags.set(key, attributes.content);
+      }
+    }
+
+    const readMeta = (...keys: string[]): string | undefined => {
+      for (const key of keys) {
+        const value = metaTags.get(key);
+        if (value && value.trim()) {
+          return value.trim();
         }
       }
-      return null;
+      return undefined;
     };
 
-    // Open Graph tags (priority)
-    previewData.title = getMetaContent([
-      'meta[property="og:title"]',
-      'meta[name="og:title"]'
-    ]) || previewData.title;
+    // Open Graph tags (priority), then Twitter Card, then plain HTML.
+    previewData.title = readMeta('og:title', 'twitter:title');
+    previewData.description = readMeta('og:description', 'twitter:description');
+    previewData.imageUrl = readMeta(
+      'og:image',
+      'og:image:url',
+      'twitter:image',
+      'twitter:image:src'
+    );
+    previewData.siteName = readMeta('og:site_name', 'application-name');
+    previewData.type = readMeta('og:type');
 
-    previewData.description = getMetaContent([
-      'meta[property="og:description"]',
-      'meta[name="og:description"]'
-    ]) || previewData.description;
-
-    previewData.imageUrl = getMetaContent([
-      'meta[property="og:image"]',
-      'meta[name="og:image"]'
-    ]) || previewData.imageUrl;
-
-    previewData.siteName = getMetaContent([
-      'meta[property="og:site_name"]',
-      'meta[name="og:site_name"]'
-    ]) || previewData.siteName;
-
-    previewData.type = getMetaContent([
-      'meta[property="og:type"]',
-      'meta[name="og:type"]'
-    ]) || previewData.type;
-
-    // Twitter Card tags (fallback)
     if (!previewData.title) {
-      previewData.title = getMetaContent([
-        'meta[name="twitter:title"]'
-      ]) || previewData.title;
-    }
-
-    if (!previewData.description) {
-      previewData.description = getMetaContent([
-        'meta[name="twitter:description"]'
-      ]) || previewData.description;
-    }
-
-    if (!previewData.imageUrl) {
-      previewData.imageUrl = getMetaContent([
-        'meta[name="twitter:image"]',
-        'meta[name="twitter:image:src"]'
-      ]) || previewData.imageUrl;
-    }
-
-    // Basic HTML meta tags (fallback)
-    if (!previewData.title) {
-      const titleElement = doc.querySelector('title');
-      if (titleElement) {
-        previewData.title = titleElement.textContent?.trim();
+      const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+      if (titleMatch) {
+        previewData.title = this.decodeHtmlEntities(titleMatch[1]).trim();
       }
     }
 
     if (!previewData.description) {
-      previewData.description = getMetaContent([
-        'meta[name="description"]',
-        'meta[property="description"]'
-      ]) || previewData.description;
+      previewData.description = readMeta('description');
     }
 
-    // Favicon
-    previewData.faviconUrl = getMetaContent([
-      'link[rel="icon"]',
-      'link[rel="shortcut icon"]',
-      'link[rel="apple-touch-icon"]',
-      'link[rel="apple-touch-icon-precomposed"]'
-    ]);
+    // Favicon: preserve the previous precedence (icon, shortcut icon, then any
+    // icon-ish rel such as apple-touch-icon).
+    const linkTags = (html.match(/<link\b[^>]*>/gi) ?? []).map((tag) =>
+      this.parseHtmlAttributes(tag)
+    );
+    const relOf = (attributes: Record<string, string>) => (attributes.rel || '').toLowerCase();
+    const iconLink =
+      linkTags.find((attributes) => relOf(attributes) === 'icon') ??
+      linkTags.find((attributes) => relOf(attributes) === 'shortcut icon') ??
+      linkTags.find((attributes) => relOf(attributes).includes('icon'));
+
+    if (iconLink?.href) {
+      previewData.faviconUrl = iconLink.href;
+    }
 
     // Try to resolve relative URLs
     try {
@@ -285,6 +302,57 @@ export class LinkPreviewService {
     }
 
     return previewData;
+  }
+
+  /**
+   * Extract the attributes from a single HTML tag string.
+   * Handles double-quoted, single-quoted and unquoted attribute values.
+   */
+  private static parseHtmlAttributes(tag: string): Record<string, string> {
+    const attributes: Record<string, string> = {};
+    const attributeRegex =
+      /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
+
+    let match: RegExpExecArray | null;
+    while ((match = attributeRegex.exec(tag)) !== null) {
+      const name = match[1].toLowerCase();
+      const rawValue = match[2] ?? match[3] ?? match[4] ?? '';
+      attributes[name] = this.decodeHtmlEntities(rawValue);
+    }
+
+    return attributes;
+  }
+
+  /**
+   * Decode the HTML entities that commonly appear in meta tag content.
+   */
+  private static decodeHtmlEntities(value: string): string {
+    if (!value.includes('&')) {
+      return value;
+    }
+
+    const fromCodePoint = (digits: string, radix: number): string => {
+      const parsed = parseInt(digits, radix);
+      if (!Number.isFinite(parsed) || parsed < 0 || parsed > 0x10ffff) {
+        return '';
+      }
+      try {
+        return String.fromCodePoint(parsed);
+      } catch {
+        return '';
+      }
+    };
+
+    // &amp; is decoded last so that e.g. "&amp;lt;" does not become "<".
+    return value
+      .replace(/&#x([0-9a-f]+);/gi, (_match, hex: string) => fromCodePoint(hex, 16))
+      .replace(/&#(\d+);/g, (_match, dec: string) => fromCodePoint(dec, 10))
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&');
   }
 
   /**

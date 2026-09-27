@@ -1,0 +1,36 @@
+export class OTPService {
+  private static store = new Map<string, { otp: string; timestamp: number }>();
+  private static readonly OTP_EXPIRY_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+  static generateOTP(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  static storeOTP(phone: string, otp: string): void {
+    this.store.set(phone, { otp, timestamp: Date.now() });
+    // Optional: clean expired entries
+    this.cleanExpired();
+  }
+
+  static verifyOTP(phone: string, otp: string): boolean {
+    const entry = this.store.get(phone);
+    if (!entry) return false;
+
+    const now = Date.now();
+    if (now - entry.timestamp > this.OTP_EXPIRY_TIME) {
+      this.store.delete(phone);
+      return false;
+    }
+
+    return entry.otp === otp;
+  }
+
+  private static cleanExpired(): void {
+    const now = Date.now();
+    for (const [phone, entry] of this.store.entries()) {
+      if (now - entry.timestamp > this.OTP_EXPIRY_TIME) {
+        this.store.delete(phone);
+      }
+    }
+  }
+}

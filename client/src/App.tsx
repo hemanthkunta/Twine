@@ -25,6 +25,7 @@ import { wsClient } from './services/ws';
 import { sounds } from './services/sound';
 import { offlineStorage } from './services/storage';
 import { CryptoService } from './services/crypto';
+import { E2EEService } from './services/e2ee';
 import { meshService } from './services/mesh';
 import { GroupE2EEService } from './services/e2eeGroup.service';
 import { disappearingService, DisappearingTimer } from './services/disappearing.service';
@@ -53,6 +54,8 @@ import { ChannelAdminDashboardModal } from './components/ChannelAdminDashboardMo
 import { FederationBridgeModal } from './components/FederationBridgeModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { TwineGlowingLogo } from './components/TwineGlowingLogo';
+import { useGlobalKeydown } from './hooks/useGlobalKeydown';
+import { useRealtimeSubscriptions } from './hooks/useRealtimeSubscriptions';
 
 export function App() {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -110,6 +113,29 @@ export function App() {
 
     const activeChatRef = useRef<string | null>(null);
     activeChatRef.current = activeChatId;
+    // The other participant in the open chat. E2EE derives its conversation key
+    // from this user's public key, so the history loader needs it too — and it
+    // must not become an effect dependency (that would refetch on every chat
+    // list update).
+    // Signed-in user id, read by the realtime layer to tell inbound sealed
+    // messages from this user's own. Kept in a ref for the same reason as above.
+    const currentUserIdRef = useRef<string | null>(null);
+    currentUserIdRef.current = currentUser?.id ?? null;
+
+    const activeChatPeerRef = useRef<string | null>(null);
+    activeChatPeerRef.current = activeChatId
+        ? chats.find((c) => c.id === activeChatId)?.peer_user?.id ?? null
+        : null;
+
+    // Latest chat list, and the open chat itself. Group E2EE needs the whole Chat
+    // object (not just its id) to locate a sender's ratchet, and reading these from
+    // refs keeps them out of effect dependency arrays.
+    const chatsRef = useRef<Chat[]>([]);
+    chatsRef.current = chats;
+    const activeChatObjRef = useRef<Chat | null>(null);
+    activeChatObjRef.current = activeChatId
+        ? chats.find((c) => c.id === activeChatId) ?? null
+        : null;
 
     const activeCallRef = useRef<any>(null);
     activeCallRef.current = activeCall;
@@ -138,7 +164,7 @@ export function App() {
                     ApiService.getMe()
                         .then((meRes) => {
                             setCurrentUser(meRes.user);
-                            CryptoService.initIdentityKey(meRes.user.id);
+                            E2EEService.ensureIdentityPublished(meRes.user.id);
                             wsClient.connect();
                         })
                         .catch(async () => {
@@ -147,7 +173,7 @@ export function App() {
                                 try {
                                     const meRes = await ApiService.getMe();
                                     setCurrentUser(meRes.user);
-                                    CryptoService.initIdentityKey(meRes.user.id);
+                                    E2EEService.ensureIdentityPublished(meRes.user.id);
                                     wsClient.connect();
                                     return;
                                 } catch {}
@@ -168,7 +194,7 @@ export function App() {
                     try {
                         const meRes = await ApiService.getMe();
                         setCurrentUser(meRes.user);
-                        CryptoService.initIdentityKey(meRes.user.id);
+                        E2EEService.ensureIdentityPublished(meRes.user.id);
                         wsClient.connect();
                         return;
                     } catch {}
@@ -201,52 +227,6 @@ export function App() {
             document.documentElement.style.setProperty('--mouse-y', `${e.clientY}px`);
         };
         window.addEventListener('mousemove', handleMouseMove);
-
-        // Global Keydown (Escape key closes active modals in priority order)
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                if (showLoRaBridgeModal) {
-                    setShowLoRaBridgeModal(false);
-                    setShowMeshRadarModal(true);
-                } else if (showMultiDeviceModal) {
-                    setShowMultiDeviceModal(false);
-                    setShowSettingsModal(true);
-                } else if (threadParentMessage) {
-                    setThreadParentMessage(null);
-                } else if (callSummaryData) {
-                    setCallSummaryData(null);
-                } else if (showAIModerationModal) {
-                    setShowAIModerationModal(false);
-                } else if (showCreatePollModal) {
-                    setShowCreatePollModal(false);
-                } else if (showChannelDashboardModal) {
-                    setShowChannelDashboardModal(false);
-                } else if (showFederationModal) {
-                    setShowFederationModal(false);
-                } else if (showSafetyNumberModal) {
-                    setShowSafetyNumberModal(false);
-                } else if (showDisappearingModal) {
-                    setShowDisappearingModal(false);
-                } else if (showMeshRadarModal) {
-                    setShowMeshRadarModal(false);
-                } else if (showGlobalSearchModal) {
-                    setShowGlobalSearchModal(false);
-                } else if (showSettingsModal) {
-                    setShowSettingsModal(false);
-                } else if (showCreateGroupModal) {
-                    setShowCreateGroupModal(false);
-                } else if (showNewChatModal) {
-                    setShowNewChatModal(false);
-                } else if (showAuthModal && currentUser) {
-                    setShowAuthModal(false);
-                }
-            }
-
-            if (e.key === 'PrintScreen') {
-                triggerScreenshotWarning();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
 
         // Listen to mesh packets
         const unsubMesh = meshService.onPacket(async (packet: MeshPacket) => {
@@ -282,26 +262,60 @@ export function App() {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
             window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('keydown', handleKeyDown);
             unsubMesh();
         };
-    }, [
-        showLoRaBridgeModal,
-        showMultiDeviceModal,
-        threadParentMessage,
-        callSummaryData,
-        showAIModerationModal,
-        showCreatePollModal,
-        showChannelDashboardModal,
-        showFederationModal,
-        showSafetyNumberModal,
-        showDisappearingModal,
-        showMeshRadarModal,
-        showGlobalSearchModal,
-        showSettingsModal,
-        showCreateGroupModal,
-        showNewChatModal,
-    ]);
+        // Runs once. Previously this effect also owned the keydown listener and
+        // listed ~12 pieces of state as dependencies, so opening or closing any
+        // modal tore down and re-ran this whole body — re-fetching the demo user
+        // directory and re-issuing /auth/me on every toggle, and re-subscribing
+        // to mesh packets.
+    }, []);
+
+    // Escape closes modals in priority order; PrintScreen raises the warning.
+    // Ref-backed, so the window listener is registered exactly once.
+    useGlobalKeydown((e) => {
+        if (e.key === 'Escape') {
+            if (showLoRaBridgeModal) {
+                setShowLoRaBridgeModal(false);
+                setShowMeshRadarModal(true);
+            } else if (showMultiDeviceModal) {
+                setShowMultiDeviceModal(false);
+                setShowSettingsModal(true);
+            } else if (threadParentMessage) {
+                setThreadParentMessage(null);
+            } else if (callSummaryData) {
+                setCallSummaryData(null);
+            } else if (showAIModerationModal) {
+                setShowAIModerationModal(false);
+            } else if (showCreatePollModal) {
+                setShowCreatePollModal(false);
+            } else if (showChannelDashboardModal) {
+                setShowChannelDashboardModal(false);
+            } else if (showFederationModal) {
+                setShowFederationModal(false);
+            } else if (showSafetyNumberModal) {
+                setShowSafetyNumberModal(false);
+            } else if (showDisappearingModal) {
+                setShowDisappearingModal(false);
+            } else if (showMeshRadarModal) {
+                setShowMeshRadarModal(false);
+            } else if (showGlobalSearchModal) {
+                setShowGlobalSearchModal(false);
+            } else if (showSettingsModal) {
+                setShowSettingsModal(false);
+            } else if (showCreateGroupModal) {
+                setShowCreateGroupModal(false);
+            } else if (showNewChatModal) {
+                setShowNewChatModal(false);
+            } else if (showAuthModal && currentUser) {
+                setShowAuthModal(false);
+            }
+        }
+
+        if (e.key === 'PrintScreen') {
+            triggerScreenshotWarning();
+        }
+    });
 
     const triggerScreenshotWarning = () => {
         setScreenshotAlert(
@@ -320,7 +334,35 @@ export function App() {
     const refreshChats = async () => {
         try {
             const res = await ApiService.getChats();
+
+            // A sealed message has an empty content_text, so the chat list would
+            // otherwise show a blank preview. Open each direct chat's last
+            // message; anything still sealed falls back to a placeholder rather
+            // than an empty line.
+            if (currentUser) {
+                await Promise.all(
+                    res.chats.map(async (chat) => {
+                        const last = chat.last_message;
+                        if (!last || last.content_text || !last.ciphertext_payload) return;
+                        await E2EEService.decryptIncoming(
+                            last,
+                            currentUser.id,
+                            chat.peer_user?.id ?? null,
+                            chat
+                        );
+                        if (!last.content_text) {
+                            last.content_text = 'Encrypted message';
+                        }
+                    })
+                );
+            }
+
             setChats(res.chats);
+            // Mute state is persisted server-side (chat_members.is_muted); mirror it
+            // so it survives a reload instead of living only in component state.
+            setMutedChatIds(
+                new Set(res.chats.filter((chat) => chat.is_muted).map((chat) => chat.id))
+            );
             if (!activeChatRef.current && res.chats.length > 0) {
                 setActiveChatId(res.chats[0].id);
             }
@@ -341,16 +383,40 @@ export function App() {
         const timerVal = disappearingService.getChatTimer(activeChatId);
         setCurrentDisappearingTimer(timerVal);
 
-        // Fetch AI-suggested group topics
-        ApiService.suggestGroupTopics(activeChatId).then((res) => {
-            if (res.suggestedTopics && res.suggestedTopics.length > 0) {
-                setSuggestedTopics(res.suggestedTopics);
-            }
-        });
+        const openChat = activeChatObjRef.current;
+
+        // Group E2EE: publish this device's sender key and ingest every peer's
+        // chain *before* history is opened. A group message whose sender chain has
+        // not arrived yet cannot be decrypted, so without this the pane would fill
+        // with placeholders until some unrelated refresh happened to fetch keys.
+        const keysReady = GroupE2EEService.isGroupChat(openChat)
+            ? GroupE2EEService.ensureKeysForChat(openChat as Chat, currentUser.id).catch(
+                  () => {}
+              )
+            : Promise.resolve();
+
+        // Fetch AI-suggested group topics. Best-effort: a failure here must not
+        // surface as an unhandled promise rejection in the console.
+        ApiService.suggestGroupTopics(activeChatId)
+            .then((res) => {
+                if (res.suggestedTopics && res.suggestedTopics.length > 0) {
+                    setSuggestedTopics(res.suggestedTopics);
+                }
+            })
+            .catch(() => {});
 
         // Load local cached messages first for instant response
-        offlineStorage.getLocalMessages(activeChatId).then((localMsgs) => {
+        offlineStorage.getLocalMessages(activeChatId).then(async (localMsgs) => {
+            await keysReady;
             if (localMsgs.length > 0) {
+                // Cached bodies may be sealed (e.g. written by another device
+                // before decryption); open them before showing them.
+                await E2EEService.decryptAll(
+                    localMsgs,
+                    currentUser.id,
+                    activeChatPeerRef.current,
+                    openChat
+                );
                 // Only use cached messages if the network request has
                 // not already populated the chat.
                 setMessages((prev) => (prev.length === 0 ? localMsgs : prev));
@@ -359,8 +425,22 @@ export function App() {
 
         ApiService.getMessages(activeChatId)
             .then(async (res) => {
+                // Sealed group history can only be opened once the senders' chains
+                // have been ingested; wait for that instead of rendering placeholders.
+                await keysReady;
+
                 // Start with the server's current messages and preserve pending queued messages
                 let loadedMessages = res.messages;
+
+                // Sealed messages arrive with an empty content_text: the server
+                // holds ciphertext only. Open them before rendering, including
+                // this user's own (whose key is the chat peer's, not the sender's).
+                await E2EEService.decryptAll(
+                    loadedMessages,
+                    currentUser.id,
+                    activeChatPeerRef.current,
+                    openChat
+                );
 
                 // Mark all incoming messages as read.
                 try {
@@ -416,309 +496,24 @@ export function App() {
     }, [activeChatId, currentUser]);
 
     // 4. Setup WebSocket Event Subscriptions
-    useEffect(() => {
-        if (!currentUser) return;
-
-        // A. Receive new message (with deduplication)
-        const unsubNewMsg = wsClient.on(
-            'chat:new_message',
-            (payload: { message: Message; chat_id: string }) => {
-                const { message, chat_id } = payload;
-                sounds.playReceived();
-                offlineStorage.saveMessageLocally(message);
-
-                if (activeChatRef.current === chat_id) {
-                    setMessages((prev) => {
-                        if (prev.some((m) => m.id === message.id)) return prev;
-                        return [...prev, message];
-                    });
-
-                    wsClient.send('chat:read_receipt', {
-                        chat_id,
-                        message_id: message.id,
-                    });
-
-                    // Update smart replies
-                    ApiService.getSmartReplies(chat_id).then((replyRes) => {
-                        setSmartReplies(replyRes.replies || []);
-                    });
-
-                    // Schedule Disappearing Message Self-Destruct if timer is active
-                    const timerSeconds = disappearingService.getChatTimer(chat_id);
-                    if (timerSeconds > 0) {
-                        setTimeout(() => {
-                            setMessages((prev) => prev.filter((m) => m.id !== message.id));
-                        }, timerSeconds * 1000);
-                    }
-                }
-
-                setChats((prev) => {
-                    const existingIdx = prev.findIndex((c) => c.id === chat_id);
-                    if (existingIdx === -1) {
-                        refreshChats();
-                        return prev;
-                    }
-                    const updated = [...prev];
-                    const chat = updated[existingIdx];
-                    const isCurrentActive = activeChatRef.current === chat_id;
-
-                    updated[existingIdx] = {
-                        ...chat,
-                        last_message: message,
-                        updated_at: message.created_at,
-                        unread_count: isCurrentActive ? 0 : (chat.unread_count || 0) + 1,
-                    };
-                    return updated.sort(
-                        (a, b) =>
-                            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-                    );
-                });
-            }
-        );
-
-        // B. Message Sent ACK
-        const unsubMsgAck = wsClient.on('chat:message_ack', (payload) => {
-            setMessages((prev) =>
-                prev.map((m) =>
-                    m.id === payload.temp_id
-                        ? {
-                              ...m,
-                              id: payload.message_id,
-                              status: 'SENT',
-                              isSending: false,
-                              created_at: payload.created_at,
-                          }
-                        : m
-                )
-            );
-            offlineStorage.removeFromOutbox(payload.temp_id);
-        });
-
-        // C. Message Edited
-        const unsubMsgEdited = wsClient.on(
-            'chat:message_edited',
-            (payload: { message: Message; chat_id: string }) => {
-                setMessages((prev) =>
-                    prev.map((m) => (m.id === payload.message.id ? payload.message : m))
-                );
-                offlineStorage.saveMessageLocally(payload.message);
-            }
-        );
-
-        // D. Message Deleted
-        const unsubMsgDeleted = wsClient.on(
-            'chat:message_deleted',
-            (payload: { message_id: string; chat_id: string }) => {
-                setMessages((prev) => prev.filter((m) => m.id !== payload.message_id));
-            }
-        );
-
-        // E. Reaction Updated
-        const unsubReaction = wsClient.on(
-            'chat:reaction_updated',
-            (payload: {
-                message_id: string;
-                chat_id: string;
-                reactions: Record<string, string[]>;
-            }) => {
-                setMessages((prev) =>
-                    prev.map((m) =>
-                        m.id === payload.message_id ? { ...m, reactions: payload.reactions } : m
-                    )
-                );
-            }
-        );
-
-        // F. Pinned Message
-        const unsubPin = wsClient.on(
-            'chat:message_pinned',
-            (payload: { chat_id: string; pinned_message: Message | null }) => {
-                setChats((prev) =>
-                    prev.map((c) =>
-                        c.id === payload.chat_id
-                            ? { ...c, pinned_message: payload.pinned_message || undefined }
-                            : c
-                    )
-                );
-            }
-        );
-
-        // G. Typing indicator
-        const unsubTyping = wsClient.on('chat:user_typing', (payload) => {
-            const { chat_id, display_name, is_typing } = payload;
-            setTypingUsers((prev) => {
-                const next = new Map(prev);
-                if (is_typing) next.set(chat_id, display_name);
-                else next.delete(chat_id);
-                return next;
-            });
-        });
-
-        // H. Receipt updates
-        const unsubReceipt = wsClient.on(
-            'chat:receipt_update',
-            (payload: { message_id: string; status: ReceiptStatus; chat_id?: string }) => {
-                const { message_id, status, chat_id } = payload;
-
-                // Ignore receipt events for another chat.
-                if (chat_id && activeChatRef.current !== chat_id) {
-                    return;
-                }
-
-                // Update the visible message immediately.
-                setMessages((prev) => {
-                    let changed = false;
-
-                    const next = prev.map((message) => {
-                        if (message.id !== message_id) {
-                            return message;
-                        }
-
-                        // Never downgrade a READ message.
-                        if (message.status === 'READ' && status !== 'READ') {
-                            return message;
-                        }
-
-                        // READ is the highest receipt state.
-                        if (message.status === 'DELIVERED' && status === 'SENT') {
-                            return message;
-                        }
-
-                        changed = true;
-
-                        return {
-                            ...message,
-                            status,
-                        };
-                    });
-
-                    return changed ? next : prev;
-                });
-
-                // Keep the chat-list preview synchronized too.
-                setChats((prev) =>
-                    prev.map((chat) => {
-                        if (chat.last_message?.id !== message_id) {
-                            return chat;
-                        }
-
-                        const currentStatus = chat.last_message.status;
-
-                        // Never downgrade READ -> DELIVERED/SENT.
-                        if (currentStatus === 'READ' && status !== 'READ') {
-                            return chat;
-                        }
-
-                        return {
-                            ...chat,
-                            last_message: {
-                                ...chat.last_message,
-                                status,
-                            },
-                        };
-                    })
-                );
-            }
-        );
-
-        // I. Peer Presence updates
-        const unsubPresence = wsClient.on('presence:update', (payload) => {
-            const { user_id, is_online } = payload;
-            setOnlineUserIds((prev) => {
-                const next = new Set(prev);
-                if (is_online) next.add(user_id);
-                else next.delete(user_id);
-                return next;
-            });
-        });
-
-        // J. WebRTC Incoming Call
-        const unsubCall = wsClient.on('webrtc:incoming_call', (payload) => {
-            console.log(
-                '📞 Received incoming WebRTC call from:',
-                payload.caller?.display_name,
-                payload
-            );
-            if (activeCallRef.current) {
-                // If this is a duplicate delivery for the same call or same caller, ignore safely without hanging up
-                if (
-                    activeCallRef.current.callId === payload.call_id ||
-                    activeCallRef.current.peer?.id === payload.caller_id
-                ) {
-                    console.log(
-                        '[WebRTC] Duplicate/redundant incoming_call event received for active call with peer:',
-                        payload.caller_id
-                    );
-                    return;
-                }
-                console.warn(
-                    '[WebRTC] User is currently on another call with a different peer. Replying with busy.'
-                );
-                wsClient.send('webrtc:hangup', {
-                    call_id: payload.call_id,
-                    target_user_id: payload.caller_id,
-                    reason: 'busy',
-                });
-                return;
-            }
-            // Clear any stale previous call summary
-            setCallSummaryData(null);
-            const callObj = {
-                peer: payload.caller,
-                type: payload.call_type,
-                isIncoming: true,
-                incomingOffer: payload.offer,
-                callId: payload.call_id,
-            };
-            activeCallRef.current = callObj;
-            setActiveCall(callObj);
-        });
-
-        // J2. WebRTC Call Ended (Global Fallback Cleanup)
-        const unsubCallEnded = wsClient.on('webrtc:call_ended', (payload) => {
-            console.log('📴 [App] WebRTC call ended event received:', payload);
-
-            const active = activeCallRef.current;
-            if (!active) return;
-
-            const matchesCallId = !payload?.call_id || payload.call_id === active.callId;
-
-            const matchesPeer = !payload?.user_id || payload.user_id === active.peer?.id;
-
-            if (!matchesCallId && !matchesPeer) {
-                return;
-            }
-
-            // Do NOT immediately setActiveCall(null) here.
-            //
-            // WebRTCManager owns media/peer-connection cleanup.
-            // It will call onEndCall() after cleanup is complete.
-            console.log('[App] Matching call-ended event. Waiting for WebRTCManager cleanup.');
-        });
-
-        // K. Auth Ack
-        const unsubAuthAck = () => {
-            setTransportMode('CLOUD');
-            refreshChats();
-            meshService.flushOutbox();
-        };
-        const unsubAuth = wsClient.on('auth:ack', unsubAuthAck);
-
-        return () => {
-            unsubNewMsg();
-            unsubMsgAck();
-            unsubMsgEdited();
-            unsubMsgDeleted();
-            unsubReaction();
-            unsubPin();
-            unsubTyping();
-            unsubReceipt();
-            unsubPresence();
-            unsubCall();
-            unsubCallEnded();
-            unsubAuth();
-        };
-    }, [currentUser]);
+    // Extracted to hooks/useRealtimeSubscriptions so the realtime layer stands on
+    // its own; it attaches once per signed-in user rather than per render.
+    useRealtimeSubscriptions({
+        enabled: Boolean(currentUser),
+        activeChatRef,
+        chatsRef,
+        activeCallRef,
+        currentUserIdRef,
+        setMessages,
+        setChats,
+        setSmartReplies,
+        setTypingUsers,
+        setOnlineUserIds,
+        setActiveCall,
+        setCallSummaryData,
+        setTransportMode,
+        refreshChats,
+    });
 
     // Actions
     const handleSendMessage = async (
@@ -742,6 +537,11 @@ export function App() {
                 console.warn('AI moderation check skipped (offline/error):', e);
             }
         }
+
+        // Seal the body for direct chats when both sides have published keys.
+        // `sealed` is null when the chat cannot be encrypted, in which case the
+        // message is sent in the clear (see E2EEService for the rationale).
+        const sealed = await E2EEService.sealForChat(content, activeChat, currentUser.id);
 
         const isConnected = wsClient.getIsConnected() && navigator.onLine;
         const tempId = `temp_${Date.now()}`;
@@ -795,7 +595,10 @@ export function App() {
             wsClient.send('chat:send_message', {
                 temp_id: tempId,
                 chat_id: activeChatId,
-                content,
+                // A sealed body travels only as ciphertext: the plaintext must
+                // not reach the server, or there is no encryption at all.
+                content: sealed ? '' : content,
+                ciphertext_payload: sealed ?? undefined,
                 type: mediaType,
                 reply_to_id: replyToId,
                 media_url: mediaUrl,
@@ -903,12 +706,20 @@ export function App() {
         }
         const res = await ApiService.demoLogin(userId);
         setCurrentUser(res.user);
-        CryptoService.initIdentityKey(res.user.id);
+        // New identity: drop cached peer keys and in-memory key material first.
+        E2EEService.reset();
+        CryptoService.reset();
+        E2EEService.ensureIdentityPublished(res.user.id);
         wsClient.connect();
     };
 
     const handleLogout = async () => {
         wsClient.disconnect();
+        // Drop in-memory key material and cached peer keys so nothing survives
+        // into the next session. The identity keypair itself is deliberately
+        // kept in IndexedDB — see OfflineStorageService.clearUserData().
+        E2EEService.reset();
+        CryptoService.reset();
         ApiService.setToken(null);
         setCurrentUser(null);
         setActiveChatId(null);
@@ -947,28 +758,63 @@ export function App() {
         }
     };
 
-    const handleToggleMute = (chatId: string) => {
+    const handleToggleMute = async (chatId: string) => {
+        const nextMuted = !mutedChatIds.has(chatId);
+
+        try {
+            await ApiService.setChatMuted(chatId, nextMuted);
+        } catch (err: any) {
+            alert(err.message || 'Failed to update mute state');
+            return;
+        }
+
         setMutedChatIds((prev) => {
             const next = new Set(prev);
-            if (next.has(chatId)) {
-                next.delete(chatId);
-                alert('🔔 Notifications unmuted for this chat.');
-            } else {
+            if (nextMuted) {
                 next.add(chatId);
-                alert('🔕 Notifications muted for this chat.');
+            } else {
+                next.delete(chatId);
             }
             return next;
         });
+
+        setChats((prev) =>
+            prev.map((chat) => (chat.id === chatId ? { ...chat, is_muted: nextMuted } : chat))
+        );
+
+        alert(
+            nextMuted
+                ? '🔕 Notifications muted for this chat.'
+                : '🔔 Notifications unmuted for this chat.'
+        );
     };
 
-    const handleClearChat = (chatId: string) => {
-        if (
-            window.confirm('Are you sure you want to clear message history for this conversation?')
-        ) {
-            setMessages([]);
-            offlineStorage.saveMessagesLocally([]);
-            alert('🧹 Conversation history cleared.');
+    const handleClearChat = async (chatId: string) => {
+        const confirmed = window.confirm(
+            'Clear message history for this conversation?\n\nThis only affects your own view — other participants keep their copy.'
+        );
+
+        if (!confirmed) return;
+
+        try {
+            await ApiService.clearChat(chatId);
+        } catch (err: any) {
+            alert(err.message || 'Failed to clear chat history');
+            return;
         }
+
+        setMessages([]);
+
+        // Drop the locally cached copy too, otherwise the cleared messages
+        // reappear from IndexedDB on the next load.
+        try {
+            await offlineStorage.clearMessagesForChat(chatId);
+        } catch (e) {
+            console.error('Failed to clear locally cached messages', e);
+        }
+
+        await refreshChats();
+        alert('🧹 Conversation history cleared for you.');
     };
 
     const handleEndCall = async (callDuration = 0) => {
@@ -1293,7 +1139,7 @@ export function App() {
                     onSuccess={(user) => {
                         setCurrentUser(user);
                         setShowAuthModal(false);
-                        CryptoService.initIdentityKey(user.id);
+                        E2EEService.ensureIdentityPublished(user.id);
                         wsClient.connect();
 
                         // Automatically trigger native push notification permission request ONE TIME after successful new login

@@ -1,6 +1,37 @@
-import { User, UserSummary, Chat, Message, UserSession } from '../types/index';
+﻿import { User, UserSummary, Chat, Message, UserSession } from '../types/index';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || '/api';
+
+// TODO #39: Keep the refresh endpoint and wire shape in one place so the
+// backend contract can be changed without touching the request queue.
+const AUTH_REFRESH_ENDPOINT = '/auth/refresh';
+type AuthRefreshResponse = {
+    accessToken?: string;
+    refreshToken?: string | null;
+    token?: string;
+};
+
+const buildAuthRefreshRequest = (refreshToken: string): RequestInit => ({
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken }),
+});
+
+const parseAuthRefreshResponse = (
+    data: unknown
+): { accessToken: string; refreshToken: string | null } | null => {
+    if (!data || typeof data !== 'object') return null;
+    const response = data as AuthRefreshResponse;
+    const accessToken =
+        typeof response.accessToken === 'string'
+            ? response.accessToken
+            : typeof response.token === 'string'
+              ? response.token
+              : null;
+    const refreshToken =
+        typeof response.refreshToken === 'string' ? response.refreshToken : null;
+    return accessToken ? { accessToken, refreshToken } : null;
+};
 
 export class ApiService {
     private static token: string | null = localStorage.getItem('auth_token');
@@ -79,7 +110,8 @@ export class ApiService {
             return url;
         }
         if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
-            return url.startsWith('/') ? url : `/${url}`;
+            const cleanUrl = url.startsWith('/') ? url.slice(1) : url;
+            return `${API_BASE}/${cleanUrl}`;
         }
         return `${API_BASE}${url.startsWith('/') ? '' : '/'}${url}`;
     }
@@ -124,9 +156,18 @@ export class ApiService {
                     endpoint.includes('/auth/login') ||
                     endpoint.includes('/auth/register') ||
                     endpoint.includes('/auth/refresh') ||
+                    endpoint.includes('/auth/request-otp') ||
+                    endpoint.includes('/auth/verify-otp') ||
                     endpoint.includes('/auth/demo-login');
 
-                if (res.status === 401 && !isAuthEndpoint && !isRetry) {
+                // The backend signals "authentication required" with 419 (see
+                // authMiddleware: missing/malformed header, invalid or expired
+                // token, revoked session). It never sends 401. Handling only 401
+                // here meant an expired session never triggered the refresh or
+                // the forced logout, leaving the client stuck instead.
+                const isAuthFailure = res.status === 401 || res.status === 419;
+
+                if (isAuthFailure && !isAuthEndpoint && !isRetry) {
                     const refreshed = await this.refreshSession();
                     if (refreshed) {
                         return this.request<T>(endpoint, options, true);
@@ -135,7 +176,7 @@ export class ApiService {
                         this.setToken(null, null);
                         window.dispatchEvent(new CustomEvent('auth:unauthorized'));
                     }
-                } else if (res.status === 401 && !isAuthEndpoint && isRetry) {
+                } else if (isAuthFailure && !isAuthEndpoint && isRetry) {
                     this.setToken(null, null);
                     window.dispatchEvent(new CustomEvent('auth:unauthorized'));
                 }
@@ -167,10 +208,8 @@ export class ApiService {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-                const res = await fetch(`${API_BASE}/auth/refresh`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ refreshToken: rToken }),
+                const res = await fetch(`${API_BASE}${AUTH_REFRESH_ENDPOINT}`, {
+                    ...buildAuthRefreshRequest(rToken),
                     signal: controller.signal,
                 });
 
@@ -180,9 +219,9 @@ export class ApiService {
                     return false;
                 }
 
-                const data = await res.json();
-                if (data?.token) {
-                    this.setToken(data.token, data.refreshToken || rToken);
+                const data = parseAuthRefreshResponse(await res.json());
+                if (data) {
+                    this.setToken(data.accessToken, data.refreshToken || rToken);
                     return true;
                 }
                 return false;
@@ -208,6 +247,36 @@ export class ApiService {
             {
                 method: 'POST',
                 body: JSON.stringify({ userId }),
+            }
+        );
+        this.setToken(data.token, data.refreshToken);
+        return data;
+    }
+
+    static async requestOTP(phoneNumber: string): Promise<{
+        phoneNumber: string;
+        expiresInSeconds?: number;
+        resendAfterSeconds?: number;
+        devCode?: string;
+    }> {
+        const data = await this.request<{
+            phoneNumber: string;
+            expiresInSeconds?: number;
+            resendAfterSeconds?: number;
+            devCode?: string;
+        }>('/auth/request-otp', {
+            method: 'POST',
+            body: JSON.stringify({ phoneNumber }),
+        });
+        return data;
+    }
+
+    static async verifyOTPAndSignIn(params: { phoneNumber: string; otp: string }): Promise<{ user: User; token: string; refreshToken?: string }> {
+        const data = await this.request<{ user: User; token: string; refreshToken?: string }>(
+            '/auth/verify-otp',
+            {
+                method: 'POST',
+                body: JSON.stringify(params),
             }
         );
         this.setToken(data.token, data.refreshToken);
@@ -314,6 +383,46 @@ export class ApiService {
         return this.request(`/chats/${chatId}/members`);
     }
 
+    // --- E2EE public key directory ---
+    // Only public keys travel over the wire; the private half stays in IndexedDB.
+
+    static async publishPublicKey(publicKey: string): Promise<{ user_id: string; public_key: string }> {
+        return this.request('/keys/publish', {
+            method: 'POST',
+            body: JSON.stringify({ publicKey }),
+        });
+    }
+
+    /** Throws when the peer has never published a key (surfaced as a 404). */
+    static async getPublicKey(userId: string): Promise<{ user_id: string; public_key: string }> {
+        return this.request(`/keys/${userId}`);
+    }
+
+    /**
+     * Upload sealed copies of this device's group sender key, one per recipient.
+     * The payloads are already encrypted client-side; the server stores them as-is.
+     */
+    static async publishSenderKeys(
+        chatId: string,
+        keys: Array<{ recipientId: string; wrappedKey: string }>
+    ): Promise<{ success: boolean; stored: number }> {
+        return this.request(`/chats/${chatId}/sender-keys`, {
+            method: 'POST',
+            body: JSON.stringify({ keys }),
+        });
+    }
+
+    /**
+     * Sender keys addressed to the caller, plus the recipients this device has
+     * already distributed to (so one round trip answers "is anything missing?").
+     */
+    static async getSenderKeys(chatId: string): Promise<{
+        keys: Array<{ sender_id: string; wrapped_key: string; updated_at: string }>;
+        my_recipients: string[];
+    }> {
+        return this.request(`/chats/${chatId}/sender-keys`);
+    }
+
     static async getMessages(chatId: string, limit = 50): Promise<{ messages: Message[] }> {
         return this.request(`/chats/${chatId}/messages?limit=${limit}`);
     }
@@ -322,6 +431,22 @@ export class ApiService {
         chatId: string
     ): Promise<{ success: boolean; count: number; readMessageIds: string[] }> {
         return this.request(`/chats/${chatId}/read-all`, {
+            method: 'POST',
+        });
+    }
+
+    /** Clear history for the current user only; other members keep their copy. */
+    static async clearChat(chatId: string): Promise<{ success: boolean }> {
+        return this.request(`/chats/${chatId}/clear`, {
+            method: 'POST',
+        });
+    }
+
+    static async setChatMuted(
+        chatId: string,
+        muted: boolean
+    ): Promise<{ success: boolean; is_muted: boolean }> {
+        return this.request(`/chats/${chatId}/${muted ? 'mute' : 'unmute'}`, {
             method: 'POST',
         });
     }
@@ -388,8 +513,23 @@ export class ApiService {
         return this.request(`/users/search?q=${encodeURIComponent(query)}`);
     }
 
-    static async searchMessages(query: string): Promise<{ messages: Message[] }> {
-        return this.request(`/messages/search?q=${encodeURIComponent(query)}`);
+    static async searchMessages(params: {
+        query: string;
+        senderId?: string;
+        startDate?: string;
+        endDate?: string;
+        messageType?: string;
+        chatId?: string;
+    }): Promise<{ messages: Message[] }> {
+        const { query, senderId, startDate, endDate, messageType, chatId } = params;
+        const queryParams = new URLSearchParams();
+        if (query) queryParams.append('q', query);
+        if (senderId) queryParams.append('senderId', senderId);
+        if (startDate) queryParams.append('startDate', startDate);
+        if (endDate) queryParams.append('endDate', endDate);
+        if (messageType) queryParams.append('messageType', messageType);
+        if (chatId) queryParams.append('chatId', chatId);
+        return this.request(`/messages/search?${queryParams.toString()}`);
     }
 
     static async uploadMedia(params: {
@@ -527,6 +667,7 @@ export class ApiService {
         isAnonymous?: boolean;
         isQuiz?: boolean;
         correctOptionId?: string;
+        correctOptionIndex?: number;
         explanation?: string;
     }): Promise<{ message: Message }> {
         return this.request('/polls/create', {

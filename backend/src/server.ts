@@ -1,54 +1,33 @@
-import http from 'node:http';
-import fs from 'node:fs';
-import path from 'node:path';
+﻿// Bounded payload limits for base64 media uploads
 import express from 'express';
 import cors from 'cors';
-import { config } from './config/index.js';
-import { initDatabase, db } from './db/index.js';
 import { router } from './http/routes.js';
+import { config } from './config/index.js';
+import { db } from './db/index.js';
+import { initDatabase } from './db/index.js';
 import { setupWebSocketGateway } from './ws/gateway.js';
-import { UPLOADS_DIR } from './services/media.service.js';
+import { dirname, resolve, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { DashboardEventService } from './services/dashboardEventService.js';
+import { existsSync } from 'node:fs';
 
-// Initialize Database & seed data
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Initialize database
 initDatabase();
 
+// Create Express app
 const app = express();
-
-// Middleware
-const allowedOrigins = [
-    config.corsOrigin,
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:5173',
-];
-
-app.use(
-    cors({
-        origin: (origin, callback) => {
-            // Allow requests with no origin (e.g. mobile apps, curl) or allowed origins
-            if (!origin || allowedOrigins.includes(origin) || !config.isProduction) {
-                callback(null, true);
-            } else {
-                callback(new Error('Blocked by CORS policy'));
-            }
-        },
-        credentials: true,
-    })
-);
 
 // Bounded payload limits for base64 media uploads
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
-// Static media uploads serving with nosniff header
+// CORS configuration honoring config.corsOrigin
 app.use(
-    '/uploads',
-    express.static(UPLOADS_DIR, {
-        setHeaders: (res) => {
-            res.setHeader('X-Content-Type-Options', 'nosniff');
-            res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-        },
+    cors({
+        origin: config.corsOrigin,
     })
 );
 
@@ -56,62 +35,44 @@ app.use(
 app.use('/api', router);
 
 // Mount Frontend Client build if present (for production Docker containers)
-const publicDir = path.resolve(process.cwd(), 'public');
-if (fs.existsSync(publicDir)) {
+const publicDir = resolve(process.cwd(), 'public');
+if (existsSync(publicDir)) {
     app.use(express.static(publicDir));
     app.get('*', (req, res, next) => {
         if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/ws')) {
             return next();
         }
-        res.sendFile(path.join(publicDir, 'index.html'));
+        res.sendFile(join(publicDir, 'index.html'));
     });
 }
 
-// Create HTTP Server & attach WebSocket Gateway
-const server = http.createServer(app);
-const wss = setupWebSocketGateway(server);
+// Start server
+const server = app.listen(config.port, () => {
+    console.log(`🚀 Server running on http://localhost:${config.port}`);
 
-// Start listening
-server.listen(config.port, () => {
-    console.log(`
-  ======================================================
-  🚀 Aether Full-Stack Messaging Platform Backend
-  ------------------------------------------------------
-  📡 HTTP API:      http://localhost:${config.port}/api
-  ⚡ WebSocket:     ws://localhost:${config.port}/ws
-  📁 Media Uploads: http://localhost:${config.port}/uploads
-  🩺 Health Check:  http://localhost:${config.port}/api/health
-  📊 Metrics:       http://localhost:${config.port}/api/metrics
-  ======================================================
-  `);
+    // Emit dashboard event for server started
+    DashboardEventService.emitDashboardMetricsUpdate({
+        event: 'server_started',
+        port: config.port,
+        timestamp: new Date().toISOString()
+    });
 });
 
-// Graceful Shutdown Handler (Drains connections on SIGTERM / SIGINT)
-const gracefulShutdown = (signal: string) => {
-    console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+setupWebSocketGateway(server);
 
-    // 1. Stop accepting new HTTP connections
+// Handle graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
     server.close(() => {
-        console.log('  ✓ HTTP server closed.');
-
-        // 2. Close database connection
-        try {
-            db.close();
-            console.log('  ✓ SQLite database connection closed.');
-        } catch (e) {
-            console.error('  Error closing database:', e);
-        }
-
-        console.log('  ✓ Graceful shutdown complete. Process exiting.');
+        console.log('👋 Server closed');
         process.exit(0);
     });
+});
 
-    // Force exit if draining exceeds 10 seconds
-    setTimeout(() => {
-        console.error('  ⚠️ Graceful shutdown timed out. Forcing process exit.');
-        process.exit(1);
-    }, 10000).unref();
-};
-
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGINT', () => {
+    console.log('SIGINT received, shutting down gracefully');
+    server.close(() => {
+        console.log('👋 Server closed');
+        process.exit(0);
+    });
+});

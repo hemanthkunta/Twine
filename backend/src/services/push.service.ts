@@ -1,5 +1,8 @@
 import crypto from 'node:crypto';
 import { db } from '../db/index.js';
+import { getLogger } from './logger.service.js';
+
+const logger = getLogger();
 
 export interface PushSubscriptionPayload {
     endpoint: string;
@@ -71,7 +74,7 @@ export class PushNotificationService {
             ).run(id, sub.userId, sub.endpoint, sub.keys.p256dh, sub.keys.auth);
         }
 
-        console.log(`[Push Notification] Persisted subscription for user ${sub.userId}`);
+        logger.info(`[Push Notification] Persisted subscription for user ${sub.userId}`);
 
         return { success: true };
     }
@@ -103,11 +106,11 @@ export class PushNotificationService {
         }));
     }
 
-    static async sendPush(userId: string, title: string, body: string, data?: any) {
+    static async sendPush(userId: string, title: string, body: string, data?: unknown) {
         const subscriptions = this.getSubscriptions(userId);
 
         if (subscriptions.length === 0) {
-            console.log(
+            logger.info(
                 `[Push Notification] No push subscription for user ${userId}, queuing offline.`
             );
 
@@ -117,7 +120,7 @@ export class PushNotificationService {
             };
         }
 
-        console.log(
+        logger.info(
             `[Push Notification] Dispatched FCM/WebPush to ${userId}: "${title}" - "${body}"`
         );
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { UserCheck, Smartphone, Lock, User as UserIcon, X, Sparkles, Download, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { UserCheck, Smartphone, Lock, User as UserIcon, X, Sparkles, Download, Check, KeyRound } from 'lucide-react';
 import { User } from '../types/index';
 import { ApiService } from '../services/api';
 import { AndroidInstallerService } from '../services/androidInstaller.service';
@@ -11,7 +11,7 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
-  const [tab, setTab] = useState<'login' | 'register'>('login');
+  const [tab, setTab] = useState<'login' | 'register' | 'phone'>('login');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,6 +24,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [regPassword, setRegPassword] = useState('');
+
+  // Phone OTP form fields
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [devOtpCode, setDevOtpCode] = useState<string | null>(null);
 
   const handleCustomLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +76,63 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
       onSuccess(res.user);
     } catch (err: any) {
       setError(err.message || 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resend-code countdown ticker
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const timer = setTimeout(() => setResendCountdown((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCountdown]);
+
+  const sendOTPCode = async () => {
+    const phone = phoneNumber.trim();
+    if (!phone) {
+      setError('Please enter your phone number');
+      return;
+    }
+    setOtpSending(true);
+    setError(null);
+    try {
+      const res = await ApiService.requestOTP(phone);
+      setOtpSent(true);
+      setOtpCode('');
+      setDevOtpCode(res.devCode ?? null);
+      setResendCountdown(res.resendAfterSeconds ?? 30);
+    } catch (err: any) {
+      setError(err.message || 'Failed to send the verification code. Please try again.');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleRequestOTP = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendOTPCode();
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const phone = phoneNumber.trim();
+    const code = otpCode.trim();
+    if (!phone) {
+      setError('Please enter your phone number');
+      return;
+    }
+    if (!/^\d{6}$/.test(code)) {
+      setError('Please enter the 6-digit verification code');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await ApiService.verifyOTPAndSignIn({ phoneNumber: phone, otp: code });
+      onSuccess(res.user);
+    } catch (err: any) {
+      setError(err.message || 'Invalid or expired code. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -129,6 +193,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
               }`}
             >
               Register
+            </button>
+            <button
+              onClick={() => { setTab('phone'); setError(null); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                tab === 'phone' ? 'bg-[#2b5278] text-white shadow' : 'text-[#7f91a4] hover:text-white'
+              }`}
+            >
+              Phone OTP
             </button>
           </div>
         </div>
@@ -248,6 +320,112 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
               >
                 {loading ? 'Creating account...' : 'Create Account & Start Chatting'}
               </button>
+            </form>
+          )}
+
+          {tab === 'phone' && (
+            <form onSubmit={otpSent ? handleVerifyOTP : handleRequestOTP} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-medium text-[#7f91a4] mb-1.5">Phone Number</label>
+                <div className="relative">
+                  <Smartphone className="w-4 h-4 text-[#7f91a4] absolute left-3.5 top-3.5" />
+                  <input
+                    type="tel"
+                    required
+                    value={phoneNumber}
+                    onChange={(e) => {
+                      setPhoneNumber(e.target.value);
+                      if (otpSent) setOtpSent(false);
+                    }}
+                    disabled={otpSending || loading}
+                    placeholder="+12345678901"
+                    className="w-full pl-10 pr-4 py-2.5 bg-[#0f1822] border border-[rgba(255,255,255,0.1)] rounded-xl text-white text-sm focus:border-[#2f88ff] focus:ring-1 focus:ring-[#2f88ff] transition-all disabled:opacity-60"
+                  />
+                </div>
+              </div>
+
+              {!otpSent ? (
+                <button
+                  type="submit"
+                  disabled={otpSending}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-[#ff007f] via-[#ff758c] to-[#b829ea] hover:opacity-95 font-semibold text-white rounded-xl text-sm shadow-lg shadow-[#ff007f]/25 transition-all flex items-center justify-center space-x-2"
+                >
+                  {otpSending ? <span className="animate-spin text-sm">⏳</span> : <Smartphone className="w-4 h-4" />}
+                  <span>{otpSending ? 'Sending code...' : 'Send Verification Code'}</span>
+                </button>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-[#7f91a4] mb-1.5">Verification Code</label>
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-[#7f91a4] absolute left-3.5 top-3.5" />
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        required
+                        autoFocus
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        placeholder="123456"
+                        className="w-full pl-10 pr-4 py-2.5 bg-[#0f1822] border border-[rgba(255,255,255,0.1)] rounded-xl text-white text-sm font-mono tracking-[0.45em] focus:border-[#2f88ff] focus:ring-1 focus:ring-[#2f88ff] transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {devOtpCode ? (
+                    <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#0f1822] border border-[#3fc5f0]/30">
+                      <span className="text-[11px] text-[#7f91a4]">
+                        Dev code:{' '}
+                        <span className="font-mono text-[#3fc5f0] tracking-[0.25em]">
+                          {devOtpCode}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setOtpCode(devOtpCode)}
+                        className="text-[11px] font-semibold text-[#3fc5f0] hover:text-[#7fd8f7] transition-colors"
+                      >
+                        Autofill
+                      </button>
+                    </div>
+                  ) : (
+                    import.meta.env.DEV && (
+                      <p className="text-[11px] text-[#7f91a4] leading-relaxed">
+                        Dev mode: the 6-digit code is printed in the backend server console.
+                      </p>
+                    )
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-[#ff007f] via-[#ff758c] to-[#b829ea] hover:opacity-95 font-semibold text-white rounded-xl text-sm shadow-lg shadow-[#ff007f]/25 transition-all flex items-center justify-center space-x-2"
+                  >
+                    {loading ? <span className="animate-spin text-sm">⏳</span> : <UserCheck className="w-4 h-4" />}
+                    <span>{loading ? 'Verifying...' : 'Verify & Sign In'}</span>
+                  </button>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => { setOtpSent(false); setOtpCode(''); setDevOtpCode(null); setError(null); }}
+                      className="text-[11px] font-medium text-[#7f91a4] hover:text-white transition-colors"
+                    >
+                      ← Use a different number
+                    </button>
+                    <button
+                      type="button"
+                      disabled={resendCountdown > 0 || otpSending}
+                      onClick={() => sendOTPCode()}
+                      className="text-[11px] font-medium text-[#3fc5f0] hover:text-[#7fd8f7] transition-colors disabled:text-[#7f91a4] disabled:cursor-not-allowed"
+                    >
+                      {resendCountdown > 0 ? `Resend code in ${resendCountdown}s` : 'Resend code'}
+                    </button>
+                  </div>
+                </>
+              )}
             </form>
           )}
 

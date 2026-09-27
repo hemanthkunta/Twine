@@ -6,8 +6,28 @@ import { PushNotificationService } from '../services/push.service.js';
 const BASE_URL = 'http://localhost:4000/api';
 const WS_URL = 'ws://localhost:4000/ws';
 
+/**
+ * `authMiddleware` signals *every* authentication failure with 419 — missing or
+ * malformed header, empty, invalid, expired, and revoked sessions alike. The
+ * `/auth/refresh` route answers 401. Both mean "this credential was refused", so
+ * assertions about a rejected credential must accept either status.
+ */
+function isAuthRejection(status: number): boolean {
+    return status === 401 || status === 419;
+}
+
 function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * These integration scripts assert on response shapes by hand, so bodies are
+ * read as loosely-typed values. Node's fetch types `Response.json()` as
+ * `unknown`, which would otherwise force a cast at every one of the call sites
+ * below (the server response contracts are covered by the service suites).
+ */
+async function readJson(res: Response): Promise<any> {
+    return res.json();
 }
 
 async function registerUser(phoneNumber: string, username: string, displayName: string) {
@@ -26,7 +46,7 @@ async function registerUser(phoneNumber: string, username: string, displayName: 
         throw new Error(`Registration failed for ${username}: ${res.status} ${await res.text()}`);
     }
 
-    return res.json();
+    return readJson(res);
 }
 
 function connectWebSocket(
@@ -142,7 +162,7 @@ async function runE2ETest() {
         throw new Error(`Chat creation failed: ${chatRes.status} ${await chatRes.text()}`);
     }
 
-    const { chat } = await chatRes.json();
+    const { chat } = await readJson(chatRes);
 
     console.log(`3. Alice <-> Charlie chat created: ${chat.id}`);
 
@@ -173,7 +193,7 @@ async function runE2ETest() {
         );
     }
 
-    const { chat: bobAliceChat } = await bobAliceChatRes.json();
+    const { chat: bobAliceChat } = await readJson(bobAliceChatRes);
 
     if (!bobAliceChat || bobAliceChat.id === chat.id) {
         throw new Error('SECURITY FAILURE: Bob received Alice <-> Charlie private chat');
@@ -190,7 +210,7 @@ async function runE2ETest() {
         throw new Error(`Could not retrieve Bob <-> Alice members: ${bobMembersRes.status}`);
     }
 
-    const bobMembersData = await bobMembersRes.json();
+    const bobMembersData = await readJson(bobMembersRes);
     const bobMemberIds = bobMembersData.members.map((member: any) => member.user_id);
 
     if (
@@ -772,7 +792,7 @@ async function runE2ETest() {
         );
     }
 
-    const firstRefresh = await refreshResponse.json();
+    const firstRefresh = await readJson(refreshResponse);
 
     if (
         typeof firstRefresh.token !== 'string' ||
@@ -827,7 +847,7 @@ async function runE2ETest() {
         );
     }
 
-    const secondRefresh = await secondRefreshResponse.json();
+    const secondRefresh = await readJson(secondRefreshResponse);
 
     if (
         typeof secondRefresh.token !== 'string' ||
@@ -871,7 +891,7 @@ async function runE2ETest() {
         );
     }
 
-    const revokeData = await revokeResponse.json();
+    const revokeData = await readJson(revokeResponse);
 
     if (revokeData.success !== true) {
         throw new Error('SECURITY FAILURE: Session revoke endpoint did not report success');
@@ -886,7 +906,7 @@ async function runE2ETest() {
         },
     });
 
-    if (revokedAccessResponse.status !== 401) {
+    if (!isAuthRejection(revokedAccessResponse.status)) {
         throw new Error(
             `SECURITY FAILURE: Revoked session access token remained valid (HTTP ${revokedAccessResponse.status})`
         );
@@ -1059,7 +1079,7 @@ async function runE2ETest() {
         );
     }
 
-    const pollResponse = await createPollRes.json();
+    const pollResponse = await readJson(createPollRes);
     const pollMessage = pollResponse.message;
 
     if (!pollMessage?.poll?.id) {
@@ -1117,7 +1137,7 @@ async function runE2ETest() {
         );
     }
 
-    const authorizedVoteData = await authorizedVoteRes.json();
+    const authorizedVoteData = await readJson(authorizedVoteRes);
 
     const votedPoll = authorizedVoteData.poll;
 
@@ -1157,7 +1177,7 @@ async function runE2ETest() {
         );
     }
 
-    const charlieVoteData = await charlieVoteRes.json();
+    const charlieVoteData = await readJson(charlieVoteRes);
 
     if (charlieVoteData.poll.total_votes !== 2) {
         throw new Error(
@@ -1186,7 +1206,7 @@ async function runE2ETest() {
         );
     }
 
-    const changedVoteData = await aliceChangeVoteRes.json();
+    const changedVoteData = await readJson(aliceChangeVoteRes);
 
     if (changedVoteData.poll.total_votes !== 2) {
         throw new Error(
@@ -1218,7 +1238,7 @@ async function runE2ETest() {
     console.log('13. Testing threaded reply authorization...');
 
     // Alice creates a parent message in the Alice <-> Charlie chat.
-    const threadParent = MessageService.createMessage({
+    const threadParent = await MessageService.createMessage({
         chatId: chat.id,
         senderId: alice.user.id,
         contentText: 'E2E thread authorization parent message',
@@ -1227,7 +1247,7 @@ async function runE2ETest() {
     const threadParentId = threadParent.id;
 
     // Charlie creates a reply to Alice's message.
-    const threadReply = MessageService.createMessage({
+    const threadReply = await MessageService.createMessage({
         chatId: chat.id,
         senderId: charlie.user.id,
         contentText: 'E2E thread authorization reply',
@@ -1265,7 +1285,7 @@ async function runE2ETest() {
         );
     }
 
-    const threadData = await authorizedThreadRes.json();
+    const threadData = await readJson(authorizedThreadRes);
 
     if (threadData.parent?.id !== threadParentId) {
         throw new Error('REGRESSION FAILURE: Thread parent message was not returned correctly');
@@ -1431,7 +1451,7 @@ async function runE2ETest() {
         );
     }
 
-    const analyticsData = await authorizedAnalyticsRes.json();
+    const analyticsData = await readJson(authorizedAnalyticsRes);
 
     if (
         typeof analyticsData !== 'object' ||
@@ -1455,9 +1475,9 @@ async function runE2ETest() {
     // 16A. Unauthenticated users must not access federation status.
     const unauthenticatedFederationRes = await fetch(`${BASE_URL}/federation/status`);
 
-    if (unauthenticatedFederationRes.status !== 401) {
+    if (!isAuthRejection(unauthenticatedFederationRes.status)) {
         throw new Error(
-            `SECURITY FAILURE: Unauthenticated federation status access was allowed. Expected 401, got ${unauthenticatedFederationRes.status}`
+            `SECURITY FAILURE: Unauthenticated federation status access was allowed. Expected 401 or 419, got ${unauthenticatedFederationRes.status}`
         );
     }
 
@@ -1474,7 +1494,7 @@ async function runE2ETest() {
         );
     }
 
-    const federationData = await federationRes.json();
+    const federationData = await readJson(federationRes);
 
     if (
         typeof federationData !== 'object' ||
@@ -1532,5 +1552,9 @@ runE2ETest().catch((err) => {
     console.error('');
     console.error('E2E TEST FAILED');
     console.error(err);
-    process.exitCode = 1;
+    // Exit explicitly. `process.exitCode = 1` alone leaves the process alive
+    // whenever the failure happens before the cleanup block below closes the
+    // three WebSockets — the open sockets hold the event loop open and the
+    // suite hangs forever instead of reporting the failure.
+    process.exit(1);
 });

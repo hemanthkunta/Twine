@@ -33,6 +33,10 @@ export const CreatePollModal: React.FC<CreatePollModalProps> = ({ chatId, onClos
   const handleRemoveOption = (index: number) => {
     if (options.length > 2) {
       setOptions(options.filter((_, i) => i !== index));
+      setCorrectOptionIdx((currentIndex) => {
+        if (currentIndex === index) return 0;
+        return currentIndex > index ? currentIndex - 1 : currentIndex;
+      });
     }
   };
 
@@ -49,7 +53,7 @@ export const CreatePollModal: React.FC<CreatePollModalProps> = ({ chatId, onClos
         options: validOptions,
         isAnonymous,
         isQuiz,
-        correctOptionId: isQuiz ? `opt_${correctOptionIdx}` : undefined,
+        correctOptionIndex: isQuiz ? correctOptionIdx : undefined,
         explanation: isQuiz ? explanation.trim() : undefined,
       });
 

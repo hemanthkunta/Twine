@@ -2,10 +2,15 @@ import dotenv from 'dotenv';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { getLogger } from '../services/logger.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const projectRoot = path.resolve(__dirname, '../../');
+// Go up three levels: backend/src/config -> backend/src -> backend -> messagingproject
+const projectRoot = path.resolve(__dirname, '../../../');
+const logger = getLogger();
+logger.debug('[config] projectRoot: %s', projectRoot);
+logger.debug('[config] DB_PATH env: %s', process.env.DB_PATH);
 
 dotenv.config();
 
@@ -45,15 +50,24 @@ if (process.env.TURN_URLS) {
     turnUrls = [];
 }
 
+// Resolve database path
+const dbPath = process.env.DB_PATH || path.join(projectRoot, 'messaging.db');
+logger.debug('[config] Resolved dbPath: %s', dbPath);
+
 export const config = {
     port: parseInt(process.env.PORT || '4000', 10),
     nodeEnv,
     isProduction,
     jwtSecret,
     corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-    dbPath: process.env.DB_PATH || path.join(projectRoot, 'messaging.db'),
+    dbPath,
     accessTokenExpiresIn: '15m',
     refreshTokenExpiresIn: '30d',
+    redisHost: process.env.REDIS_HOST || 'localhost',
+    redisPort: parseInt(process.env.REDIS_PORT || '6379', 10),
+    redisPassword: process.env.REDIS_PASSWORD || undefined,
+    redisDb: parseInt(process.env.REDIS_DB || '0', 10),
+    logLevel: process.env.LOG_LEVEL || 'info',
 
     // Server-side-only TURN time-limited credential generation config
     // ⚠️ TURN_SHARED_SECRET is never exposed to the frontend/client

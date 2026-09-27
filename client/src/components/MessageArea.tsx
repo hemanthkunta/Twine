@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { ApiService } from '../services/api';
 import { PollCard } from './PollCard';
+import { LinkPreview } from './LinkPreview';
 
 interface MessageAreaProps {
     messages: Message[];
@@ -984,15 +985,24 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                 )}
 
                                                 {/* Link Preview */}
-                                                {(msg.linkPreview || (msg.media_metadata && msg.media_metadata.url)) && (
+                                                {(msg.linkPreview ||
+                                                    (msg.media_metadata &&
+                                                        msg.media_metadata.url)) && (
                                                     <div className="my-2">
                                                         <LinkPreview
-                                                            url={msg.linkPreview?.url || msg.media_metadata?.url}
+                                                            url={
+                                                                msg.linkPreview?.url ??
+                                                                msg.media_metadata?.url ??
+                                                                ''
+                                                            }
                                                             previewData={msg.linkPreview}
                                                             onPreviewGenerated={(data) => {
                                                                 // Update message with link preview data if missing
                                                                 if (!msg.linkPreview) {
-                                                                    console.log('[MessageArea] Link preview generated:', data);
+                                                                    console.log(
+                                                                        '[MessageArea] Link preview generated:',
+                                                                        data
+                                                                    );
                                                                     // Note: In a real app, you might want to update the message in state or backend
                                                                 }
                                                             }}

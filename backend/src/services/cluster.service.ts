@@ -1,14 +1,14 @@
 import { EventEmitter } from 'node:events';
 
-export interface ClusterEvent {
+export interface ClusterEvent<P = unknown> {
   channel: string;
   senderNodeId: string;
   type: string;
-  payload: any;
+  payload: P;
   timestamp: number;
 }
 
-type EventListener = (event: ClusterEvent) => void;
+type EventListener<P = unknown> = (event: ClusterEvent<P>) => void;
 
 /**
  * PubSubClusterBroker
@@ -47,8 +47,8 @@ export class PubSubClusterBroker {
   /**
    * Publish an event to the distributed cluster channel
    */
-  publish(channel: string, type: string, payload: any): void {
-    const event: ClusterEvent = {
+  publish(channel: string, type: string, payload: unknown): void {
+    const event: ClusterEvent<unknown> = {
       channel,
       senderNodeId: this.nodeId,
       type,
@@ -68,15 +68,15 @@ export class PubSubClusterBroker {
   /**
    * Subscribe to a cluster channel
    */
-  subscribe(channel: string, listener: EventListener): () => void {
+  subscribe<P = unknown>(channel: string, listener: EventListener<P>): () => void {
     if (!this.subscriptions.has(channel)) {
       this.subscriptions.set(channel, new Set());
     }
-    this.subscriptions.get(channel)!.add(listener);
-    this.emitter.on(channel, listener);
+    this.subscriptions.get(channel)!.add(listener as EventListener);
+    this.emitter.on(channel, listener as EventListener);
 
     return () => {
-      this.unsubscribe(channel, listener);
+      this.unsubscribe(channel, listener as EventListener);
     };
   }
 
@@ -97,14 +97,14 @@ export class PubSubClusterBroker {
   /**
    * Publish to specific user across any cluster node
    */
-  publishToUser(userId: string, type: string, payload: any): void {
+  publishToUser<P = unknown>(userId: string, type: string, payload: P): void {
     this.publish(`user:${userId}`, type, payload);
   }
 
   /**
    * Publish to specific chat channel across any cluster node
    */
-  publishToChat(chatId: string, type: string, payload: any): void {
+  publishToChat<P = unknown>(chatId: string, type: string, payload: P): void {
     this.publish(`chat:${chatId}`, type, payload);
   }
 }

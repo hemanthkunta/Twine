@@ -57,3 +57,5 @@ backend/node_modules
 .azure/
 rt_probe*.mjs
 rt_probe*.db
+# Playwright CLI output (may contain credentials)
+.playwright-cli/

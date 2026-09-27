@@ -1,0 +1,129 @@
+{"level":30,"time":1790441573855,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"✅ Seeding complete: 2 accounts ready (Alice & Bob)."}
+⚡ Complete WebSocket Gateway initialized at /ws
+📊 Dashboard WebSocket connections supported via message types
+🚀 Server running on http://localhost:4000
+[OTP] OTP for +155541586132: 477568
+{"level":50,"time":1790441587459,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"Database execute failed:","sql":"INSERT INTO identity_keys (user_id, public_key)\n             VALUES (?, ?)\n             ON CONFLICT(user_id) DO UPDATE SET\n               public_key = excluded.public_key,\n               updated_at = datetime('now')","params":["identity_0","BXh9fkl8ZeEFxzExFqYPb3sbXvMQwA5gI/IszrptTG8Q"],"err":"FOREIGN KEY constraint failed"}
+Failed to publish identity public key: Error: FOREIGN KEY constraint failed
+    at PooledStatement.run (D:\projects\messagingproject\messagingproject\backend\src\db\index.ts:155:30)
+    at BaseService.execute (D:\projects\messagingproject\messagingproject\backend\src\services\base.service.ts:63:27)
+    at KeyDirectoryService.publish (D:\projects\messagingproject\messagingproject\backend\src\services\keyDirectory.service.ts:71:21)
+    at ProtocolStore.getIdentityKeyPair (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:48:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async SignalProtocolService.getOrCreateIdentityKeyPair (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:180:21)
+    at async SignalProtocolService.calculateSafetyNumber (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:464:24)
+    at async ChatService.calculateSafetyNumber (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:343:20)
+    at async ChatService.getChatById (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:190:18)
+    at async ChatService.getOrCreateDirectChat (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:65:17) {
+  code: 'ERR_SQLITE_ERROR',
+  errcode: 787,
+  errstr: 'constraint failed'
+}
+Failed to publish identity public key: Error: FOREIGN KEY constraint failed
+    at PooledStatement.run (D:\projects\messagingproject\messagingproject\backend\src\db\index.ts:155:30)
+    at BaseService.execute (D:\projects\messagingproject\messagingproject\backend\src\services\base.service.ts:63:27)
+    at KeyDirectoryService.publish (D:\projects\messagingproject\messagingproject\backend\src\services\keyDirectory.service.ts:71:21)
+    at ProtocolStore.getIdentityKeyPair (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:48:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async SignalProtocolService.getOrCreateIdentityKeyPair (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:180:21)
+    at async SignalProtocolService.calculateSafetyNumber (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:465:24)
+    at async ChatService.calculateSafetyNumber (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:343:20)
+    at async ChatService.getChatById (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:190:18)
+    at async ChatService.getOrCreateDirectChat (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:65:17) {
+  code: 'ERR_SQLITE_ERROR',
+  errcode: 787,
+  errstr: 'constraint failed'
+}
+{"level":50,"time":1790441587482,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"Database execute failed:","sql":"INSERT INTO identity_keys (user_id, public_key)\n             VALUES (?, ?)\n             ON CONFLICT(user_id) DO UPDATE SET\n               public_key = excluded.public_key,\n               updated_at = datetime('now')","params":["identity_0","BT9An/TBl6vvdfdCe3VEtX72Yw83wavUt0bHZ+HRtMll"],"err":"FOREIGN KEY constraint failed"}
+{"level":30,"time":1790441587505,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[PresenceService] REGISTERED user=usr_878de6a1c2dd47b8 device=phase1-alice connections=1 socketState=1"}
+{"level":30,"time":1790441587573,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[PresenceService] REGISTERED user=usr_244131fe077f4dee device=phase1-bob connections=1 socketState=1"}
+{"level":40,"time":1790441587663,"pid":15428,"hostname":"DESKTOP-0GKA1BH","error":"","msg":"Redis connection error, falling back to in-memory storage"}
+[WebSocket] CLOSED user=usr_244131fe077f4dee code=1005 reason=
+{"level":30,"time":1790441587787,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[PresenceService] REMOVED user=usr_244131fe077f4dee device=phase1-bob remaining=0 socketState=3"}
+[WebSocket] CLOSED user=usr_878de6a1c2dd47b8 code=1005 reason=
+{"level":30,"time":1790441587787,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[PresenceService] REMOVED user=usr_878de6a1c2dd47b8 device=phase1-alice remaining=0 socketState=3"}
+{"level":40,"time":1790441587868,"pid":15428,"hostname":"DESKTOP-0GKA1BH","error":"","msg":"Redis connection error, falling back to in-memory storage"}
+{"level":40,"time":1790441588283,"pid":15428,"hostname":"DESKTOP-0GKA1BH","error":"","msg":"Redis connection error, falling back to in-memory storage"}
+{"level":40,"time":1790441588889,"pid":15428,"hostname":"DESKTOP-0GKA1BH","error":"","msg":"Redis connection error, falling back to in-memory storage"}
+{"level":40,"time":1790441588890,"pid":15428,"hostname":"DESKTOP-0GKA1BH","attempts":4,"msg":"Redis remained unavailable; retrying has been stopped"}
+{"level":50,"time":1790441759053,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"Database execute failed:","sql":"INSERT INTO identity_keys (user_id, public_key)\n             VALUES (?, ?)\n             ON CONFLICT(user_id) DO UPDATE SET\n               public_key = excluded.public_key,\n               updated_at = datetime('now')","params":["identity_0","BQS/wwVCR5fmPb1DaxIx37cm/v7g0wvgi+PIfLSwGRNR"],"err":"FOREIGN KEY constraint failed"}
+Failed to publish identity public key: Error: FOREIGN KEY constraint failed
+    at PooledStatement.run (D:\projects\messagingproject\messagingproject\backend\src\db\index.ts:155:30)
+    at BaseService.execute (D:\projects\messagingproject\messagingproject\backend\src\services\base.service.ts:63:27)
+    at KeyDirectoryService.publish (D:\projects\messagingproject\messagingproject\backend\src\services\keyDirectory.service.ts:71:21)
+    at ProtocolStore.getIdentityKeyPair (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:48:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async SignalProtocolService.getOrCreateIdentityKeyPair (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:180:21)
+    at async SignalProtocolService.calculateSafetyNumber (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:464:24)
+    at async ChatService.calculateSafetyNumber (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:343:20)
+    at async ChatService.getChatById (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:190:18)
+    at async ChatService.getOrCreateDirectChat (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:65:17) {
+  code: 'ERR_SQLITE_ERROR',
+  errcode: 787,
+  errstr: 'constraint failed'
+}
+Failed to publish identity public key: Error: FOREIGN KEY constraint failed
+    at PooledStatement.run (D:\projects\messagingproject\messagingproject\backend\src\db\index.ts:155:30)
+    at BaseService.execute (D:\projects\messagingproject\messagingproject\backend\src\services\base.service.ts:63:27)
+    at KeyDirectoryService.publish (D:\projects\messagingproject\messagingproject\backend\src\services\keyDirectory.service.ts:71:21)
+    at ProtocolStore.getIdentityKeyPair (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:48:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async SignalProtocolService.getOrCreateIdentityKeyPair (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:180:21)
+    at async SignalProtocolService.calculateSafetyNumber (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:465:24)
+    at async ChatService.calculateSafetyNumber (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:343:20)
+    at async ChatService.getChatById (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:190:18)
+    at async ChatService.getOrCreateDirectChat (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:65:17) {
+  code: 'ERR_SQLITE_ERROR',
+  errcode: 787,
+  errstr: 'constraint failed'
+}
+{"level":50,"time":1790441759059,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"Database execute failed:","sql":"INSERT INTO identity_keys (user_id, public_key)\n             VALUES (?, ?)\n             ON CONFLICT(user_id) DO UPDATE SET\n               public_key = excluded.public_key,\n               updated_at = datetime('now')","params":["identity_0","BUn+CdHBmChzABN6GZcCJA/jHjU6o4k508EhkRufog5Y"],"err":"FOREIGN KEY constraint failed"}
+{"level":50,"time":1790441759071,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"Database execute failed:","sql":"INSERT INTO identity_keys (user_id, public_key)\n             VALUES (?, ?)\n             ON CONFLICT(user_id) DO UPDATE SET\n               public_key = excluded.public_key,\n               updated_at = datetime('now')","params":["identity_0","BaLYh4y1zKKRIyo+i9VELZ+/G3M9BNom+yUWlDxZVhVH"],"err":"FOREIGN KEY constraint failed"}
+Failed to publish identity public key: Error: FOREIGN KEY constraint failed
+    at PooledStatement.run (D:\projects\messagingproject\messagingproject\backend\src\db\index.ts:155:30)
+    at BaseService.execute (D:\projects\messagingproject\messagingproject\backend\src\services\base.service.ts:63:27)
+    at KeyDirectoryService.publish (D:\projects\messagingproject\messagingproject\backend\src\services\keyDirectory.service.ts:71:21)
+    at ProtocolStore.getIdentityKeyPair (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:48:27)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async SignalProtocolService.getOrCreateIdentityKeyPair (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:180:21)
+    at async SignalProtocolService.calculateSafetyNumber (D:\projects\messagingproject\messagingproject\backend\src\services\signalProtocol.service.ts:464:24)
+    at async ChatService.calculateSafetyNumber (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:343:20)
+    at async ChatService.getChatById (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:190:18)
+    at async ChatService.getOrCreateDirectChat (D:\projects\messagingproject\messagingproject\backend\src\services\chat.service.ts:65:17) {
+  code: 'ERR_SQLITE_ERROR',
+  errcode: 787,
+  errstr: 'constraint failed'
+}
+{"level":30,"time":1790441759082,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[PresenceService] REGISTERED user=usr_cdd831aa60604da6 device=e2e_alice_1790441757908 connections=1 socketState=1"}
+{"level":30,"time":1790441759399,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[PresenceService] REGISTERED user=usr_99effff971f44f72 device=e2e_bob_1790441757908 connections=1 socketState=1"}
+{"level":30,"time":1790441759707,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[PresenceService] REGISTERED user=usr_d0456c40ea994b2f device=e2e_charlie_1790441757908 connections=1 socketState=1"}
+Signal Protocol decryption failed: Error: No record for device usr_cdd831aa60604da6.1
+    at SessionCipher.<anonymous> (D:\projects\messagingproject\messagingproject\backend\node_modules\libsignal-protocol-typescript\lib\session-cipher.js:282:23)
+    at Generator.next (<anonymous>)
+    at fulfilled (D:\projects\messagingproject\messagingproject\backend\node_modules\libsignal-protocol-typescript\lib\session-cipher.js:24:58)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+Signal Protocol decryption failed: Error: No record for device usr_cdd831aa60604da6.1
+    at SessionCipher.<anonymous> (D:\projects\messagingproject\messagingproject\backend\node_modules\libsignal-protocol-typescript\lib\session-cipher.js:282:23)
+    at Generator.next (<anonymous>)
+    at fulfilled (D:\projects\messagingproject\messagingproject\backend\node_modules\libsignal-protocol-typescript\lib\session-cipher.js:24:58)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+Signal Protocol decryption failed: Error: No record for device usr_cdd831aa60604da6.1
+    at SessionCipher.<anonymous> (D:\projects\messagingproject\messagingproject\backend\node_modules\libsignal-protocol-typescript\lib\session-cipher.js:282:23)
+    at Generator.next (<anonymous>)
+    at fulfilled (D:\projects\messagingproject\messagingproject\backend\node_modules\libsignal-protocol-typescript\lib\session-cipher.js:24:58)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+Signal Protocol decryption failed: Error: No record for device usr_cdd831aa60604da6.1
+    at SessionCipher.<anonymous> (D:\projects\messagingproject\messagingproject\backend\node_modules\libsignal-protocol-typescript\lib\session-cipher.js:282:23)
+    at Generator.next (<anonymous>)
+    at fulfilled (D:\projects\messagingproject\messagingproject\backend\node_modules\libsignal-protocol-typescript\lib\session-cipher.js:24:58)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[PresenceService] sendToUser: No active client connections for user usr_e5d280b705594daa
+{"level":30,"time":1790441766329,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[Push Notification] Persisted subscription for user usr_99effff971f44f72"}
+[WebSocket] CLOSED user=usr_cdd831aa60604da6 code=1005 reason=
+{"level":30,"time":1790441766343,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[PresenceService] REMOVED user=usr_cdd831aa60604da6 device=e2e_alice_1790441757908 remaining=0 socketState=3"}
+[WebSocket] CLOSED user=usr_99effff971f44f72 code=1005 reason=
+{"level":30,"time":1790441766343,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[PresenceService] REMOVED user=usr_99effff971f44f72 device=e2e_bob_1790441757908 remaining=0 socketState=3"}
+[WebSocket] CLOSED user=usr_d0456c40ea994b2f code=1005 reason=
+{"level":30,"time":1790441766344,"pid":15428,"hostname":"DESKTOP-0GKA1BH","msg":"[PresenceService] REMOVED user=usr_d0456c40ea994b2f device=e2e_charlie_1790441757908 remaining=0 socketState=3"}
+
+D:\projects\messagingproject\messagingproject\backend>

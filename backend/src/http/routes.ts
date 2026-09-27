@@ -198,6 +198,39 @@ router.post('/auth/demo-login', authRateLimiter, (req: Request, res: Response) =
     }
 });
 
+router.post('/auth/request-otp', authRateLimiter, async (req: Request, res: Response) => {
+    try {
+        const { phoneNumber } = req.body;
+        if (!phoneNumber) {
+            res.status(400).json({ error: 'phoneNumber is required' });
+            return;
+        }
+        const result = await AuthService.requestOTP({ phoneNumber });
+        res.json(result);
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Request OTP failed' });
+    }
+});
+
+router.post('/auth/verify-otp', authRateLimiter, async (req: Request, res: Response) => {
+    try {
+        const { phoneNumber, otp } = req.body;
+        if (!phoneNumber || !otp) {
+            res.status(400).json({ error: 'phoneNumber and otp are required' });
+            return;
+        }
+        const result = await AuthService.verifyOTPAndSignIn({ phoneNumber, otp });
+        res.json(result);
+    } catch (err: any) {
+        if (err.message === 'Invalid or expired OTP') {
+            res.status(400).json({ error: err.message });
+        } else {
+            res.status(400).json({ error: err.message || 'Verify OTP failed' });
+        }
+    }
+});
+
+
 router.get('/auth/demo-users', authRateLimiter, (_req: Request, res: Response) => {
     if (config.isProduction) {
         res.status(403).json({
@@ -270,9 +303,10 @@ router.get('/users/search', authMiddleware, (req: Request, res: Response) => {
 });
 
 // 4. Chats, Groups & Channels
-router.get('/chats', authMiddleware, (req: Request, res: Response) => {
+router.get('/chats', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
-    const chats = ChatService.getUserChats(userId).map((c) => {
+    const userChats = await ChatService.getUserChats(userId);
+    const chats = userChats.map((c) => {
         if (c.peer_user) {
             c.peer_user.is_online = c.peer_user.is_bot
                 ? true
@@ -283,11 +317,15 @@ router.get('/chats', authMiddleware, (req: Request, res: Response) => {
     res.json({ chats });
 });
 
-router.post('/chats/direct', authMiddleware, (req: Request, res: Response) => {
+router.post('/chats/direct', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const { targetUserId } = req.body;
+    if (!targetUserId) {
+        res.status(400).json({ error: 'targetUserId is required' });
+        return;
+    }
     try {
-        const chat = ChatService.getOrCreateDirectChat(userId, targetUserId);
+        const chat = await ChatService.getOrCreateDirectChat(userId, targetUserId);
         if (chat.peer_user) {
             chat.peer_user.is_online = chat.peer_user.is_bot
                 ? true
@@ -299,7 +337,7 @@ router.post('/chats/direct', authMiddleware, (req: Request, res: Response) => {
     }
 });
 
-router.post('/groups/create', authMiddleware, (req: Request, res: Response) => {
+router.post('/groups/create', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const { title, description, avatarUrl, type, memberIds } = req.body;
     if (!title) {
@@ -307,7 +345,7 @@ router.post('/groups/create', authMiddleware, (req: Request, res: Response) => {
         return;
     }
     try {
-        const group = GroupService.createGroup({
+        const group = await GroupService.createGroup({
             creatorId: userId,
             title,
             description,
@@ -336,7 +374,7 @@ router.get('/chats/:id/members', authMiddleware, (req: Request, res: Response) =
     res.json({ members });
 });
 
-router.get('/chats/:id/messages', authMiddleware, (req: Request, res: Response) => {
+router.get('/chats/:id/messages', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const chatId = req.params.id;
 
@@ -351,7 +389,9 @@ router.get('/chats/:id/messages', authMiddleware, (req: Request, res: Response) 
 
     const before = req.query.before as string | undefined;
 
-    const messages = MessageService.getChatMessages(chatId, limit, before);
+    // `getChatMessages` is async: without the await, res.json() would serialise a
+    // pending Promise as `{}` and the client would render an empty chat.
+    const messages = await MessageService.getChatMessages(chatId, limit, before, userId);
 
     res.json({ messages });
 });
@@ -399,16 +439,30 @@ router.post('/chats/:id/read-all', authMiddleware, (req: Request, res: Response)
 });
 
 // 5. Global Messages Search
-router.get('/messages/search', authMiddleware, (req: Request, res: Response) => {
+router.get('/messages/search', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const query = (req.query.q as string) || '';
-    const messages = MessageService.searchMessages(userId, query);
+    const messages = await MessageService.searchMessages(userId, {
+        query,
+        chatId: (req.query.chatId as string) || undefined,
+        senderId: (req.query.senderId as string) || undefined,
+        // The client sends `messageType`; `type` is accepted as an alias.
+        messageType: (req.query.messageType as string) || (req.query.type as string) || undefined,
+        startDate: (req.query.startDate as string) || undefined,
+        endDate: (req.query.endDate as string) || undefined,
+    });
     res.json({ messages });
 });
 
 // Protected Media Downloads
-// Protected Media Downloads
-router.get('/media/:filename', authMiddleware, (req: Request, res: Response) => {
+//
+// One authenticated, membership-checked handler serves two paths:
+//   * `/media/:filename`   — the original route.
+//   * `/uploads/:filename` — the exact URL shape `POST /media/upload` returns
+//     (`UploadedMedia.url`) and that the client fetches via `getMediaUrl()`.
+// Without the alias every uploaded file 404s, so pictures and voice notes never
+// render even though the upload succeeded.
+const serveMediaFile = (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const filename = req.params.filename;
 
@@ -462,7 +516,10 @@ router.get('/media/:filename', authMiddleware, (req: Request, res: Response) => 
     }
 
     res.sendFile(filePath);
-});
+};
+
+router.get('/media/:filename', authMiddleware, serveMediaFile);
+router.get('/uploads/:filename', authMiddleware, serveMediaFile);
 
 router.post('/chats/:id/clear', authMiddleware, (req: Request, res: Response) => {
     const userId = (req as any).user.id;
@@ -531,7 +588,7 @@ router.post('/media/upload', authMiddleware, uploadRateLimiter, (req: Request, r
 });
 
 // 7. AI Assistant Endpoints
-router.post('/ai/summarize', authMiddleware, (req: Request, res: Response) => {
+router.post('/ai/summarize', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const { chatId } = req.body;
 
@@ -548,7 +605,7 @@ router.post('/ai/summarize', authMiddleware, (req: Request, res: Response) => {
     }
 
     try {
-        const messages = MessageService.getChatMessages(chatId, 50);
+        const messages = await MessageService.getChatMessages(chatId, 50);
         const summary = AIService.summarizeChat(messages);
         res.json(summary);
     } catch (err: any) {
@@ -558,7 +615,7 @@ router.post('/ai/summarize', authMiddleware, (req: Request, res: Response) => {
     }
 });
 
-router.get('/ai/smart-replies/:chatId', authMiddleware, (req: Request, res: Response) => {
+router.get('/ai/smart-replies/:chatId', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const chatId = req.params.chatId;
 
@@ -570,7 +627,7 @@ router.get('/ai/smart-replies/:chatId', authMiddleware, (req: Request, res: Resp
     }
 
     try {
-        const messages = MessageService.getChatMessages(chatId, 10);
+        const messages = await MessageService.getChatMessages(chatId, 10);
         const replies = AIService.generateSmartReplies(messages, userId);
         res.json(replies);
     } catch (err: any) {
@@ -590,7 +647,7 @@ router.post('/ai/translate', authMiddleware, (req: Request, res: Response) => {
     res.json({ original: text, translated, targetLang });
 });
 
-router.post('/ai/semantic-search', authMiddleware, (req: Request, res: Response) => {
+router.post('/ai/semantic-search', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const { query, chatId } = req.body;
 
@@ -607,8 +664,8 @@ router.post('/ai/semantic-search', authMiddleware, (req: Request, res: Response)
     }
 
     const allMessages = chatId
-        ? MessageService.getChatMessages(chatId, 100)
-        : MessageService.searchMessages(userId, query);
+        ? await MessageService.getChatMessages(chatId, 100)
+        : await MessageService.searchMessages(userId, { query });
 
     const results = AIService.semanticSearch(query, allMessages);
     res.json({ results });
@@ -640,7 +697,7 @@ router.post('/ai/call-summary', authMiddleware, (req: Request, res: Response) =>
     res.json(summary);
 });
 
-router.post('/ai/suggest-topics', authMiddleware, (req: Request, res: Response) => {
+router.post('/ai/suggest-topics', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const { chatId, chatTitle } = req.body;
 
@@ -656,13 +713,13 @@ router.post('/ai/suggest-topics', authMiddleware, (req: Request, res: Response) 
         return;
     }
 
-    const messages = MessageService.getChatMessages(chatId, 30);
+    const messages = await MessageService.getChatMessages(chatId, 30);
     const suggestions = AIService.suggestGroupTopics(chatTitle || 'Group', messages);
     res.json(suggestions);
 });
 
 // 8. Polls & Quizzes
-router.post('/polls/create', authMiddleware, (req: Request, res: Response) => {
+router.post('/polls/create', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const { chatId, question, options, isAnonymous, isQuiz, correctOptionId, explanation } =
         req.body;
@@ -682,7 +739,7 @@ router.post('/polls/create', authMiddleware, (req: Request, res: Response) => {
     }
 
     try {
-        const message = MessageService.createPoll({
+        const message = await MessageService.createPoll({
             chatId,
             senderId: userId,
             question,
@@ -701,7 +758,7 @@ router.post('/polls/create', authMiddleware, (req: Request, res: Response) => {
     }
 });
 
-router.post('/polls/vote', authMiddleware, (req: Request, res: Response) => {
+router.post('/polls/vote', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const { pollId, optionId } = req.body;
 
@@ -713,7 +770,7 @@ router.post('/polls/vote', authMiddleware, (req: Request, res: Response) => {
     }
 
     try {
-        const poll = MessageService.votePoll(pollId, optionId, userId);
+        const poll = await MessageService.votePoll(pollId, optionId, userId);
 
         if (!poll) {
             res.status(404).json({
@@ -738,11 +795,11 @@ router.post('/polls/vote', authMiddleware, (req: Request, res: Response) => {
 });
 
 // 9. Threaded Replies
-router.get('/threads/:parentMessageId', authMiddleware, (req: Request, res: Response) => {
+router.get('/threads/:parentMessageId', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const parentMessageId = req.params.parentMessageId;
 
-    const parent = MessageService.getMessageById(parentMessageId);
+    const parent = await MessageService.getMessageById(parentMessageId);
 
     if (!parent) {
         res.status(404).json({
@@ -758,13 +815,13 @@ router.get('/threads/:parentMessageId', authMiddleware, (req: Request, res: Resp
         return;
     }
 
-    const messages = MessageService.getThreadMessages(parentMessageId);
+    const messages = await MessageService.getThreadMessages(parentMessageId);
 
     res.json({ parent, messages });
 });
 
 // 10. Channel Analytics & Federation
-router.get('/channels/:chatId/analytics', authMiddleware, (req: Request, res: Response) => {
+router.get('/channels/:chatId/analytics', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const chatId = req.params.chatId;
 
@@ -775,7 +832,7 @@ router.get('/channels/:chatId/analytics', authMiddleware, (req: Request, res: Re
         return;
     }
 
-    const messages = MessageService.getChatMessages(chatId, 50);
+    const messages = await MessageService.getChatMessages(chatId, 50);
 
     const analytics = ChannelAnalyticsService.getChannelAnalytics(chatId, 'Channel', messages);
 

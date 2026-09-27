@@ -8,10 +8,29 @@
     "dev:client": "npm --prefix client run dev",
     "build": "npm --prefix backend run build && npm --prefix client run build",
     "test:backend": "npm --prefix backend run test:e2e",
+    "test:e2e": "npx playwright test",
+    "test:e2e:headed": "npx playwright test --headed",
+    "test:e2e:debug": "npx playwright test --debug",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:agents": "node run-agent-tests.js",
+    "test:agents:auth": "node run-agent-tests.js auth",
+    "test:agents:direct": "node run-agent-tests.js direct-messaging",
+    "test:agents:group": "node run-agent-tests.js group-messaging",
+    "test:agents:webrtc": "node run-agent-tests.js webrtc-calling",
+    "test:agents:presence": "node run-agent-tests.js presence-typing",
+    "test:agents:sync": "node run-agent-tests.js multi-device-sync",
+    "test:agents:parallel": "node run-agent-tests.js parallel-runner",
+    "test:agents:all": "node run-agent-tests.js all",
     "sync": "node scripts/sync.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "concurrently": "^9.1.0",
-    "playwright": "^1.62.1"
+    "playwright": "^1.62.1",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "expo": "^57.0.24",
+    "pino": "^10.3.1"
   }
 }

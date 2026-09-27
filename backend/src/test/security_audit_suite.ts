@@ -3,6 +3,7 @@ import { ChatService } from '../services/chat.service.js';
 import { GroupService } from '../services/group.service.js';
 import { MessageService } from '../services/message.service.js';
 import { db, initDatabase } from '../db/index.js';
+import { emitTestSuiteStarted, emitTestSuiteCompleted } from './testEventEmitter.js';
 
 interface SecAuditResult {
     vulnerabilityCategory: string;
@@ -16,6 +17,7 @@ const auditResults: SecAuditResult[] = [];
 
 async function runSecurityAudit() {
     initDatabase();
+    emitTestSuiteStarted('security');
 
     console.log('===============================================================');
     console.log('🛡️ RUNNING PENETRATION & ETHICAL HACKER SECURITY AUDIT SUITE');
@@ -91,8 +93,8 @@ async function runSecurityAudit() {
     // 3. IDOR & Access Control Isolation
     console.log('▶ [3/5] Testing IDOR & Multi-Tenant Chat Isolation...');
     // Create a private direct chat between Bob and Charlie
-    const privateChat = ChatService.getOrCreateDirectChat('usr_bob_002', 'usr_charlie_003');
-    const privateMsg = MessageService.createMessage({
+    const privateChat = await ChatService.getOrCreateDirectChat('usr_bob_002', 'usr_charlie_003');
+    const privateMsg = await MessageService.createMessage({
         chatId: privateChat.id,
         senderId: 'usr_bob_002',
         contentText: 'Confidential secret between Bob and Charlie',
@@ -101,7 +103,11 @@ async function runSecurityAudit() {
 
     // Alice tries to edit or delete Bob's private message
     try {
-        MessageService.editMessage(privateMsg.id, 'usr_alice_001', 'Alice hijacked this message');
+        await MessageService.editMessage(
+            privateMsg.id,
+            'usr_alice_001',
+            'Alice hijacked this message'
+        );
         auditResults.push({
             vulnerabilityCategory: 'IDOR / Unauthorized Modification',
             testCase: 'Non-member editing message of another user',
@@ -128,7 +134,7 @@ async function runSecurityAudit() {
     ];
 
     for (const xss of xssPayloads) {
-        const msg = MessageService.createMessage({
+        const msg = await MessageService.createMessage({
             chatId: privateChat.id,
             senderId: 'usr_bob_002',
             contentText: xss,
@@ -148,7 +154,7 @@ async function runSecurityAudit() {
     console.log('▶ [5/5] Testing Oversized Payloads & Denial of Service Bounds...');
     const hugeText = 'A'.repeat(50000); // 50KB text
     try {
-        const hugeMsg = MessageService.createMessage({
+        const hugeMsg = await MessageService.createMessage({
             chatId: privateChat.id,
             senderId: 'usr_bob_002',
             contentText: hugeText,
@@ -193,6 +199,8 @@ async function runSecurityAudit() {
     console.log(
         `\nTotal Security Checks: ${auditResults.length} | Secure: ${secureCount} | Vulnerabilities: ${vulnCount}`
     );
+    emitTestSuiteCompleted('security', secureCount, vulnCount, auditResults.length);
+
     if (vulnCount > 0) {
         process.exit(1);
     }

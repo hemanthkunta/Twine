@@ -1,7 +1,7 @@
 # Multi-stage Dockerfile for Aether Messaging Platform
 
 # Stage 1: Build Client
-FROM node:20-alpine AS client-builder
+FROM node:24-alpine AS client-builder
 WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm ci
@@ -9,7 +9,7 @@ COPY client/ ./
 RUN npm run build
 
 # Stage 2: Build Backend
-FROM node:20-alpine AS backend-builder
+FROM node:24-alpine AS backend-builder
 WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci
@@ -17,11 +17,12 @@ COPY backend/ ./
 RUN npm run build
 
 # Stage 3: Production Runner
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=4000
+ENV UPLOADS_DIR=/app/uploads
 
 # Copy dependencies and pre-built artifacts
 COPY backend/package*.json ./

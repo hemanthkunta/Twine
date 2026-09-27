@@ -29,6 +29,26 @@ A full-stack, cloud-first messaging platform architecture inspired by Telegram w
 
 ---
 
+## 📊 Completion Status
+
+See [TODO.md](./TODO.md) for the detailed completion checklist and progress tracking.
+
+**Current Estimated Progress:**
+- **Core Messaging MVP (Phase 1-2)**: ~65% complete
+- **Production-Ready Security & Trust (Phase 3)**: ~25% complete  
+- **Extensibility & Advanced Features (Phase 4)**: ~8% complete
+- **Mobile Platform Support**: 0% (web-only)
+- **Enterprise/Advanced Features (Phase 5)**: ~3% complete
+
+**Immediate Priorities (from QA_REPORT):**
+1. Fix media authorization (#4 - unauthenticated `/uploads` access)
+2. Wire E2EE send/receive path to key management (stage 2)
+3. Address test suite reliability (#22) and socket reset (#23b)
+4. Implement phone/OTP authentication and 2FA
+5. Complete groups/channels administration features
+
+---
+
 ## 📁 Project Structure
 
 ```
@@ -61,7 +81,7 @@ messagingproject/
     │   │   ├── MessageArea.tsx        # Speech bubbles & checkmarks
     │   │   ├── MessageInput.tsx       # Typing emitter & emoji picker
     │   │   ├── UserAvatar.tsx         # Avatar with online indicator ring
-    │   │   ├── StatusTicks.tsx        # Message checkmark receipts
+    │   │   ├── MessageStatus.tsx      # Message checkmark receipts
     │   │   ├── UserStatusBadge.tsx    # Live presence status
     │   │   ├── CallModal.tsx          # WebRTC voice/video call overlay
     │   │   └── NewChatModal.tsx       # User directory search modal

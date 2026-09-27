@@ -3,9 +3,11 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 
 const cwd = process.cwd();
-export const UPLOADS_DIR = cwd.endsWith('backend')
-    ? path.resolve(cwd, 'uploads')
-    : path.resolve(cwd, 'backend', 'uploads');
+export const UPLOADS_DIR = process.env.UPLOADS_DIR
+    ? path.resolve(process.env.UPLOADS_DIR)
+    : cwd.endsWith('backend')
+      ? path.resolve(cwd, 'uploads')
+      : path.resolve(cwd, 'backend', 'uploads');
 
 if (!fs.existsSync(UPLOADS_DIR)) {
     fs.mkdirSync(UPLOADS_DIR, { recursive: true });

@@ -1,3 +1,6 @@
+import { getLogger } from './logger.service.js';
+const logger = getLogger();
+
 export interface MatrixEvent {
   roomId: string;
   sender: string;
@@ -25,7 +28,7 @@ export class FederationBridgeService {
 
   static relayToMatrix(channelName: string, senderName: string, text: string) {
     this.syncedEvents++;
-    console.log(`[Matrix Bridge] Relayed to Matrix room #${channelName}: <${senderName}> ${text}`);
+    logger.info(`[Matrix Bridge] Relayed to Matrix room #${channelName}: <${senderName}> ${text}`);
     return { success: true, eventId: `$matrix_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` };
   }
 }

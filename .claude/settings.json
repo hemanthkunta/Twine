@@ -1,0 +1,22 @@
+{
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true,
+    "ecc@ecc": true,
+    "browser-use@browser-use": true,
+    "superpowers@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "ecc": {
+      "source": {
+        "source": "github",
+        "repo": "affaan-m/ECC"
+      }
+    },
+    "browser-use": {
+      "source": {
+        "source": "github",
+        "repo": "browser-use/browser-use"
+      }
+    }
+  }
+}

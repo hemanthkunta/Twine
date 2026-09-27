@@ -1,14 +1,22 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "resolveJsonModule": true
-  },
-  "include": ["src/**/*"]
+    "compilerOptions": {
+        "target": "ES2022",
+        // Node-only globals. Deliberately excludes "DOM" so that browser-only
+        // APIs (DOMParser, RTCPeerConnection, localStorage, ...) cannot compile
+        // in server code and then fail at runtime. WebRTC signaling payloads are
+        // described by the structural types in src/types/protocol.ts instead.
+        "lib": ["ES2022"],
+        "types": ["node"],
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "skipLibCheck": true,
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "resolveJsonModule": true,
+        "strict": true,
+        "forceConsistentCasingInFileNames": true
+    },
+    "include": ["src/**/*"]
 }

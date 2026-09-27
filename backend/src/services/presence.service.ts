@@ -1,17 +1,24 @@
 import { WebSocket } from 'ws';
 import { AuthService } from './auth.service.js';
+import { BaseService } from './base.service.js';
+import { getLogger } from './logger.service.js';
 import { WSFrame, WSPresenceUpdatePayload, WSUserTypingPayload } from '../types/protocol.js';
+import { DashboardEventService } from './dashboardEventService.js';
 
-interface ConnectedClient {
+export interface ConnectedClient {
     userId: string;
     socket: WebSocket;
     deviceId?: string;
     connectedAt: number;
 }
 
-export class PresenceService {
+const logger = getLogger();
+
+export class PresenceService extends BaseService {
     // Map of userId -> Set of active WebSocket client connections (multi-device support)
     private static connections = new Map<string, Set<ConnectedClient>>();
+    private static lastEmittedOnlineCount = 0;
+    private static readonly ONLINE_COUNT_CHANGE_THRESHOLD = 5;
 
     static registerConnection(
         userId: string,
@@ -43,14 +50,16 @@ export class PresenceService {
         userClients.add(client);
         AuthService.updateLastSeen(userId);
 
-        console.log(
+        logger.info(
             `[PresenceService] REGISTERED user=${userId} device=${deviceId || 'unknown'} ` +
                 `connections=${userClients.size} socketState=${socket.readyState}`
         );
 
         if (isFirstConnection) {
             this.broadcastPresence(userId, true);
+            DashboardEventService.emitUserConnectionEvent(userId, true);
         }
+        this.checkAndEmitOnlineUserCountChange();
 
         return client;
     }
@@ -61,7 +70,7 @@ export class PresenceService {
 
         userClients.delete(client);
 
-        console.log(
+        logger.info(
             `[PresenceService] REMOVED user=${client.userId} ` +
                 `device=${client.deviceId || 'unknown'} ` +
                 `remaining=${userClients.size} socketState=${client.socket.readyState}`
@@ -71,7 +80,9 @@ export class PresenceService {
             this.connections.delete(client.userId);
             AuthService.updateLastSeen(client.userId);
             this.broadcastPresence(client.userId, false);
+            DashboardEventService.emitUserConnectionEvent(client.userId, false);
         }
+        this.checkAndEmitOnlineUserCountChange();
     }
 
     static isUserOnline(userId: string): boolean {
@@ -87,6 +98,14 @@ export class PresenceService {
 
     static getOnlineUserIds(): string[] {
         return Array.from(this.connections.keys()).filter((userId) => this.isUserOnline(userId));
+    }
+
+    private static checkAndEmitOnlineUserCountChange(): void {
+        const currentOnlineCount = this.getOnlineUserIds().length;
+        if (Math.abs(currentOnlineCount - this.lastEmittedOnlineCount) >= this.ONLINE_COUNT_CHANGE_THRESHOLD) {
+            this.lastEmittedOnlineCount = currentOnlineCount;
+            DashboardEventService.broadcastDashboardEvent('dashboard:online_user_count_change', { count: currentOnlineCount });
+        }
     }
 
     static sendToUser(userId: string, frame: WSFrame) {
