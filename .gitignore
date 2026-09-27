@@ -59,3 +59,6 @@ rt_probe*.mjs
 rt_probe*.db
 # Playwright CLI output (may contain credentials)
 .playwright-cli/
+
+# Playwright transient test output
+test-results/
