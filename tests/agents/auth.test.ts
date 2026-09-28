@@ -22,6 +22,11 @@ test.describe('Authentication Flow Tests', () => {
   });
 
   test('all demo users can login', async ({ browser }) => {
+    // Four full login flows run sequentially in this single test. WebKit renders
+    // markedly slower than the other engines, so the default 60s test timeout
+    // expired here while the same flow passed on chromium, firefox and
+    // mobile-safari. Give the loop its own budget instead.
+    test.setTimeout(180000);
     for (const user of DEMO_USERS) {
       const context = await browser.newContext();
       const page = await context.newPage();
