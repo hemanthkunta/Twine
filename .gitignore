@@ -62,3 +62,6 @@ rt_probe*.db
 
 # Playwright transient test output
 test-results/
+
+# Playwright transient HTML report
+playwright-report/
