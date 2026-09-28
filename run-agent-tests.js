@@ -6,13 +6,7 @@ import path from 'path';
 
 const args = process.argv.slice(2);
 
-interface TestConfig {
-  name: string;
-  command: string;
-  description: string;
-}
-
-const TEST_CONFIGS: TestConfig[] = [
+const TEST_CONFIGS = [
   {
     name: 'auth',
     command: 'npx playwright test tests/agents/auth.test.ts',
@@ -124,7 +118,7 @@ Examples:
 `);
 }
 
-function runCommand(command: string, env: NodeJS.ProcessEnv): void {
+function runCommand(command, env) {
   console.log(`\n🚀 Running: ${command}\n`);
   
   try {
@@ -134,7 +128,7 @@ function runCommand(command: string, env: NodeJS.ProcessEnv): void {
       cwd: process.cwd(),
     });
     console.log('\n✅ Command completed successfully');
-  } catch (error: any) {
+  } catch (error) {
     console.error('\n❌ Command failed:', error.message);
     process.exit(error.status || 1);
   }
@@ -155,7 +149,7 @@ function main() {
     process.exit(1);
   }
 
-  const env: NodeJS.ProcessEnv = {};
+  const env = {};
   
   const baseUrlIdx = args.indexOf('--base-url');
   if (baseUrlIdx !== -1 && args[baseUrlIdx + 1]) {

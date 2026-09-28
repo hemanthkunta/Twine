@@ -1,6 +1,7 @@
 {
   "name": "aether-messaging-platform",
   "version": "2.0.0",
+  "type": "module",
   "description": "Telegram-grade real-time messaging platform with WebSockets, WebRTC, AI copilot, and multi-device sync",
   "scripts": {
     "dev": "concurrently -n \"BACKEND,CLIENT\" -c \"cyan,magenta\" \"npm --prefix backend run dev\" \"npm --prefix client run dev\"",
