@@ -179,7 +179,7 @@ class RealtimeSocketClient {
   private scheduleReconnect() {
     if (this.reconnectTimer) return;
     this.reconnectAttempts++;
-    // Exponential backoff with jitter: 1s, 2s, 4s, ... max 30s
+    // Exponential backoff with jitter: 1s, 1.5s, 2.25s, ... capped at 30s
     const delay = Math.min(30000, 1000 * Math.pow(1.5, Math.min(this.reconnectAttempts, 8))) + Math.random() * 500;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
