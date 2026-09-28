@@ -55,6 +55,27 @@ export const SCHEMA_SQL = `
           updated_at TEXT DEFAULT (datetime('now'))
         );
 
+        -- Medium-term signed prekeys for X3DH handshakes. The signature is stored
+        -- beside the public key so a peer can verify it before building a session.
+        CREATE TABLE IF NOT EXISTS signed_prekeys (
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          pre_key_id INTEGER NOT NULL,
+          public_key TEXT NOT NULL,
+          signature TEXT NOT NULL,
+          timestamp TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (user_id, pre_key_id)
+        );
+
+        -- Single-use prekeys for X3DH replay protection. One row is consumed per
+        -- session initiation; stale rows that were never used are cleaned up.
+        CREATE TABLE IF NOT EXISTS one_time_prekeys (
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          pre_key_id INTEGER NOT NULL,
+          public_key TEXT NOT NULL,
+          created_at TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (user_id, pre_key_id)
+        );
+
         CREATE TABLE IF NOT EXISTS push_subscriptions (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

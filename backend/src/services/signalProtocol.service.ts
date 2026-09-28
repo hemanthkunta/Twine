@@ -13,6 +13,8 @@ import { MetricsService} from "./metrics.service.js";
  * (database or Redis) to survive server restarts and support horizontal scaling.
  */
 class ProtocolStore implements StorageType {
+  /** Owning user id, used to publish public keys into the directory. */
+  private ownerId: string;
   private identityKeyPair: KeyPairType<ArrayBuffer> | null = null;
   private registrationId: number = 0;
   private identityKeys: Map<string, ArrayBuffer> = new Map();
@@ -22,13 +24,19 @@ class ProtocolStore implements StorageType {
   private sessions: Map<string, SessionRecord> = new Map(); // Store SessionRecord objects internally
   private senderKeys: Map<string, Map<number, any>> = new Map(); // Simplified for group sender keys
 
+  constructor(ownerId: string) {
+    this.ownerId = ownerId;
+  }
+
   async getIdentityKeyPair(): Promise<KeyPairType<ArrayBuffer> | undefined> {
     if (this.identityKeyPair) {
       return this.identityKeyPair;
     }
 
-    // Try to load from keyDirectory service - get the public key if published
-    const stored = KeyDirectoryService.getPublicKey(`identity_${this.registrationId.toString()}`);
+    // Try to load from keyDirectory service - get the public key if published.
+    // Lookup uses the owner's real user id: the old `identity_<registrationId>`
+    // key never matched anything published by users.
+    const stored = this.ownerId ? KeyDirectoryService.getPublicKey(this.ownerId) : null;
     if (stored) {
       // We have a public key stored, but we need the private key too
       // Since we don't store private keys in KeyDirectoryService (for security),
@@ -45,7 +53,11 @@ class ProtocolStore implements StorageType {
     try {
       const publicKeyBuf = this.identityKeyPair.pubKey;
       const publicKeyStr = Buffer.from(publicKeyBuf).toString('base64');
-      KeyDirectoryService.publish(`identity_${this.registrationId.toString()}`, publicKeyStr);
+      // Publish under the owner's real user id: `identity_<registrationId>` is not
+      // a user, so the insert violated the identity_keys.user_id foreign key.
+      if (this.ownerId) {
+        KeyDirectoryService.publish(this.ownerId, publicKeyStr);
+      }
     } catch (e: unknown) {
       // If publishing fails, we still have the key pair in memory
       console.warn('Failed to publish identity public key:', e);
@@ -72,10 +84,13 @@ class ProtocolStore implements StorageType {
   async saveIdentity(encodedAddress: string, publicKey: ArrayBuffer, nonblockingApproval?: boolean): Promise<boolean> {
     // Store the identity key for the given address
     this.identityKeys.set(encodedAddress, publicKey);
-    // Also publish to keyDirectory service if we have a user ID from the encodedAddress
+    // Also publish to keyDirectory service under the REAL user id. Signal
+    // addresses are `<userId>.<deviceId>`, so publishing the raw address as a
+    // user id violated the identity_keys.user_id foreign key.
+    const userId = encodedAddress.split('.').slice(0, -1).join('.') || encodedAddress;
     try {
       const publicKeyStr = Buffer.from(publicKey).toString('base64');
-      KeyDirectoryService.publish(encodedAddress, publicKeyStr);
+      KeyDirectoryService.publish(userId, publicKeyStr);
     } catch (e: unknown) {
       console.warn('Failed to publish identity public key to keyDirectory:', e);
     }
@@ -90,14 +105,9 @@ class ProtocolStore implements StorageType {
   async storePreKey(keyId: number | string, keyPair: KeyPairType<ArrayBuffer>): Promise<void> {
     const id = typeof keyId === 'number' ? keyId : parseInt(keyId as string);
     this.oneTimePreKeys.set(id, keyPair);
-    // Also publish the public key to keyDirectory service
-    try {
-      const publicKeyBuf = keyPair.pubKey;
-      const publicKeyStr = Buffer.from(publicKeyBuf).toString('base64');
-      KeyDirectoryService.publish(`prekey_${id}`, publicKeyStr);
-    } catch (e: unknown) {
-      console.warn('Failed to publish prekey public key:', e);
-    }
+    // One-time prekeys are single-use and are handed out inside prekey bundles;
+    // they are not directory entries, and the old attempt to publish them under a
+    // `prekey_<id>` pseudo-user violated the identity_keys.user_id foreign key.
   }
 
   async removePreKey(keyId: number | string): Promise<void> {
@@ -128,21 +138,10 @@ class ProtocolStore implements StorageType {
   async storeSignedPreKey(keyId: number | string, keyPair: KeyPairType<ArrayBuffer>): Promise<void> {
     const id = typeof keyId === 'number' ? keyId : parseInt(keyId as string);
     this.signedPreKeys.set(id, keyPair);
-    // Also publish the public key and signature to keyDirectory service
-    // Note: We don't have the signature stored separately in this simplified implementation
-    // In a full implementation, we would store and retrieve the signature as well
-    try {
-      const publicKeyBuf = keyPair.pubKey;
-      const publicKeyStr = Buffer.from(publicKeyBuf).toString('base64');
-      KeyDirectoryService.publishSignedPreKey(
-        `signedprekey_${id}`,
-        id, // preKeyId
-        publicKeyStr,
-        '' // signature - empty for now, would be generated in real implementation
-      );
-    } catch (e: unknown) {
-      console.warn('Failed to publish signed prekey:', e);
-    }
+    // Directory publishing happens in generatePreKeyBundle(), which owns the real
+    // user id and signature. The old publish attempt here used a `signedprekey_<id>`
+    // pseudo-user and an empty signature, so it always failed the foreign key and
+    // the signature format validation.
   }
 
   async removeSignedPreKey(keyId: number | string): Promise<void> {
@@ -164,7 +163,7 @@ export class SignalProtocolService {
    */
   private static getStore(userId: string): ProtocolStore {
     if (!this.stores.has(userId)) {
-      this.stores.set(userId, new ProtocolStore());
+      this.stores.set(userId, new ProtocolStore(userId));
     }
     return this.stores.get(userId)!;
   }
@@ -263,6 +262,22 @@ export class SignalProtocolService {
       storeAny.signedPreKeySignatures = new Map();
     }
     storeAny.signedPreKeySignatures.set(signedPreKeyId, signedPreKeySignature);
+
+    // Publish the public halves into the directory under the REAL user id.
+    // The store previously published under fake ids (`identity_0`,
+    // `signedprekey_1`), which violated the identity_keys.user_id foreign key
+    // and failed the signature format validation, so no bundle was ever listed.
+    try {
+      KeyDirectoryService.publish(userId, Buffer.from(identityKey).toString('base64'));
+      KeyDirectoryService.publishSignedPreKey(
+        userId,
+        signedPreKeyId,
+        Buffer.from(signedPreKeyPublic).toString('base64'),
+        Buffer.from(signedPreKeySignature).toString('base64')
+      );
+    } catch (e: unknown) {
+      console.warn('Failed to publish prekey bundle public keys:', e);
+    }
 
     // Generate a one-time prekey
     const oneTimePreKeyId = Date.now() % 10000; // Simple ID generation

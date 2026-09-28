@@ -83,7 +83,7 @@ for (const u of productionUsers) {
 
 // 3. Pristine Seed Chat: Direct 1:1 Chat (Alice & Bob)
 const directChatId = 'chat_alice_bob_101';
-db.prepare(`INSERT OR IGNORE INTO chats (id, type, title, is_e2ee) VALUES (?, 'DIRECT', 'Alice & Bob', 0)`).run(directChatId);
+db.prepare(`INSERT OR IGNORE INTO chats (id, type, title, is_e2ee) VALUES (?, 'DIRECT', 'Alice & Bob', 1)`).run(directChatId);
 db.prepare(`INSERT OR IGNORE INTO chat_members (id, chat_id, user_id, role) VALUES ('cm_101_1', ?, 'usr_alice_001', 'MEMBER')`).run(directChatId);
 db.prepare(`INSERT OR IGNORE INTO chat_members (id, chat_id, user_id, role) VALUES ('cm_101_2', ?, 'usr_bob_002', 'MEMBER')`).run(directChatId);
 db.prepare(`

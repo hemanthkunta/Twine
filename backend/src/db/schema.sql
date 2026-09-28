@@ -49,6 +49,23 @@ CREATE TABLE IF NOT EXISTS identity_keys (
   updated_at TEXT DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS signed_prekeys (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pre_key_id INTEGER NOT NULL,
+  public_key TEXT NOT NULL,
+  signature TEXT NOT NULL,
+  timestamp TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, pre_key_id)
+);
+
+CREATE TABLE IF NOT EXISTS one_time_prekeys (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pre_key_id INTEGER NOT NULL,
+  public_key TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (user_id, pre_key_id)
+);
+
 CREATE TABLE IF NOT EXISTS push_subscriptions (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

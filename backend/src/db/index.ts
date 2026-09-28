@@ -347,7 +347,7 @@ function seedInitialData(db: DatabaseSync): void {
     // 2. Pre-seed Direct Chat (Alice & Bob)
     const directChatId = 'chat_alice_bob_101';
     db.prepare(
-        `INSERT OR IGNORE INTO chats (id, type, title, is_e2ee) VALUES (?, 'DIRECT', ?, 0)`
+        `INSERT OR IGNORE INTO chats (id, type, title, is_e2ee) VALUES (?, 'DIRECT', ?, 1)`
     ).run(directChatId, 'Alice & Bob');
     db.prepare(
         `INSERT OR IGNORE INTO chat_members (id, chat_id, user_id, role) VALUES (?, ?, ?, 'MEMBER')`

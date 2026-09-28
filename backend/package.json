@@ -15,7 +15,8 @@
     "test:sync": "tsx src/test/cross_platform_sync_suite.ts",
     "test:e2e": "tsx src/test/e2e_test.ts",
     "test:otp": "tsx src/test/otp_flow.test.ts",
-    "test:phase1": "tsx src/test/phase1_mvp_suite.ts"
+    "test:phase1": "tsx src/test/phase1_mvp_suite.ts",
+    "test:e2ee": "tsx test/e2e_encryption.test.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

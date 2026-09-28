@@ -41,7 +41,9 @@ async function runE2EEncryptionTests() {
             passed: false,
             error: err.message
         });
-        return;
+        // No early return: the remaining checks are independently wrapped in
+        // their own try/catch, and bailing out here skipped the summary print
+        // entirely, so the suite used to exit 0 without reporting anything.
     }
 
     // Test 1: E2E chats store messages encrypted in database
@@ -116,7 +118,7 @@ async function runE2EEncryptionTests() {
         db.prepare(`
             INSERT INTO chats (id, type, is_e2ee)
             VALUES (?, 'DIRECT', 0)
-        `).run(chatId, 'DIRECT', 0);
+        `).run(chatId);
 
         // Add chat members
         const cm1 = `cm_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
@@ -265,6 +267,7 @@ async function runE2EEncryptionTests() {
             aliceBundle.identityKey,
             aliceBundle.signedPreKeyId,
             aliceBundle.signedPreKeyPublic,
+            aliceBundle.signedPreKeySignature,
             aliceBundle.preKeyPublic
         );
 
