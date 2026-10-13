@@ -108,7 +108,7 @@ test.describe('Presence and Typing Indicators Tests', () => {
       
       await alice['page'].waitForTimeout(3000);
       
-      await expect(alice['page'].locator('[data-testid="offline-badge"], text=offline')).toBeVisible({ timeout: 10000 });
+      await expect(alice['page'].locator('[title="Offline"]')).toBeVisible({ timeout: 10000 });
     } finally {
       if (!alice['context']._closed) {
         await alice['context'].close();
@@ -134,13 +134,9 @@ test.describe('Presence and Typing Indicators Tests', () => {
       const groupName = `Typing Group ${Date.now()}`;
       await alice.createGroup(groupName, ['Bob Vance', 'Charlie Brown']);
       
-      await bob.waitForSelector(`text=${groupName}`, { timeout: 25000 });
-      await bob.click(`text=${groupName}`);
-      await bob['page'].waitForSelector(SELECTORS.composer, { timeout: 15000 });
+      await bob.selectGroup(groupName);
       
-      await charlie.waitForSelector(`text=${groupName}`, { timeout: 25000 });
-      await charlie.click(`text=${groupName}`);
-      await charlie['page'].waitForSelector(SELECTORS.composer, { timeout: 15000 });
+      await charlie.selectGroup(groupName);
       
       await bob['page'].locator(SELECTORS.composer).fill('Bob typing');
       
@@ -174,14 +170,14 @@ test.describe('Presence and Typing Indicators Tests', () => {
       await alice['page'].waitForTimeout(2000);
       
       const chatList = alice['page'].locator(SELECTORS.chatList);
-      await expect(chatList.locator(`text=Bob Vance`)).toBeVisible();
+      await expect(chatList.locator(`text=Bob Vance`).first()).toBeVisible();
       
       await bob['context'].close();
       
       await alice['page'].waitForTimeout(3000);
       
-      const bobChat = alice['page'].locator(`text=Bob Vance`).locator('..');
-      await expect(bobChat.locator('[data-testid="offline-badge"], text=offline')).toBeVisible({ timeout: 10000 });
+      const bobChat = alice['page'].locator(`text=Bob Vance`).first().locator('..');
+      await expect(bobChat.locator('[title="Offline"]')).toBeVisible({ timeout: 10000 });
     } finally {
       if (!alice['context']._closed) {
         await alice['context'].close();

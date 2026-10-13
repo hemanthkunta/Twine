@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Flame, Clock, X, Check, Timer } from 'lucide-react';
 import { disappearingService, DisappearingTimer } from '../services/disappearing.service';
+import { ApiService } from '../services/api';
 
 interface DisappearingTimerModalProps {
   chatId: string;
@@ -16,6 +17,7 @@ export const DisappearingTimerModal: React.FC<DisappearingTimerModalProps> = ({
   const [selectedTimer, setSelectedTimer] = useState<DisappearingTimer>(
     disappearingService.getChatTimer(chatId)
   );
+  const [saving, setSaving] = useState(false);
 
   const timers: { value: DisappearingTimer; label: string; desc: string }[] = [
     { value: 0, label: 'Off', desc: 'Messages stay in chat history forever' },
@@ -26,10 +28,21 @@ export const DisappearingTimerModal: React.FC<DisappearingTimerModalProps> = ({
     { value: 604800, label: '1 Week', desc: 'Self-destructs 7 days after viewing' },
   ];
 
-  const handleSave = () => {
-    disappearingService.setChatTimer(chatId, selectedTimer);
-    onTimerChanged(selectedTimer);
-    onClose();
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Server-side TTL: new messages get expires_at and are hard-deleted by
+      // the backend sweep (all devices). The local timer remains as the
+      // self-destruct countdown for received messages.
+      await ApiService.setDisappearingTimer(chatId, selectedTimer);
+      disappearingService.setChatTimer(chatId, selectedTimer);
+      onTimerChanged(selectedTimer);
+      onClose();
+    } catch (err) {
+      console.error('Failed to set disappearing timer:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -91,9 +104,10 @@ export const DisappearingTimerModal: React.FC<DisappearingTimerModalProps> = ({
 
           <button
             onClick={handleSave}
-            className="w-full mt-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-95 font-bold text-white text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all"
+            disabled={saving}
+            className="w-full mt-4 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:opacity-95 font-bold text-white text-xs rounded-xl shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50"
           >
-            Set Self-Destruct Timer
+            {saving ? 'Saving…' : 'Set Self-Destruct Timer'}
           </button>
         </div>
       </div>

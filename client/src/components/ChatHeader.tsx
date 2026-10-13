@@ -11,6 +11,7 @@ import {
   Bot,
   Compass,
   Flame,
+  Clock,
   BarChart3,
   Network,
   Heart,
@@ -19,8 +20,13 @@ import {
   Bell,
   BellOff,
   Trash2,
+  Play,
+  Check,
+  AtSign,
 } from 'lucide-react';
 import { Chat, TransportMode } from '../types/index';
+import { NOTIFICATION_SOUNDS, NotificationSoundId, sounds } from '../services/sound';
+import { NotificationPrefs, ChatNotifyMode } from '../services/notificationPrefs';
 import { UserAvatar } from './UserAvatar';
 import { UserStatusBadge } from './UserStatusBadge';
 
@@ -40,6 +46,7 @@ interface ChatHeaderProps {
   onOpenMeshRadar: () => void;
   onOpenSafetyNumber: () => void;
   onOpenDisappearingTimer: () => void;
+  onOpenScheduled?: () => void;
   onOpenAIModeration?: () => void;
   onOpenCreatePoll?: () => void;
   onOpenChannelDashboard?: () => void;
@@ -65,6 +72,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onOpenMeshRadar,
   onOpenSafetyNumber,
   onOpenDisappearingTimer,
+  onOpenScheduled,
   onOpenAIModeration,
   onOpenCreatePoll,
   onOpenChannelDashboard,
@@ -75,6 +83,30 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 }) => {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Per-chat notification preferences popover (client-side, persisted via
+  // NotificationPrefs). chatSound === null means "inherit the global sound".
+  const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const notifRef = useRef<HTMLDivElement | null>(null);
+  const [chatSound, setChatSoundPref] = useState<NotificationSoundId | null>(null);
+  const [chatMode, setChatModePref] = useState<ChatNotifyMode>('all');
+
+  // Reload prefs whenever a different chat is shown.
+  useEffect(() => {
+    setChatSoundPref(NotificationPrefs.getChatSound(chat.id));
+    setChatModePref(NotificationPrefs.resolveMode(chat.id));
+    setShowNotifMenu(false);
+  }, [chat.id]);
+
+  const selectChatMode = (mode: ChatNotifyMode) => {
+    NotificationPrefs.setChatMode(chat.id, mode);
+    setChatModePref(mode);
+  };
+
+  const selectChatSound = (id: NotificationSoundId | null) => {
+    NotificationPrefs.setChatSound(chat.id, id);
+    setChatSoundPref(id);
+  };
 
   const isSaved = Boolean(chat.type === 'SAVED' || chat.is_saved_messages || chat.title?.includes('Saved Notes') || chat.title?.includes('Twine Vault'));
   const isDirect = (chat.type === 'DIRECT' || Boolean(chat.peer_user)) && !isSaved;
@@ -95,6 +127,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowMoreMenu(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -299,6 +334,137 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           </>
         )}
 
+        {/* Per-Chat Notifications Popover */}
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setShowNotifMenu((prev) => !prev)}
+            className={`p-2 sm:p-2.5 rounded-xl transition-all ${
+              showNotifMenu
+                ? 'text-white bg-[#2b5278]'
+                : chatMode === 'muted' || isMuted
+                ? 'text-[#7f91a4] hover:text-white hover:bg-[#202b36]'
+                : 'hover:text-white hover:bg-[#202b36]'
+            }`}
+            title={
+              chatMode === 'muted'
+                ? 'Notifications: Nothing'
+                : chatMode === 'mentions'
+                ? 'Notifications: Mentions only'
+                : 'Notifications: All messages'
+            }
+          >
+            {chatMode === 'muted' || isMuted ? (
+              <BellOff className="w-4 h-4" />
+            ) : chatMode === 'mentions' ? (
+              <AtSign className="w-4 h-4" />
+            ) : (
+              <Bell className="w-4 h-4" />
+            )}
+          </button>
+
+          {showNotifMenu && (
+            <div className="absolute right-0 top-full mt-1.5 w-64 glass-modal rounded-2xl p-2 border border-white/15 shadow-2xl z-50 animate-fade-in flex flex-col space-y-1">
+              <div className="px-2 pt-1 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#7f91a4]">
+                Notifications for this chat
+              </div>
+
+              {/* Notify mode */}
+              {(
+                [
+                  { id: 'all', label: 'All messages', icon: Bell },
+                  { id: 'mentions', label: 'Mentions only', icon: AtSign },
+                  { id: 'muted', label: 'Nothing', icon: BellOff },
+                ] as { id: ChatNotifyMode; label: string; icon: any }[]
+              ).map((opt) => {
+                const active = chatMode === opt.id;
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => selectChatMode(opt.id)}
+                    className={`w-full flex items-center space-x-2.5 px-2.5 py-1.5 text-xs rounded-xl transition-colors text-left ${
+                      active ? 'text-white bg-[#2b5278]' : 'text-white hover:bg-[#242f3d]'
+                    }`}
+                  >
+                    <span
+                      className={`w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center ${
+                        active ? 'border-[#3fc5f0]' : 'border-[#3a4a5c]'
+                      }`}
+                    >
+                      {active && <span className="w-1.5 h-1.5 rounded-full bg-[#3fc5f0]" />}
+                    </span>
+                    <Icon className={`w-3.5 h-3.5 flex-shrink-0 ${active ? 'text-[#3fc5f0]' : 'text-[#7f91a4]'}`} />
+                    <span>{opt.label}</span>
+                  </button>
+                );
+              })}
+
+              <div className="border-t border-white/5 my-1" />
+
+              <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-[#7f91a4]">
+                Sound for this chat
+              </div>
+
+              {/* Inherit-global option */}
+              <div
+                className={`flex items-center justify-between px-2 py-1 rounded-xl ${
+                  chatSound === null ? 'bg-[#17212b]' : ''
+                }`}
+              >
+                <button
+                  onClick={() => selectChatSound(null)}
+                  className="flex items-center space-x-2 text-xs text-white text-left flex-1 min-w-0"
+                >
+                  {chatSound === null ? (
+                    <Check className="w-3.5 h-3.5 text-[#3fc5f0] flex-shrink-0" />
+                  ) : (
+                    <span className="w-3.5 h-3.5 flex-shrink-0" />
+                  )}
+                  <span className="truncate">Default (app setting)</span>
+                </button>
+                <button
+                  onClick={() => sounds.previewSound(NotificationPrefs.getGlobalSound())}
+                  title="Preview global default"
+                  className="p-1 rounded-lg text-[#7f91a4] hover:text-white hover:bg-[#242f3d] transition-colors flex-shrink-0"
+                >
+                  <Play className="w-3 h-3" />
+                </button>
+              </div>
+
+              {NOTIFICATION_SOUNDS.map((s) => {
+                const active = chatSound === s.id;
+                return (
+                  <div
+                    key={s.id}
+                    className={`flex items-center justify-between px-2 py-1 rounded-xl ${
+                      active ? 'bg-[#17212b]' : ''
+                    }`}
+                  >
+                    <button
+                      onClick={() => selectChatSound(s.id)}
+                      className="flex items-center space-x-2 text-xs text-white text-left flex-1 min-w-0"
+                    >
+                      {active ? (
+                        <Check className="w-3.5 h-3.5 text-[#3fc5f0] flex-shrink-0" />
+                      ) : (
+                        <span className="w-3.5 h-3.5 flex-shrink-0" />
+                      )}
+                      <span className="truncate">{s.name}</span>
+                    </button>
+                    <button
+                      onClick={() => sounds.previewSound(s.id)}
+                      title={`Preview ${s.name}`}
+                      className="p-1 rounded-lg text-[#7f91a4] hover:text-white hover:bg-[#242f3d] transition-colors flex-shrink-0"
+                    >
+                      <Play className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Search */}
         <button
           onClick={onOpenSearch}
@@ -383,6 +549,17 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
                 <Flame className="w-4 h-4 text-orange-400 flex-shrink-0" />
                 <span>Disappearing Messages</span>
               </button>
+
+              {/* 4b. Scheduled Messages */}
+              {onOpenScheduled && (
+                <button
+                  onClick={() => { onOpenScheduled(); setShowMoreMenu(false); }}
+                  className="w-full flex items-center space-x-2.5 px-3 py-2 text-xs text-white hover:bg-[#2b5278] rounded-xl transition-colors text-left"
+                >
+                  <Clock className="w-4 h-4 text-[#3fc5f0] flex-shrink-0" />
+                  <span>Scheduled Messages</span>
+                </button>
+              )}
 
               {/* 5. Safety Number (E2EE) */}
               {isDirect && (

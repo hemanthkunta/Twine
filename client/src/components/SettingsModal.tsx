@@ -17,11 +17,15 @@ import {
   Heart,
   Bell,
   BellRing,
+  Play,
+  AtSign,
 } from 'lucide-react';
 import { User, UserSession, UserSummary } from '../types/index';
 import { ApiService } from '../services/api';
 import { THEME_PRESETS, ThemeService, ThemeDefinition } from '../services/theme.service';
 import { WALLPAPER_PRESETS, WallpaperService, WallpaperDefinition } from '../services/wallpaper.service';
+import { NOTIFICATION_SOUNDS, NotificationSoundId, sounds } from '../services/sound';
+import { NotificationPrefs } from '../services/notificationPrefs';
 import { UserAvatar } from './UserAvatar';
 
 interface SettingsModalProps {
@@ -46,6 +50,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [username, setUsername] = useState(currentUser.username);
   const [bio, setBio] = useState(currentUser.bio || '');
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatar_url || '');
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = React.useRef<HTMLInputElement | null>(null);
   const [loading, setLoading] = useState(false);
   const [sessions, setSessions] = useState<UserSession[]>([]);
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
@@ -58,6 +64,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
   );
   const [isSubscribingPush, setIsSubscribingPush] = useState(false);
+
+  // Sounds & Notifications (client-side, persisted via NotificationPrefs)
+  const [globalSound, setGlobalSound] = useState<NotificationSoundId>(
+    NotificationPrefs.getGlobalSound()
+  );
+  const [mentionsOnly, setMentionsOnly] = useState<boolean>(
+    NotificationPrefs.getGlobalMentionsOnly()
+  );
+
+  const selectGlobalSound = (id: NotificationSoundId) => {
+    setGlobalSound(id);
+    NotificationPrefs.setGlobalSound(id);
+  };
+
+  const toggleMentionsOnly = () => {
+    const next = !mentionsOnly;
+    setMentionsOnly(next);
+    NotificationPrefs.setGlobalMentionsOnly(next);
+  };
 
   const handleRequestPushPermission = async () => {
     if (typeof window === 'undefined' || !('Notification' in window)) {
@@ -139,6 +164,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setErrorMsg(err.message || 'Failed to update profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Please choose an image file');
+      return;
+    }
+    setAvatarUploading(true);
+    setErrorMsg(null);
+    try {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () =>
+          resolve((reader.result as string).split(',')[1] ?? '');
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+      const res = await ApiService.uploadMedia({
+        base64Data,
+        fileName: file.name,
+        mimeType: file.type,
+      });
+      if (!res?.media?.url) throw new Error('Server did not return a media URL.');
+      const newUrl = res.media.url;
+      setAvatarUrl(newUrl);
+      // Persist immediately so the new photo shows everywhere at once.
+      const updated = await ApiService.updateProfile({ avatarUrl: newUrl });
+      onProfileUpdated(updated.user);
+      setSuccessMsg('Profile photo updated');
+      setTimeout(() => setSuccessMsg(null), 3000);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Failed to upload photo');
+    } finally {
+      setAvatarUploading(false);
     }
   };
 
@@ -266,6 +329,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {tab === 'profile' && (
             <form onSubmit={handleProfileSubmit} className="space-y-4">
+              {/* Profile photo */}
+              <div className="flex items-center space-x-4">
+                <UserAvatar
+                  name={displayName || 'User'}
+                  avatarUrl={avatarUrl || undefined}
+                  size="lg"
+                />
+                <div>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarFile}
+                  />
+                  <button
+                    type="button"
+                    disabled={avatarUploading}
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="px-3.5 py-2 bg-[#2b5278] hover:bg-[#34618f] disabled:opacity-50 rounded-xl text-white text-xs font-semibold transition-all"
+                  >
+                    {avatarUploading ? 'Uploading...' : 'Change photo'}
+                  </button>
+                  <p className="text-[10px] text-[#7f91a4] mt-1.5">
+                    JPG/PNG/GIF, uploaded to your account immediately.
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-[#7f91a4] uppercase tracking-wider mb-1.5">
                   Display Name
@@ -354,6 +446,91 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     ? 'Enabled ✓'
                     : 'Enable Push'}
                 </button>
+              </div>
+
+              {/* Sounds & Notifications */}
+              <div className="p-4 bg-[#0f1822] border border-[rgba(255,255,255,0.06)] rounded-2xl space-y-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-2 rounded-xl bg-[#2f88ff]/20 text-[#3fc5f0] flex-shrink-0">
+                    <Volume2 className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white">Sounds & Notifications</p>
+                    <p className="text-[11px] text-[#7f91a4]">
+                      Pick the tone played for incoming messages. Per-chat overrides live in each chat's header.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  {NOTIFICATION_SOUNDS.map((s) => {
+                    const isSelected = globalSound === s.id;
+                    return (
+                      <div
+                        key={s.id}
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl border transition-all ${
+                          isSelected
+                            ? 'bg-[#17212b] border-[#3fc5f0] ring-1 ring-[#3fc5f0]/40'
+                            : 'bg-[#0f1822] border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.15)]'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => selectGlobalSound(s.id)}
+                          className="flex items-center space-x-2.5 min-w-0 text-left flex-1"
+                        >
+                          <span
+                            className={`w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center ${
+                              isSelected ? 'border-[#3fc5f0]' : 'border-[#3a4a5c]'
+                            }`}
+                          >
+                            {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-[#3fc5f0]" />}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-xs font-semibold text-white">{s.name}</span>
+                            <span className="block text-[10px] text-[#7f91a4] truncate">{s.description}</span>
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => sounds.previewSound(s.id)}
+                          title={`Preview ${s.name}`}
+                          className="p-1.5 ml-2 rounded-lg text-[#7f91a4] hover:text-white hover:bg-[#242f3d] transition-colors flex-shrink-0"
+                        >
+                          <Play className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-white/5 mt-1 pt-3">
+                  <div className="flex items-center space-x-2.5 min-w-0 mr-2">
+                    <AtSign className="w-4 h-4 text-[#3fc5f0] flex-shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-white">Notify on mentions only</p>
+                      <p className="text-[10px] text-[#7f91a4] leading-relaxed">
+                        Only play a sound when someone @mentions you or replies to your message.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={mentionsOnly}
+                    onClick={toggleMentionsOnly}
+                    title={mentionsOnly ? 'Notify on all messages' : 'Notify on mentions only'}
+                    className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors ${
+                      mentionsOnly ? 'bg-[#3fc5f0]' : 'bg-[#2b3543]'
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                        mentionsOnly ? 'translate-x-5' : ''
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           )}

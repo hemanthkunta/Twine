@@ -74,6 +74,7 @@ export class ChatService {
             avatar_url: string | null;
             creator_id: string | null;
             is_e2ee: number;
+            disappearing_ttl_seconds: number;
             created_at: string;
             updated_at: string;
         }>(`SELECT * FROM chats WHERE id = ?`, [chatId]);
@@ -174,6 +175,7 @@ export class ChatService {
                     : (row.avatar_url ?? undefined),
             creator_id: row.creator_id ?? undefined,
             is_e2ee: Boolean(row.is_e2ee),
+            disappearing_ttl_seconds: row.disappearing_ttl_seconds ?? 0,
             member_count: memberCountRow ? memberCountRow.count : 1,
             created_at: row.created_at,
             updated_at: row.updated_at,
@@ -277,6 +279,24 @@ export class ChatService {
             [chatId]
         );
         return row ? Boolean(row.is_e2ee) : false;
+    }
+
+    /** Per-chat disappearing timer in seconds (0 = off). */
+    static getDisappearingTtl(chatId: string): number {
+        const row = BaseService.queryOne<{ disappearing_ttl_seconds: number }>(
+            'SELECT disappearing_ttl_seconds FROM chats WHERE id = ?',
+            [chatId]
+        );
+        return row?.disappearing_ttl_seconds ?? 0;
+    }
+
+    /** Set the chat's disappearing timer. 0 disables it. Caller (route) must
+     *  have already verified membership. */
+    static setDisappearingTtl(chatId: string, ttlSeconds: number): void {
+        BaseService.execute(
+            'UPDATE chats SET disappearing_ttl_seconds = ? WHERE id = ?',
+            [ttlSeconds, chatId]
+        );
     }
 
     static isChatMember(chatId: string, userId: string): boolean {

@@ -16,15 +16,16 @@ test.describe('Direct Messaging Tests', () => {
       await bob.waitForWebSocketConnection();
       
       await alice.selectChat('Bob Vance');
+      await bob.selectChat('Alice Walker');
       
       const message = `Hello from Alice ${Date.now()}`;
       await alice.sendMessage(message);
       
       await alice.waitForMessage(message);
-      await expect(alice['page'].locator(`text=${message}`)).toBeVisible();
+      await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
       
       await bob.waitForMessage(message);
-      await expect(bob['page'].locator(`text=${message}`)).toBeVisible();
+      await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();
@@ -51,10 +52,10 @@ test.describe('Direct Messaging Tests', () => {
       await bob.sendMessage(message);
       
       await bob.waitForMessage(message);
-      await expect(bob['page'].locator(`text=${message}`)).toBeVisible();
+      await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
       
       await alice.waitForMessage(message);
-      await expect(alice['page'].locator(`text=${message}`)).toBeVisible();
+      await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();
@@ -76,6 +77,7 @@ test.describe('Direct Messaging Tests', () => {
       await bob.waitForWebSocketConnection();
       
       await alice.selectChat('Bob Vance');
+      await bob.selectChat('Alice Walker');
       
       for (let i = 0; i < 5; i++) {
         const fromAlice = `Alice message ${i} - ${Date.now()}`;
@@ -115,6 +117,7 @@ test.describe('Direct Messaging Tests', () => {
       await bob.waitForWebSocketConnection();
       
       await alice.selectChat('Bob Vance');
+      await bob.selectChat('Alice Walker');
       
       const message = `Test receipts ${Date.now()}`;
       await alice.sendMessage(message);
@@ -122,7 +125,7 @@ test.describe('Direct Messaging Tests', () => {
       await alice.waitForMessage(message);
       await bob.waitForMessage(message);
       
-      await expect(alice['page'].locator(SELECTORS.statusTicks)).toBeVisible();
+      await expect(alice['page'].locator(SELECTORS.statusTicks).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();
@@ -147,6 +150,8 @@ test.describe('Direct Messaging Tests', () => {
       
       await alice.selectChat('Bob Vance');
       await charlie.selectChat('Diana Prince');
+      await bob.selectChat('Alice Walker');
+      await diana.selectChat('Charlie Brown');
       
       const msg1 = `Alice->Bob ${Date.now()}`;
       const msg2 = `Charlie->Diana ${Date.now()}`;
@@ -161,8 +166,8 @@ test.describe('Direct Messaging Tests', () => {
         diana.waitForMessage(msg2),
       ]);
       
-      await expect(bob['page'].locator(`text=${msg1}`)).toBeVisible();
-      await expect(diana['page'].locator(`text=${msg2}`)).toBeVisible();
+      await expect(bob['page'].locator(`text=${msg1}`).first()).toBeVisible();
+      await expect(diana['page'].locator(`text=${msg2}`).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();

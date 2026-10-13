@@ -10,6 +10,7 @@
     "start": "node dist/server.js",
     "test": "npm run test:schema && npm run test:security && npm run test:comprehensive",
     "test:schema": "tsx src/test/schema_consistency.test.ts",
+    "test:forward": "tsx src/test/forward_fts_check.ts",
     "test:security": "tsx src/test/security_audit_suite.ts",
     "test:comprehensive": "tsx src/test/comprehensive_suite.ts",
     "test:sync": "tsx src/test/cross_platform_sync_suite.ts",

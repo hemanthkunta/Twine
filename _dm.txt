@@ -1,0 +1,1853 @@
+
+Running 25 tests using 2 workers
+
+[1/25] [chromium] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob
+[2/25] [chromium] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice
+[3/25] (retries) [chromium] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob (retry #1)
+[4/25] (retries) [chromium] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice (retry #1)
+  1) [chromium] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790964010094")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790964054567")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[5/25] [chromium] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation
+  2) [chromium] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Reply from Bob 1790964012959")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:56:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Reply from Bob 1790964059382")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:56:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[6/25] [chromium] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts
+[7/25] (retries) [chromium] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation (retry #1)
+[8/25] (retries) [chromium] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts (retry #1)
+  3) [chromium] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790964121453")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790964166491")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  4) [chromium] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790964116209")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790964159327")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[9/25] [chromium] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations
+[10/25] [firefox] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob
+[11/25] (retries) [chromium] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations (retry #1)
+[12/25] (retries) [firefox] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob (retry #1)
+  5) [chromium] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice->Bob 1790964239389")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:160:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Charlie->Diana 1790964294060")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:161:15
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium-retry1\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium-retry1\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium-retry1\error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[13/25] [firefox] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice
+  6) [firefox] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790964251409")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-firefox\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 90000ms exceeded.
+
+    Error: End of central directory record signature not found. Either not a zip file, or file is truncated.
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-firefox-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-firefox-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-firefox-retry1\error-context.md
+
+
+[14/25] [firefox] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation
+[15/25] (retries) [firefox] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice (retry #1)
+[16/25] (retries) [firefox] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation (retry #1)
+  7) [firefox] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Reply from Bob 1790964391584")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:56:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Reply from Bob 1790964455587")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:56:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[17/25] [firefox] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts
+  8) [firefox] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790964413058")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790964483399")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[18/25] [firefox] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations
+[19/25] (retries) [firefox] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts (retry #1)
+[20/25] (retries) [firefox] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations (retry #1)
+  9) [firefox] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790964539766")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790964608584")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[21/25] [webkit] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob
+[22/25] (retries) [webkit] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob (retry #1)
+  10) [firefox] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice->Bob 1790964592284")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:160:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 90000ms exceeded.
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Charlie->Diana 1790964682957")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:161:15
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox-retry1\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox-retry1\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox-retry1\error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[23/25] [webkit] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice
+[24/25] (retries) [webkit] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice (retry #1)
+  11) [webkit] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790964702586")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790964782722")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[25/25] [webkit] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation
+[26/25] (retries) [webkit] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation (retry #1)
+  12) [webkit] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Reply from Bob 1790964764942")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:56:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Reply from Bob 1790964838789")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:56:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[27/25] [webkit] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts
+[28/25] (retries) [webkit] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts (retry #1)
+  13) [webkit] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790964846323")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790964920092")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[29/25] [webkit] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations
+  14) [webkit] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790964905996")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-webkit\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 90000ms exceeded.
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790964990944")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-webkit-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-webkit-retry1\error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-webkit-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-webkit-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[30/25] [mobile-chrome] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob
+[31/25] (retries) [webkit] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations (retry #1)
+[32/25] (retries) [mobile-chrome] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob (retry #1)
+  15) [mobile-chrome] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('text=Hello from Alice 1790965044253').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  15000ms
+
+    Call log:
+      - Expect "toBeVisible" locator('text=Hello from Alice 1790965044253').first() with timeout 15000ms
+      - waiting for locator('text=Hello from Alice 1790965044253').first()
+        28 × locator resolved to <span class="truncate">Hello from Alice 1790965044253</span>
+           - unexpected value "hidden"
+
+
+      22 |       
+      23 |       await alice.waitForMessage(message);
+    > 24 |       await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
+         |                                                                      ^
+      25 |       
+      26 |       await bob.waitForMessage(message);
+      27 |       await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:24:70
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('text=Hello from Alice 1790965078711').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  15000ms
+
+    Call log:
+      - Expect "toBeVisible" locator('text=Hello from Alice 1790965078711').first() with timeout 15000ms
+      - waiting for locator('text=Hello from Alice 1790965078711').first()
+        28 × locator resolved to <span class="truncate">Hello from Alice 1790965078711</span>
+           - unexpected value "hidden"
+
+
+      22 |       
+      23 |       await alice.waitForMessage(message);
+    > 24 |       await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
+         |                                                                      ^
+      25 |       
+      26 |       await bob.waitForMessage(message);
+      27 |       await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:24:70
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[33/25] [mobile-chrome] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice
+[34/25] (retries) [mobile-chrome] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice (retry #1)
+  16) [webkit] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice->Bob 1790965013207")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:160:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 90000ms exceeded.
+
+    Error: browserContext.close: Test ended.
+    Browser logs:
+
+    <launching> C:\Users\unknown\AppData\Local\ms-playwright\webkit-2359\Playwright.exe --inspector-pipe --disable-accelerated-compositing --headless --no-startup-window
+    <launched> pid=17120
+    [pid=17120] <gracefully close start>
+
+      166 |     } finally {
+      167 |       for (const agent of agents) {
+    > 168 |         await agent['context'].close();
+          |         ^
+      169 |       }
+      170 |     }
+      171 |   });
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:168:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit-retry1\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit-retry1\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit-retry1\error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[35/25] [mobile-chrome] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation
+[36/25] (retries) [mobile-chrome] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation (retry #1)
+  17) [mobile-chrome] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('text=Reply from Bob 1790965120359').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  15000ms
+
+    Call log:
+      - Expect "toBeVisible" locator('text=Reply from Bob 1790965120359').first() with timeout 15000ms
+      - waiting for locator('text=Reply from Bob 1790965120359').first()
+        28 × locator resolved to <span class="truncate">Reply from Bob 1790965120359</span>
+           - unexpected value "hidden"
+
+
+      52 |       
+      53 |       await bob.waitForMessage(message);
+    > 54 |       await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
+         |                                                                    ^
+      55 |       
+      56 |       await alice.waitForMessage(message);
+      57 |       await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:54:68
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Reply from Bob 1790965154282")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:56:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[37/25] [mobile-chrome] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts
+  18) [mobile-chrome] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790965159010")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790965197773")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[38/25] (retries) [mobile-chrome] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts (retry #1)
+[39/25] [mobile-chrome] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations
+[40/25] (retries) [mobile-chrome] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations (retry #1)
+  19) [mobile-chrome] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790965206271")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790965247809")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[41/25] [mobile-safari] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob
+[42/25] (retries) [mobile-safari] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob (retry #1)
+  20) [mobile-chrome] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice->Bob 1790965255039")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:160:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Charlie->Diana 1790965300089")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:161:15
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome-retry1\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome-retry1\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome-retry1\error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[43/25] [mobile-safari] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice
+[44/25] (retries) [mobile-safari] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice (retry #1)
+  21) [mobile-safari] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('text=Hello from Alice 1790965305388').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  15000ms
+
+    Call log:
+      - Expect "toBeVisible" locator('text=Hello from Alice 1790965305388').first() with timeout 15000ms
+      - waiting for locator('text=Hello from Alice 1790965305388').first()
+        28 × locator resolved to <span class="truncate">Hello from Alice 1790965305388</span>
+           - unexpected value "hidden"
+
+
+      22 |       
+      23 |       await alice.waitForMessage(message);
+    > 24 |       await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
+         |                                                                      ^
+      25 |       
+      26 |       await bob.waitForMessage(message);
+      27 |       await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:24:70
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790965373348")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[45/25] [mobile-safari] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation
+[46/25] (retries) [mobile-safari] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation (retry #1)
+  22) [mobile-safari] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('text=Reply from Bob 1790965378116').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  15000ms
+
+    Call log:
+      - Expect "toBeVisible" locator('text=Reply from Bob 1790965378116').first() with timeout 15000ms
+      - waiting for locator('text=Reply from Bob 1790965378116').first()
+        26 × locator resolved to <span class="truncate">Reply from Bob 1790965378116</span>
+           - unexpected value "hidden"
+
+
+      52 |       
+      53 |       await bob.waitForMessage(message);
+    > 54 |       await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
+         |                                                                    ^
+      55 |       
+      56 |       await alice.waitForMessage(message);
+      57 |       await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:54:68
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('text=Reply from Bob 1790965441767').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  15000ms
+
+    Call log:
+      - Expect "toBeVisible" locator('text=Reply from Bob 1790965441767').first() with timeout 15000ms
+      - waiting for locator('text=Reply from Bob 1790965441767').first()
+        26 × locator resolved to <span class="truncate">Reply from Bob 1790965441767</span>
+           - unexpected value "hidden"
+
+
+      52 |       
+      53 |       await bob.waitForMessage(message);
+    > 54 |       await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
+         |                                                                    ^
+      55 |       
+      56 |       await alice.waitForMessage(message);
+      57 |       await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:54:68
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[47/25] [mobile-safari] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts
+[48/25] (retries) [mobile-safari] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts (retry #1)
+  23) [mobile-safari] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790965440263")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-safari\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-safari\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790965497694")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-safari-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-safari-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-safari-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-safari-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-safari-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[49/25] [mobile-safari] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations
+  24) [mobile-safari] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790965491149")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-safari\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-safari\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790965565368")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-safari-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-safari-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-safari-retry1\error-context.md
+
+    attachment #4: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-safari-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-safari-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+[50/25] (retries) [mobile-safari] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations (retry #1)
+  25) [mobile-safari] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice->Bob 1790965588637")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:160:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari\error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Test timeout of 90000ms exceeded.
+
+    Error: browserContext.close: Test ended.
+    Browser logs:
+
+    <launching> C:\Users\unknown\AppData\Local\ms-playwright\webkit-2359\Playwright.exe --inspector-pipe --disable-accelerated-compositing --headless --no-startup-window
+    <launched> pid=5740
+    [pid=5740] <gracefully close start>
+
+      166 |     } finally {
+      167 |       for (const agent of agents) {
+    > 168 |         await agent['context'].close();
+          |         ^
+      169 |       }
+      170 |     }
+      171 |   });
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:168:9
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari-retry1\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari-retry1\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari-retry1\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari-retry1\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari-retry1\error-context.md
+
+    attachment #6: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari-retry1\trace.zip
+    Usage:
+
+        npx playwright show-trace test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-safari-retry1\trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+  25 failed
+    [chromium] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+    [chromium] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+    [chromium] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+    [chromium] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+    [chromium] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+    [firefox] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+    [firefox] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+    [firefox] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+    [firefox] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+    [firefox] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+    [webkit] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+    [webkit] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+    [webkit] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+    [webkit] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+    [webkit] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+    [mobile-chrome] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+    [mobile-chrome] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+    [mobile-chrome] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+    [mobile-chrome] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+    [mobile-chrome] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+    [mobile-safari] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+    [mobile-safari] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+    [mobile-safari] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+    [mobile-safari] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+    [mobile-safari] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+
+D:\projects\messagingproject\messagingproject>

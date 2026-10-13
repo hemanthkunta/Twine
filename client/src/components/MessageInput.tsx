@@ -11,6 +11,7 @@ import {
     Sparkles,
     Check,
     Edit3,
+    Clock,
 } from 'lucide-react';
 import { Message } from '../types/index';
 import { VoiceRecorder } from './VoiceRecorder';
@@ -30,6 +31,8 @@ interface MessageInputProps {
         mediaMetadata?: any
     ) => void;
     onEditSubmit: (messageId: string, newText: string) => void;
+    /** Queue the current draft for future server-side delivery. */
+    onScheduleMessage?: (text: string, scheduledAtIso: string, replyToId?: string) => void;
     onTyping: (isTyping: boolean) => void;
 }
 
@@ -60,12 +63,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     onClearEdit,
     onSendMessage,
     onEditSubmit,
+    onScheduleMessage,
     onTyping,
 }) => {
     const [text, setText] = useState('');
     const [isVoiceRecording, setIsVoiceRecording] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showAttachMenu, setShowAttachMenu] = useState(false);
+    const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+    const [scheduleAt, setScheduleAt] = useState('');
     const [isUploading, setIsUploading] = useState(false);
 
     const typingTimeoutRef = useRef<any>(null);
@@ -110,6 +116,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             e.preventDefault();
             handleSend();
         }
+    };
+
+    const handleSchedule = () => {
+        const trimmed = text.trim();
+        if (!trimmed || !scheduleAt || !onScheduleMessage) return;
+        const when = new Date(scheduleAt);
+        if (isNaN(when.getTime()) || when.getTime() <= Date.now()) return;
+        onScheduleMessage(trimmed, when.toISOString(), replyToMessage?.id);
+        setText('');
+        onTyping(false);
+        setShowSchedulePicker(false);
+        setScheduleAt('');
+        onClearReply();
     };
 
     const handleSendVoiceNote = async (
@@ -289,6 +308,30 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                     </div>
                 )}
 
+                {/* Schedule-Send Popover */}
+                {showSchedulePicker && (
+                    <div className="absolute bottom-16 right-2 z-20 p-3 bg-[#1e2a38] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl w-64 space-y-2">
+                        <p className="text-xs font-bold text-white flex items-center space-x-1.5">
+                            <Clock className="w-3.5 h-3.5 text-[#3fc5f0]" />
+                            <span>Schedule Message</span>
+                        </p>
+                        <input
+                            type="datetime-local"
+                            value={scheduleAt}
+                            min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                            onChange={(e) => setScheduleAt(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-[#0e1621] border border-[rgba(255,255,255,0.1)] text-white [color-scheme:dark]"
+                        />
+                        <button
+                            onClick={handleSchedule}
+                            disabled={!text.trim() || !scheduleAt}
+                            className="w-full py-2 bg-[#2f88ff] hover:bg-[#2575dc] disabled:opacity-40 text-white text-xs font-bold rounded-xl transition-colors"
+                        >
+                            Schedule Send
+                        </button>
+                    </div>
+                )}
+
                 {/* Attachment Popover */}
                 {showAttachMenu && (
                     <div className="absolute bottom-16 left-10 z-20 p-2 bg-[#1e2a38] border border-[rgba(255,255,255,0.1)] rounded-2xl shadow-2xl space-y-1 w-48">
@@ -375,6 +418,23 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                         />
 
                         {/* Action button */}
+                        {text.trim() && onScheduleMessage && !editingMessage && (
+                            <button
+                                onClick={() => {
+                                    setShowSchedulePicker(!showSchedulePicker);
+                                    setShowEmojiPicker(false);
+                                    setShowAttachMenu(false);
+                                }}
+                                className={`p-2.5 rounded-xl transition-all flex-shrink-0 ${
+                                    showSchedulePicker
+                                        ? 'text-[#3fc5f0] bg-[#242f3d]'
+                                        : 'text-[#7f91a4] hover:text-white hover:bg-[#242f3d]'
+                                }`}
+                                title="Schedule Message"
+                            >
+                                <Clock className="w-5 h-5" />
+                            </button>
+                        )}
                         {text.trim() ? (
                             <button
                                 onClick={handleSend}

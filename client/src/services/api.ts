@@ -33,6 +33,20 @@ const parseAuthRefreshResponse = (
     return accessToken ? { accessToken, refreshToken } : null;
 };
 
+export interface ScheduledMessage {
+    id: string;
+    chat_id: string;
+    sender_id: string;
+    reply_to_message_id: string | null;
+    content_text: string;
+    type: string;
+    media_url: string | null;
+    media_metadata: string | null;
+    scheduled_at: string;
+    sent_message_id: string | null;
+    created_at: string;
+}
+
 export class ApiService {
     private static token: string | null = localStorage.getItem('auth_token');
     private static refreshToken: string | null = localStorage.getItem('refresh_token');
@@ -427,11 +441,51 @@ export class ApiService {
         return this.request(`/chats/${chatId}/messages?limit=${limit}`);
     }
 
+    static async forwardMessage(
+        messageId: string,
+        targetChatIds: string[],
+        hideAttribution = false
+    ): Promise<{ messages: Message[] }> {
+        return this.request('/messages/forward', {
+            method: 'POST',
+            body: JSON.stringify({ messageId, targetChatIds, hideAttribution }),
+        });
+    }
     static async markChatRead(
         chatId: string
     ): Promise<{ success: boolean; count: number; readMessageIds: string[] }> {
         return this.request(`/chats/${chatId}/read-all`, {
             method: 'POST',
+        });
+    }
+
+    static async scheduleMessage(
+        chatId: string,
+        params: { content: string; scheduledAt: string; replyToMessageId?: string }
+    ): Promise<{ scheduled: ScheduledMessage }> {
+        return this.request(`/chats/${chatId}/schedule`, {
+            method: 'POST',
+            body: JSON.stringify(params),
+        });
+    }
+
+    static async getScheduledMessages(
+        chatId: string
+    ): Promise<{ scheduled: ScheduledMessage[] }> {
+        return this.request(`/chats/${chatId}/scheduled`);
+    }
+
+    static async cancelScheduledMessage(id: string): Promise<{ success: boolean }> {
+        return this.request(`/scheduled-messages/${id}`, { method: 'DELETE' });
+    }
+
+    static async setDisappearingTimer(
+        chatId: string,
+        ttlSeconds: number
+    ): Promise<{ success: boolean; ttlSeconds: number }> {
+        return this.request(`/chats/${chatId}/disappearing`, {
+            method: 'PUT',
+            body: JSON.stringify({ ttlSeconds }),
         });
     }
 

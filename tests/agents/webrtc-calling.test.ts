@@ -62,7 +62,7 @@ test.describe('WebRTC Calling Tests', () => {
       
       await bob['page'].waitForSelector('[data-testid="incoming-call"]', { timeout: 15000 });
       
-      await expect(callModal.locator('text=Video')).toBeVisible();
+      await expect(callModal.locator('text=Ringing').first()).toBeVisible();
       
       await callModal.locator('button:has-text("End Call")').click();
       
@@ -164,13 +164,13 @@ test.describe('WebRTC Calling Tests', () => {
       await incomingCall.locator('button:has-text("Accept")').click();
       
       const aliceCallModal = alice['page'].locator('[data-testid="call-modal"]');
-      const toggleVideo = aliceCallModal.locator('button[title*="Video"]');
+      const toggleVideo = aliceCallModal.locator('button[title*="camera"]');
       
       if (await toggleVideo.isVisible({ timeout: 3000 })) {
         await toggleVideo.click();
-        await expect(toggleVideo.locator('text=Video Off')).toBeVisible({ timeout: 3000 });
+        await expect(toggleVideo).toHaveAttribute('title', 'Turn off camera', { timeout: 3000 });
         await toggleVideo.click();
-        await expect(toggleVideo.locator('text=Video On')).toBeVisible({ timeout: 3000 });
+        await expect(toggleVideo).toHaveAttribute('title', 'Turn on camera', { timeout: 3000 });
       }
       
       await aliceCallModal.locator('button:has-text("End Call")').click();
@@ -203,13 +203,16 @@ test.describe('WebRTC Calling Tests', () => {
       await incomingCall.locator('button:has-text("Accept")').click();
       
       const aliceCallModal = alice['page'].locator('[data-testid="call-modal"]');
-      const muteButton = aliceCallModal.locator('button[title*="Mute"]');
+      // The title flips between 'Mute microphone'/'Unmute microphone' on click,
+      // so the locator must match either state or it detaches after the first click.
+      const muteButton = aliceCallModal.locator('button[title="Mute microphone"], button[title="Unmute microphone"]');
+      const micButton = aliceCallModal.locator('button[title="Mute microphone"]');
       
-      if (await muteButton.isVisible({ timeout: 3000 })) {
+      if (await micButton.isVisible({ timeout: 3000 })) {
         await muteButton.click();
-        await expect(muteButton.locator('text=Unmute')).toBeVisible({ timeout: 3000 });
+        await expect(muteButton).toHaveAttribute('title', 'Unmute microphone', { timeout: 3000 });
         await muteButton.click();
-        await expect(muteButton.locator('text=Mute')).toBeVisible({ timeout: 3000 });
+        await expect(muteButton).toHaveAttribute('title', 'Mute microphone', { timeout: 3000 });
       }
       
       await aliceCallModal.locator('button:has-text("End Call")').click();

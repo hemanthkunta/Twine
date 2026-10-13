@@ -1,0 +1,3468 @@
+
+Running 140 tests using 2 workers
+
+[1/140] [chromium] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob
+[2/140] [chromium] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice
+  1) [chromium] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Reply from Bob 1790961131492")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:56:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-chromium\error-context.md
+
+
+  2) [chromium] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790961133552")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-chromium\error-context.md
+
+
+[3/140] [chromium] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation
+[4/140] [chromium] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts
+  3) [chromium] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790961171290")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-chromium\error-context.md
+
+
+  4) [chromium] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790961173012")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-chromium\error-context.md
+
+
+[5/140] [chromium] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations
+[6/140] [chromium] › tests\agents\group-messaging.test.ts:5:3 › Group Messaging Tests › alice creates group with bob and charlie
+  5) [chromium] › tests\agents\group-messaging.test.ts:5:3 › Group Messaging Tests › alice creates group with bob and charlie 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:21:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-chromium\error-context.md
+
+
+[7/140] [chromium] › tests\agents\group-messaging.test.ts:37:3 › Group Messaging Tests › group message fan-out to all members
+  6) [chromium] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice->Bob 1790961219928")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:160:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-chromium\error-context.md
+
+
+[8/140] [chromium] › tests\agents\group-messaging.test.ts:72:3 › Group Messaging Tests › bob replies in group
+  7) [chromium] › tests\agents\group-messaging.test.ts:37:3 › Group Messaging Tests › group message fan-out to all members 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:53:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-chromium\error-context.md
+
+
+[9/140] [chromium] › tests\agents\group-messaging.test.ts:111:3 › Group Messaging Tests › multiple groups simultaneously
+  8) [chromium] › tests\agents\group-messaging.test.ts:72:3 › Group Messaging Tests › bob replies in group 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:88:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-chromium\error-context.md
+
+
+[10/140] [chromium] › tests\agents\group-messaging.test.ts:149:3 › Group Messaging Tests › group message delivery receipts
+  9) [chromium] › tests\agents\group-messaging.test.ts:111:3 › Group Messaging Tests › multiple groups simultaneously 
+
+    TypeError: bob.waitForSelector is not a function
+
+      135 |       ]);
+      136 |       
+    > 137 |       await bob.waitForSelector(`text=${group1}`, { timeout: 25000 });
+          |                 ^
+      138 |       await diana.waitForSelector(`text=${group2}`, { timeout: 25000 });
+      139 |       
+      140 |       await expect(bob['page'].locator(`text=${group1}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:137:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-chromium\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-chromium\error-context.md
+
+
+[11/140] [chromium] › tests\agents\multi-device-sync.test.ts:5:3 › Multi-Device Sync Tests › alice logs in on two devices - message sync
+  10) [chromium] › tests\agents\group-messaging.test.ts:149:3 › Group Messaging Tests › group message delivery receipts 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:165:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-chromium\error-context.md
+
+
+[12/140] [chromium] › tests\agents\multi-device-sync.test.ts:40:3 › Multi-Device Sync Tests › bob receives message on both devices
+  11) [chromium] › tests\agents\multi-device-sync.test.ts:5:3 › Multi-Device Sync Tests › alice logs in on two devices - message sync 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Sync test 1790961316361")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:28:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-d0f41--two-devices---message-sync-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-d0f41--two-devices---message-sync-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-d0f41--two-devices---message-sync-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-d0f41--two-devices---message-sync-chromium\error-context.md
+
+
+[13/140] [chromium] › tests\agents\multi-device-sync.test.ts:75:3 › Multi-Device Sync Tests › read receipt sync across devices
+  12) [chromium] › tests\agents\multi-device-sync.test.ts:40:3 › Multi-Device Sync Tests › bob receives message on both devices 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Bob sync 1790961329993")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:63:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-chromium\error-context.md
+
+
+[14/140] [chromium] › tests\agents\multi-device-sync.test.ts:110:3 › Multi-Device Sync Tests › chat list sync across devices
+  13) [chromium] › tests\agents\multi-device-sync.test.ts:110:3 › Multi-Device Sync Tests › chat list sync across devices 
+
+    TypeError: alice2.waitForSelector is not a function
+
+      126 |       await alice1.createGroup(groupName, ['Bob Vance']);
+      127 |       
+    > 128 |       await alice2.waitForSelector(`text=${groupName}`, { timeout: 25000 });
+          |                    ^
+      129 |       await expect(alice2['page'].locator(`text=${groupName}`).first()).toBeVisible();
+      130 |       
+      131 |       await bob.waitForSelector(`text=${groupName}`, { timeout: 25000 });
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:128:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-chromium\error-context.md
+
+
+[15/140] [chromium] › tests\agents\multi-device-sync.test.ts:140:3 › Multi-Device Sync Tests › typing indicator sync across devices
+  14) [chromium] › tests\agents\multi-device-sync.test.ts:75:3 › Multi-Device Sync Tests › read receipt sync across devices 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Read receipt sync 1790961364160")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:97:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-chromium\error-context.md
+
+
+[16/140] [chromium] › tests\agents\multi-device-sync.test.ts:174:3 › Multi-Device Sync Tests › message order consistency across devices
+[17/140] [chromium] › tests\agents\presence-typing.test.ts:5:3 › Presence and Typing Indicators Tests › alice sees bob online
+  15) [chromium] › tests\agents\multi-device-sync.test.ts:174:3 › Multi-Device Sync Tests › message order consistency across devices 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  5
+    + Received  + 10
+
+      Array [
+    -   "Msg 1 1790961412354
+    +   "Alice Walker
+    + Msg 1 1790961412354
+      Reply in thread
+      128
+      05:16 PM",
+    -   "Msg 2 1790961412354
+    +   "Alice Walker
+    + Msg 2 1790961412354
+      Reply in thread
+      128
+      05:16 PM",
+    -   "Msg 3 1790961412354
+    +   "Alice Walker
+    + Msg 3 1790961412354
+      Reply in thread
+      128
+      05:16 PM",
+    -   "Msg 4 1790961412354
+    +   "Alice Walker
+    + Msg 4 1790961412354
+      Reply in thread
+      128
+      05:16 PM",
+    -   "Msg 5 1790961412354
+    +   "Alice Walker
+    + Msg 5 1790961412354
+      Reply in thread
+      128
+      05:16 PM",
+      ]
+
+      212 |       const alice2Ordered = alice2Messages.filter(m => messages.some(msg => m.includes(msg)));
+      213 |       
+    > 214 |       expect(bobOrdered).toEqual(alice2Ordered);
+          |                          ^
+      215 |     } finally {
+      216 |       for (const agent of agents) {
+      217 |         await agent['context'].close();
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:214:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-98937--consistency-across-devices-chromium\error-context.md
+
+
+[18/140] [chromium] › tests\agents\presence-typing.test.ts:28:3 › Presence and Typing Indicators Tests › bob sees typing indicator when alice types
+  16) [chromium] › tests\agents\presence-typing.test.ts:5:3 › Presence and Typing Indicators Tests › alice sees bob online 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('header').locator('text=online')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('header').locator('text=online') with timeout 10000ms
+      - waiting for locator('header').locator('text=online')
+
+
+      18 |       
+      19 |       const onlineBadge = alice['page'].locator(SELECTORS.onlineBadge);
+    > 20 |       await expect(onlineBadge).toBeVisible({ timeout: 10000 });
+         |                                 ^
+      21 |     } finally {
+      22 |       for (const agent of agents) {
+      23 |         await agent['context'].close();
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:20:33
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-544d3-Tests-alice-sees-bob-online-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-544d3-Tests-alice-sees-bob-online-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-544d3-Tests-alice-sees-bob-online-chromium\error-context.md
+
+
+[19/140] [chromium] › tests\agents\presence-typing.test.ts:59:3 › Presence and Typing Indicators Tests › typing indicator disappears after sending message
+[20/140] [chromium] › tests\agents\presence-typing.test.ts:90:3 › Presence and Typing Indicators Tests › presence updates when user goes offline
+[21/140] [chromium] › tests\agents\presence-typing.test.ts:119:3 › Presence and Typing Indicators Tests › multiple users typing in group
+  17) [chromium] › tests\agents\presence-typing.test.ts:90:3 › Presence and Typing Indicators Tests › presence updates when user goes offline 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('header').locator('text=online')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('header').locator('text=online') with timeout 10000ms
+      - waiting for locator('header').locator('text=online')
+
+
+      103 |       
+      104 |       const onlineBadge = alice['page'].locator(SELECTORS.onlineBadge);
+    > 105 |       await expect(onlineBadge).toBeVisible({ timeout: 10000 });
+          |                                 ^
+      106 |       
+      107 |       await bob['context'].close();
+      108 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:105:33
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-chromium\error-context.md
+
+
+[22/140] [chromium] › tests\agents\presence-typing.test.ts:162:3 › Presence and Typing Indicators Tests › presence badge in chat list
+  18) [chromium] › tests\agents\presence-typing.test.ts:119:3 › Presence and Typing Indicators Tests › multiple users typing in group 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:135:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-chromium\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-chromium\error-context.md
+
+
+[23/140] [chromium] › tests\agents\webrtc-calling.test.ts:5:3 › WebRTC Calling Tests › alice initiates voice call to bob
+  19) [chromium] › tests\agents\presence-typing.test.ts:162:3 › Presence and Typing Indicators Tests › presence badge in chat list 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('aside').locator('text=Bob Vance')
+    Expected: visible
+    Error: strict mode violation: locator('aside').locator('text=Bob Vance') resolved to 2 elements:
+        1) <span class="text-[16px] font-bold text-white tracking-tight truncate leading-tight">Bob Vance</span> aka getByText('Bob Vance').first()
+        2) <span class="text-[16px] font-bold text-white tracking-tight truncate leading-tight">Bob Vance</span> aka getByText('Bob Vance').nth(1)
+
+    Call log:
+      - Expect "toBeVisible" locator('aside').locator('text=Bob Vance') with timeout 10000ms
+      - waiting for locator('aside').locator('text=Bob Vance')
+
+
+      175 |       
+      176 |       const chatList = alice['page'].locator(SELECTORS.chatList);
+    > 177 |       await expect(chatList.locator(`text=Bob Vance`)).toBeVisible();
+          |                                                        ^
+      178 |       
+      179 |       await bob['context'].close();
+      180 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:177:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-chromium\error-context.md
+
+
+[24/140] [chromium] › tests\agents\webrtc-calling.test.ts:41:3 › WebRTC Calling Tests › alice initiates video call to bob
+  20) [chromium] › tests\agents\webrtc-calling.test.ts:5:3 › WebRTC Calling Tests › alice initiates voice call to bob 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="call-modal"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="call-modal"]') with timeout 10000ms
+      - waiting for locator('[data-testid="call-modal"]')
+
+
+      23 |       
+      24 |       const callModal = alice['page'].locator('[data-testid="call-modal"]');
+    > 25 |       await expect(callModal).toBeVisible({ timeout: 10000 });
+         |                               ^
+      26 |       
+      27 |       await bob['page'].waitForSelector('[data-testid="incoming-call"]', { timeout: 15000 });
+      28 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:25:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-chromium\error-context.md
+
+
+[25/140] [chromium] › tests\agents\webrtc-calling.test.ts:77:3 › WebRTC Calling Tests › bob accepts incoming call
+  21) [chromium] › tests\agents\webrtc-calling.test.ts:41:3 › WebRTC Calling Tests › alice initiates video call to bob 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="call-modal"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="call-modal"]') with timeout 10000ms
+      - waiting for locator('[data-testid="call-modal"]')
+
+
+      59 |       
+      60 |       const callModal = alice['page'].locator('[data-testid="call-modal"]');
+    > 61 |       await expect(callModal).toBeVisible({ timeout: 10000 });
+         |                               ^
+      62 |       
+      63 |       await bob['page'].waitForSelector('[data-testid="incoming-call"]', { timeout: 15000 });
+      64 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:61:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-chromium\error-context.md
+
+
+[26/140] [chromium] › tests\agents\webrtc-calling.test.ts:112:3 › WebRTC Calling Tests › bob rejects incoming call
+  22) [chromium] › tests\agents\webrtc-calling.test.ts:77:3 › WebRTC Calling Tests › bob accepts incoming call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      93 |       
+      94 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 95 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+         |                                  ^
+      96 |       
+      97 |       await incomingCall.locator('button:has-text("Accept")').click();
+      98 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:95:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-chromium\error-context.md
+
+
+[27/140] [chromium] › tests\agents\webrtc-calling.test.ts:145:3 › WebRTC Calling Tests › call toggle video during call
+  23) [chromium] › tests\agents\webrtc-calling.test.ts:112:3 › WebRTC Calling Tests › bob rejects incoming call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      128 |       
+      129 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 130 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      131 |       
+      132 |       await incomingCall.locator('button:has-text("Decline")').click();
+      133 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:130:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-chromium\error-context.md
+
+
+[28/140] [chromium] › tests\agents\webrtc-calling.test.ts:184:3 › WebRTC Calling Tests › call mute/unmute
+  24) [chromium] › tests\agents\webrtc-calling.test.ts:145:3 › WebRTC Calling Tests › call toggle video during call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      161 |       
+      162 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 163 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      164 |       await incomingCall.locator('button:has-text("Accept")').click();
+      165 |       
+      166 |       const aliceCallModal = alice['page'].locator('[data-testid="call-modal"]');
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:163:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-chromium\error-context.md
+
+
+[29/140] [firefox] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob
+  25) [chromium] › tests\agents\webrtc-calling.test.ts:184:3 › WebRTC Calling Tests › call mute/unmute 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      200 |       
+      201 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 202 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      203 |       await incomingCall.locator('button:has-text("Accept")').click();
+      204 |       
+      205 |       const aliceCallModal = alice['page'].locator('[data-testid="call-modal"]');
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:202:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-chromium\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-chromium\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-chromium\error-context.md
+
+
+[30/140] [firefox] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice
+  26) [firefox] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790961605069")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-firefox\error-context.md
+
+
+[31/140] [firefox] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation
+  27) [firefox] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Reply from Bob 1790961618774")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:56:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-firefox\error-context.md
+
+
+[32/140] [firefox] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts
+  28) [firefox] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790961665708")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-firefox\error-context.md
+
+
+[33/140] [firefox] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations
+  29) [firefox] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790961685334")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-firefox\error-context.md
+
+
+[34/140] [firefox] › tests\agents\group-messaging.test.ts:5:3 › Group Messaging Tests › alice creates group with bob and charlie
+  30) [firefox] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice->Bob 1790961747690")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:160:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-firefox\error-context.md
+
+
+[35/140] [firefox] › tests\agents\group-messaging.test.ts:37:3 › Group Messaging Tests › group message fan-out to all members
+  31) [firefox] › tests\agents\group-messaging.test.ts:5:3 › Group Messaging Tests › alice creates group with bob and charlie 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:21:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-firefox\error-context.md
+
+
+[36/140] [firefox] › tests\agents\group-messaging.test.ts:72:3 › Group Messaging Tests › bob replies in group
+  32) [firefox] › tests\agents\group-messaging.test.ts:37:3 › Group Messaging Tests › group message fan-out to all members 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:53:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-firefox\error-context.md
+
+
+[37/140] [firefox] › tests\agents\group-messaging.test.ts:111:3 › Group Messaging Tests › multiple groups simultaneously
+  33) [firefox] › tests\agents\group-messaging.test.ts:72:3 › Group Messaging Tests › bob replies in group 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:88:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-firefox\error-context.md
+
+
+[38/140] [firefox] › tests\agents\group-messaging.test.ts:149:3 › Group Messaging Tests › group message delivery receipts
+  34) [firefox] › tests\agents\group-messaging.test.ts:111:3 › Group Messaging Tests › multiple groups simultaneously 
+
+    TypeError: bob.waitForSelector is not a function
+
+      135 |       ]);
+      136 |       
+    > 137 |       await bob.waitForSelector(`text=${group1}`, { timeout: 25000 });
+          |                 ^
+      138 |       await diana.waitForSelector(`text=${group2}`, { timeout: 25000 });
+      139 |       
+      140 |       await expect(bob['page'].locator(`text=${group1}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:137:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-firefox\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-firefox\error-context.md
+
+
+[39/140] [firefox] › tests\agents\multi-device-sync.test.ts:5:3 › Multi-Device Sync Tests › alice logs in on two devices - message sync
+  35) [firefox] › tests\agents\group-messaging.test.ts:149:3 › Group Messaging Tests › group message delivery receipts 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:165:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-firefox\error-context.md
+
+
+[40/140] [firefox] › tests\agents\multi-device-sync.test.ts:40:3 › Multi-Device Sync Tests › bob receives message on both devices
+[41/140] [firefox] › tests\agents\multi-device-sync.test.ts:75:3 › Multi-Device Sync Tests › read receipt sync across devices
+[42/140] [firefox] › tests\agents\multi-device-sync.test.ts:110:3 › Multi-Device Sync Tests › chat list sync across devices
+  36) [firefox] › tests\agents\multi-device-sync.test.ts:75:3 › Multi-Device Sync Tests › read receipt sync across devices 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Read receipt sync 1790961984193")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:97:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-firefox\error-context.md
+
+
+[43/140] [firefox] › tests\agents\multi-device-sync.test.ts:140:3 › Multi-Device Sync Tests › typing indicator sync across devices
+  37) [firefox] › tests\agents\multi-device-sync.test.ts:110:3 › Multi-Device Sync Tests › chat list sync across devices 
+
+    TypeError: alice2.waitForSelector is not a function
+
+      126 |       await alice1.createGroup(groupName, ['Bob Vance']);
+      127 |       
+    > 128 |       await alice2.waitForSelector(`text=${groupName}`, { timeout: 25000 });
+          |                    ^
+      129 |       await expect(alice2['page'].locator(`text=${groupName}`).first()).toBeVisible();
+      130 |       
+      131 |       await bob.waitForSelector(`text=${groupName}`, { timeout: 25000 });
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:128:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-firefox\error-context.md
+
+
+[44/140] [firefox] › tests\agents\multi-device-sync.test.ts:174:3 › Multi-Device Sync Tests › message order consistency across devices
+[45/140] [firefox] › tests\agents\presence-typing.test.ts:5:3 › Presence and Typing Indicators Tests › alice sees bob online
+  38) [firefox] › tests\agents\multi-device-sync.test.ts:174:3 › Multi-Device Sync Tests › message order consistency across devices 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  5
+    + Received  + 10
+
+      Array [
+    -   "Msg 1 1790962070162
+    +   "Alice Walker
+    + Msg 1 1790962070162
+      Reply in thread
+      128
+      05:27 PM",
+    -   "Msg 2 1790962070162
+    +   "Alice Walker
+    + Msg 2 1790962070162
+      Reply in thread
+      128
+      05:27 PM",
+    -   "Msg 3 1790962070162
+    +   "Alice Walker
+    + Msg 3 1790962070162
+      Reply in thread
+      128
+      05:27 PM",
+    -   "Msg 4 1790962070162
+    +   "Alice Walker
+    + Msg 4 1790962070162
+      Reply in thread
+      128
+      05:27 PM",
+    -   "Msg 5 1790962070162
+    +   "Alice Walker
+    + Msg 5 1790962070162
+      Reply in thread
+      128
+      05:27 PM",
+      ]
+
+      212 |       const alice2Ordered = alice2Messages.filter(m => messages.some(msg => m.includes(msg)));
+      213 |       
+    > 214 |       expect(bobOrdered).toEqual(alice2Ordered);
+          |                          ^
+      215 |     } finally {
+      216 |       for (const agent of agents) {
+      217 |         await agent['context'].close();
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:214:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-98937--consistency-across-devices-firefox\error-context.md
+
+
+[46/140] [firefox] › tests\agents\presence-typing.test.ts:28:3 › Presence and Typing Indicators Tests › bob sees typing indicator when alice types
+[47/140] [firefox] › tests\agents\presence-typing.test.ts:59:3 › Presence and Typing Indicators Tests › typing indicator disappears after sending message
+[48/140] [firefox] › tests\agents\presence-typing.test.ts:90:3 › Presence and Typing Indicators Tests › presence updates when user goes offline
+[49/140] [firefox] › tests\agents\presence-typing.test.ts:119:3 › Presence and Typing Indicators Tests › multiple users typing in group
+  39) [firefox] › tests\agents\presence-typing.test.ts:90:3 › Presence and Typing Indicators Tests › presence updates when user goes offline 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: [data-testid="offline-badge"], text=offline
+    Expected: visible
+    Error: Unexpected token "=" while parsing css selector "[data-testid="offline-badge"], text=offline". Did you mean to CSS.escape it?
+
+    Call log:
+      - Expect "toBeVisible" [data-testid="offline-badge"], text=offline with timeout 10000ms
+      - waiting for [data-testid="offline-badge"], text=offline
+
+
+      109 |       await alice['page'].waitForTimeout(3000);
+      110 |       
+    > 111 |       await expect(alice['page'].locator('[data-testid="offline-badge"], text=offline')).toBeVisible({ timeout: 10000 });
+          |                                                                                          ^
+      112 |     } finally {
+      113 |       if (!alice['context']._closed) {
+      114 |         await alice['context'].close();
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:111:90
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-firefox\error-context.md
+
+
+[50/140] [firefox] › tests\agents\presence-typing.test.ts:162:3 › Presence and Typing Indicators Tests › presence badge in chat list
+  40) [firefox] › tests\agents\presence-typing.test.ts:119:3 › Presence and Typing Indicators Tests › multiple users typing in group 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:135:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-firefox\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-firefox\error-context.md
+
+
+[51/140] [firefox] › tests\agents\webrtc-calling.test.ts:5:3 › WebRTC Calling Tests › alice initiates voice call to bob
+  41) [firefox] › tests\agents\presence-typing.test.ts:162:3 › Presence and Typing Indicators Tests › presence badge in chat list 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('aside').locator('text=Bob Vance')
+    Expected: visible
+    Error: strict mode violation: locator('aside').locator('text=Bob Vance') resolved to 2 elements:
+        1) <span class="text-[16px] font-bold text-white tracking-tight truncate leading-tight">Bob Vance</span> aka getByText('Bob Vance').first()
+        2) <span class="text-[16px] font-bold text-white tracking-tight truncate leading-tight">Bob Vance</span> aka getByText('Bob Vance').nth(1)
+
+    Call log:
+      - Expect "toBeVisible" locator('aside').locator('text=Bob Vance') with timeout 10000ms
+      - waiting for locator('aside').locator('text=Bob Vance')
+
+
+      175 |       
+      176 |       const chatList = alice['page'].locator(SELECTORS.chatList);
+    > 177 |       await expect(chatList.locator(`text=Bob Vance`)).toBeVisible();
+          |                                                        ^
+      178 |       
+      179 |       await bob['context'].close();
+      180 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:177:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-firefox\error-context.md
+
+
+[52/140] [firefox] › tests\agents\webrtc-calling.test.ts:41:3 › WebRTC Calling Tests › alice initiates video call to bob
+  42) [firefox] › tests\agents\webrtc-calling.test.ts:5:3 › WebRTC Calling Tests › alice initiates voice call to bob 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="call-modal"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="call-modal"]') with timeout 10000ms
+      - waiting for locator('[data-testid="call-modal"]')
+
+
+      23 |       
+      24 |       const callModal = alice['page'].locator('[data-testid="call-modal"]');
+    > 25 |       await expect(callModal).toBeVisible({ timeout: 10000 });
+         |                               ^
+      26 |       
+      27 |       await bob['page'].waitForSelector('[data-testid="incoming-call"]', { timeout: 15000 });
+      28 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:25:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-firefox\error-context.md
+
+
+[53/140] [firefox] › tests\agents\webrtc-calling.test.ts:77:3 › WebRTC Calling Tests › bob accepts incoming call
+  43) [firefox] › tests\agents\webrtc-calling.test.ts:41:3 › WebRTC Calling Tests › alice initiates video call to bob 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="call-modal"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="call-modal"]') with timeout 10000ms
+      - waiting for locator('[data-testid="call-modal"]')
+
+
+      59 |       
+      60 |       const callModal = alice['page'].locator('[data-testid="call-modal"]');
+    > 61 |       await expect(callModal).toBeVisible({ timeout: 10000 });
+         |                               ^
+      62 |       
+      63 |       await bob['page'].waitForSelector('[data-testid="incoming-call"]', { timeout: 15000 });
+      64 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:61:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-firefox\error-context.md
+
+
+[54/140] [firefox] › tests\agents\webrtc-calling.test.ts:112:3 › WebRTC Calling Tests › bob rejects incoming call
+  44) [firefox] › tests\agents\webrtc-calling.test.ts:77:3 › WebRTC Calling Tests › bob accepts incoming call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      93 |       
+      94 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 95 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+         |                                  ^
+      96 |       
+      97 |       await incomingCall.locator('button:has-text("Accept")').click();
+      98 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:95:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-firefox\error-context.md
+
+
+[55/140] [firefox] › tests\agents\webrtc-calling.test.ts:145:3 › WebRTC Calling Tests › call toggle video during call
+  45) [firefox] › tests\agents\webrtc-calling.test.ts:112:3 › WebRTC Calling Tests › bob rejects incoming call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      128 |       
+      129 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 130 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      131 |       
+      132 |       await incomingCall.locator('button:has-text("Decline")').click();
+      133 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:130:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-firefox\error-context.md
+
+
+[56/140] [firefox] › tests\agents\webrtc-calling.test.ts:184:3 › WebRTC Calling Tests › call mute/unmute
+  46) [firefox] › tests\agents\webrtc-calling.test.ts:145:3 › WebRTC Calling Tests › call toggle video during call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      161 |       
+      162 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 163 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      164 |       await incomingCall.locator('button:has-text("Accept")').click();
+      165 |       
+      166 |       const aliceCallModal = alice['page'].locator('[data-testid="call-modal"]');
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:163:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-firefox\error-context.md
+
+
+[57/140] [webkit] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob
+  47) [firefox] › tests\agents\webrtc-calling.test.ts:184:3 › WebRTC Calling Tests › call mute/unmute 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      200 |       
+      201 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 202 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      203 |       await incomingCall.locator('button:has-text("Accept")').click();
+      204 |       
+      205 |       const aliceCallModal = alice['page'].locator('[data-testid="call-modal"]');
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:202:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-firefox\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-firefox\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-firefox\error-context.md
+
+
+[58/140] [webkit] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice
+  48) [webkit] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790962358853")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-webkit\error-context.md
+
+
+[59/140] [webkit] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation
+  49) [webkit] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Reply from Bob 1790962384708")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:56:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-webkit\error-context.md
+
+
+[60/140] [webkit] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts
+  50) [webkit] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790962411013")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-webkit\error-context.md
+
+
+[61/140] [webkit] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations
+  51) [webkit] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790962438044")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-webkit\error-context.md
+
+
+[62/140] [webkit] › tests\agents\group-messaging.test.ts:5:3 › Group Messaging Tests › alice creates group with bob and charlie
+  52) [webkit] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice->Bob 1790962496435")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:160:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-webkit\error-context.md
+
+
+[63/140] [webkit] › tests\agents\group-messaging.test.ts:37:3 › Group Messaging Tests › group message fan-out to all members
+  53) [webkit] › tests\agents\group-messaging.test.ts:5:3 › Group Messaging Tests › alice creates group with bob and charlie 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:21:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-webkit\error-context.md
+
+
+[64/140] [webkit] › tests\agents\group-messaging.test.ts:72:3 › Group Messaging Tests › bob replies in group
+  54) [webkit] › tests\agents\group-messaging.test.ts:37:3 › Group Messaging Tests › group message fan-out to all members 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:53:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-webkit\error-context.md
+
+
+[65/140] [webkit] › tests\agents\group-messaging.test.ts:111:3 › Group Messaging Tests › multiple groups simultaneously
+  55) [webkit] › tests\agents\group-messaging.test.ts:72:3 › Group Messaging Tests › bob replies in group 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:88:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-webkit\error-context.md
+
+
+[66/140] [webkit] › tests\agents\group-messaging.test.ts:149:3 › Group Messaging Tests › group message delivery receipts
+  56) [webkit] › tests\agents\group-messaging.test.ts:149:3 › Group Messaging Tests › group message delivery receipts 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:165:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-webkit\error-context.md
+
+
+[67/140] [webkit] › tests\agents\multi-device-sync.test.ts:5:3 › Multi-Device Sync Tests › alice logs in on two devices - message sync
+  57) [webkit] › tests\agents\group-messaging.test.ts:111:3 › Group Messaging Tests › multiple groups simultaneously 
+
+    Test timeout of 90000ms exceeded.
+
+    TypeError: bob.waitForSelector is not a function
+
+      135 |       ]);
+      136 |       
+    > 137 |       await bob.waitForSelector(`text=${group1}`, { timeout: 25000 });
+          |                 ^
+      138 |       await diana.waitForSelector(`text=${group2}`, { timeout: 25000 });
+      139 |       
+      140 |       await expect(bob['page'].locator(`text=${group1}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:137:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-webkit\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-webkit\error-context.md
+
+
+[68/140] [webkit] › tests\agents\multi-device-sync.test.ts:40:3 › Multi-Device Sync Tests › bob receives message on both devices
+[69/140] [webkit] › tests\agents\multi-device-sync.test.ts:75:3 › Multi-Device Sync Tests › read receipt sync across devices
+  58) [webkit] › tests\agents\multi-device-sync.test.ts:40:3 › Multi-Device Sync Tests › bob receives message on both devices 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Bob sync 1790962738382")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:64:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-webkit\error-context.md
+
+
+[70/140] [webkit] › tests\agents\multi-device-sync.test.ts:110:3 › Multi-Device Sync Tests › chat list sync across devices
+  59) [webkit] › tests\agents\multi-device-sync.test.ts:75:3 › Multi-Device Sync Tests › read receipt sync across devices 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Read receipt sync 1790962791618")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:97:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-webkit\error-context.md
+
+
+[71/140] [webkit] › tests\agents\multi-device-sync.test.ts:140:3 › Multi-Device Sync Tests › typing indicator sync across devices
+  60) [webkit] › tests\agents\multi-device-sync.test.ts:110:3 › Multi-Device Sync Tests › chat list sync across devices 
+
+    TypeError: alice2.waitForSelector is not a function
+
+      126 |       await alice1.createGroup(groupName, ['Bob Vance']);
+      127 |       
+    > 128 |       await alice2.waitForSelector(`text=${groupName}`, { timeout: 25000 });
+          |                    ^
+      129 |       await expect(alice2['page'].locator(`text=${groupName}`).first()).toBeVisible();
+      130 |       
+      131 |       await bob.waitForSelector(`text=${groupName}`, { timeout: 25000 });
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:128:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-webkit\error-context.md
+
+
+[72/140] [webkit] › tests\agents\multi-device-sync.test.ts:174:3 › Multi-Device Sync Tests › message order consistency across devices
+[73/140] [webkit] › tests\agents\presence-typing.test.ts:5:3 › Presence and Typing Indicators Tests › alice sees bob online
+  61) [webkit] › tests\agents\multi-device-sync.test.ts:174:3 › Multi-Device Sync Tests › message order consistency across devices 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  5
+    + Received  + 10
+
+      Array [
+    -   "Msg 1 1790962881617
+    +   "Alice Walker
+    + Msg 1 1790962881617
+      Reply in thread
+      128
+      05:41 PM",
+    -   "Msg 2 1790962881617
+    +   "Alice Walker
+    + Msg 2 1790962881617
+      Reply in thread
+      128
+      05:41 PM",
+    -   "Msg 3 1790962881617
+    +   "Alice Walker
+    + Msg 3 1790962881617
+      Reply in thread
+      128
+      05:41 PM",
+    -   "Msg 4 1790962881617
+    +   "Alice Walker
+    + Msg 4 1790962881617
+      Reply in thread
+      128
+      05:41 PM",
+    -   "Msg 5 1790962881617
+    +   "Alice Walker
+    + Msg 5 1790962881617
+      Reply in thread
+      128
+      05:41 PM",
+      ]
+
+      212 |       const alice2Ordered = alice2Messages.filter(m => messages.some(msg => m.includes(msg)));
+      213 |       
+    > 214 |       expect(bobOrdered).toEqual(alice2Ordered);
+          |                          ^
+      215 |     } finally {
+      216 |       for (const agent of agents) {
+      217 |         await agent['context'].close();
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:214:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-98937--consistency-across-devices-webkit\error-context.md
+
+
+[74/140] [webkit] › tests\agents\presence-typing.test.ts:28:3 › Presence and Typing Indicators Tests › bob sees typing indicator when alice types
+[75/140] [webkit] › tests\agents\presence-typing.test.ts:59:3 › Presence and Typing Indicators Tests › typing indicator disappears after sending message
+[76/140] [webkit] › tests\agents\presence-typing.test.ts:90:3 › Presence and Typing Indicators Tests › presence updates when user goes offline
+[77/140] [webkit] › tests\agents\presence-typing.test.ts:119:3 › Presence and Typing Indicators Tests › multiple users typing in group
+  62) [webkit] › tests\agents\presence-typing.test.ts:90:3 › Presence and Typing Indicators Tests › presence updates when user goes offline 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: [data-testid="offline-badge"], text=offline
+    Expected: visible
+    Error: Unexpected token "=" while parsing css selector "[data-testid="offline-badge"], text=offline". Did you mean to CSS.escape it?
+
+    Call log:
+      - Expect "toBeVisible" [data-testid="offline-badge"], text=offline with timeout 10000ms
+      - waiting for [data-testid="offline-badge"], text=offline
+
+
+      109 |       await alice['page'].waitForTimeout(3000);
+      110 |       
+    > 111 |       await expect(alice['page'].locator('[data-testid="offline-badge"], text=offline')).toBeVisible({ timeout: 10000 });
+          |                                                                                          ^
+      112 |     } finally {
+      113 |       if (!alice['context']._closed) {
+      114 |         await alice['context'].close();
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:111:90
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-webkit\error-context.md
+
+
+[78/140] [webkit] › tests\agents\presence-typing.test.ts:162:3 › Presence and Typing Indicators Tests › presence badge in chat list
+  63) [webkit] › tests\agents\presence-typing.test.ts:162:3 › Presence and Typing Indicators Tests › presence badge in chat list 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('aside').locator('text=Bob Vance')
+    Expected: visible
+    Error: strict mode violation: locator('aside').locator('text=Bob Vance') resolved to 2 elements:
+        1) <span class="text-[16px] font-bold text-white tracking-tight truncate leading-tight">Bob Vance</span> aka getByText('Bob Vance').first()
+        2) <span class="text-[16px] font-bold text-white tracking-tight truncate leading-tight">Bob Vance</span> aka getByText('Bob Vance').nth(1)
+
+    Call log:
+      - Expect "toBeVisible" locator('aside').locator('text=Bob Vance') with timeout 10000ms
+      - waiting for locator('aside').locator('text=Bob Vance')
+
+
+      175 |       
+      176 |       const chatList = alice['page'].locator(SELECTORS.chatList);
+    > 177 |       await expect(chatList.locator(`text=Bob Vance`)).toBeVisible();
+          |                                                        ^
+      178 |       
+      179 |       await bob['context'].close();
+      180 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:177:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-webkit\error-context.md
+
+
+[79/140] [webkit] › tests\agents\webrtc-calling.test.ts:5:3 › WebRTC Calling Tests › alice initiates voice call to bob
+  64) [webkit] › tests\agents\presence-typing.test.ts:119:3 › Presence and Typing Indicators Tests › multiple users typing in group 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:135:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-webkit\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-webkit\error-context.md
+
+
+[80/140] [webkit] › tests\agents\webrtc-calling.test.ts:41:3 › WebRTC Calling Tests › alice initiates video call to bob
+  65) [webkit] › tests\agents\webrtc-calling.test.ts:5:3 › WebRTC Calling Tests › alice initiates voice call to bob 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="call-modal"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="call-modal"]') with timeout 10000ms
+      - waiting for locator('[data-testid="call-modal"]')
+
+
+      23 |       
+      24 |       const callModal = alice['page'].locator('[data-testid="call-modal"]');
+    > 25 |       await expect(callModal).toBeVisible({ timeout: 10000 });
+         |                               ^
+      26 |       
+      27 |       await bob['page'].waitForSelector('[data-testid="incoming-call"]', { timeout: 15000 });
+      28 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:25:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-webkit\error-context.md
+
+
+[81/140] [webkit] › tests\agents\webrtc-calling.test.ts:77:3 › WebRTC Calling Tests › bob accepts incoming call
+  66) [webkit] › tests\agents\webrtc-calling.test.ts:41:3 › WebRTC Calling Tests › alice initiates video call to bob 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="call-modal"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="call-modal"]') with timeout 10000ms
+      - waiting for locator('[data-testid="call-modal"]')
+
+
+      59 |       
+      60 |       const callModal = alice['page'].locator('[data-testid="call-modal"]');
+    > 61 |       await expect(callModal).toBeVisible({ timeout: 10000 });
+         |                               ^
+      62 |       
+      63 |       await bob['page'].waitForSelector('[data-testid="incoming-call"]', { timeout: 15000 });
+      64 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:61:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-webkit\error-context.md
+
+
+[82/140] [webkit] › tests\agents\webrtc-calling.test.ts:112:3 › WebRTC Calling Tests › bob rejects incoming call
+  67) [webkit] › tests\agents\webrtc-calling.test.ts:77:3 › WebRTC Calling Tests › bob accepts incoming call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      93 |       
+      94 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 95 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+         |                                  ^
+      96 |       
+      97 |       await incomingCall.locator('button:has-text("Accept")').click();
+      98 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:95:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-webkit\error-context.md
+
+
+[83/140] [webkit] › tests\agents\webrtc-calling.test.ts:145:3 › WebRTC Calling Tests › call toggle video during call
+  68) [webkit] › tests\agents\webrtc-calling.test.ts:112:3 › WebRTC Calling Tests › bob rejects incoming call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      128 |       
+      129 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 130 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      131 |       
+      132 |       await incomingCall.locator('button:has-text("Decline")').click();
+      133 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:130:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-webkit\error-context.md
+
+
+[84/140] [webkit] › tests\agents\webrtc-calling.test.ts:184:3 › WebRTC Calling Tests › call mute/unmute
+  69) [webkit] › tests\agents\webrtc-calling.test.ts:145:3 › WebRTC Calling Tests › call toggle video during call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      161 |       
+      162 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 163 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      164 |       await incomingCall.locator('button:has-text("Accept")').click();
+      165 |       
+      166 |       const aliceCallModal = alice['page'].locator('[data-testid="call-modal"]');
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:163:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-webkit\error-context.md
+
+
+[85/140] [mobile-chrome] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob
+  70) [webkit] › tests\agents\webrtc-calling.test.ts:184:3 › WebRTC Calling Tests › call mute/unmute 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      200 |       
+      201 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 202 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      203 |       await incomingCall.locator('button:has-text("Accept")').click();
+      204 |       
+      205 |       const aliceCallModal = alice['page'].locator('[data-testid="call-modal"]');
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:202:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-webkit\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-webkit\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-webkit\error-context.md
+
+
+[86/140] [mobile-chrome] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice
+  71) [mobile-chrome] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('text=Reply from Bob 1790963183644').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toBeVisible" locator('text=Reply from Bob 1790963183644').first() with timeout 10000ms
+      - waiting for locator('text=Reply from Bob 1790963183644').first()
+        17 × locator resolved to <span class="truncate">Reply from Bob 1790963183644</span>
+           - unexpected value "hidden"
+
+
+      52 |       
+      53 |       await bob.waitForMessage(message);
+    > 54 |       await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
+         |                                                                    ^
+      55 |       
+      56 |       await alice.waitForMessage(message);
+      57 |       await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:54:68
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-chrome\error-context.md
+
+
+[87/140] [mobile-chrome] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation
+  72) [mobile-chrome] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790963176704")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-chrome\error-context.md
+
+
+[88/140] [mobile-chrome] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts
+  73) [mobile-chrome] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice message 0 - 1790963215250")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:84:19
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-fccce--bidirectional-conversation-mobile-chrome\error-context.md
+
+
+[89/140] [mobile-chrome] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations
+  74) [mobile-chrome] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Test receipts 1790963225513")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:123:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-83d95-s-message-delivery-receipts-mobile-chrome\error-context.md
+
+
+[90/140] [mobile-chrome] › tests\agents\group-messaging.test.ts:5:3 › Group Messaging Tests › alice creates group with bob and charlie
+  75) [mobile-chrome] › tests\agents\group-messaging.test.ts:5:3 › Group Messaging Tests › alice creates group with bob and charlie 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:21:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-a0aa5--group-with-bob-and-charlie-mobile-chrome\error-context.md
+
+
+[91/140] [mobile-chrome] › tests\agents\group-messaging.test.ts:37:3 › Group Messaging Tests › group message fan-out to all members
+  76) [mobile-chrome] › tests\agents\direct-messaging.test.ts:133:3 › Direct Messaging Tests › multiple concurrent conversations 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Alice->Bob 1790963268074")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:160:13
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-72110-le-concurrent-conversations-mobile-chrome\error-context.md
+
+
+[92/140] [mobile-chrome] › tests\agents\group-messaging.test.ts:72:3 › Group Messaging Tests › bob replies in group
+  77) [mobile-chrome] › tests\agents\group-messaging.test.ts:37:3 › Group Messaging Tests › group message fan-out to all members 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:53:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-41f6e-sage-fan-out-to-all-members-mobile-chrome\error-context.md
+
+
+[93/140] [mobile-chrome] › tests\agents\group-messaging.test.ts:111:3 › Group Messaging Tests › multiple groups simultaneously
+  78) [mobile-chrome] › tests\agents\group-messaging.test.ts:72:3 › Group Messaging Tests › bob replies in group 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:88:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-5a83f--Tests-bob-replies-in-group-mobile-chrome\error-context.md
+
+
+[94/140] [mobile-chrome] › tests\agents\group-messaging.test.ts:149:3 › Group Messaging Tests › group message delivery receipts
+  79) [mobile-chrome] › tests\agents\group-messaging.test.ts:111:3 › Group Messaging Tests › multiple groups simultaneously 
+
+    TypeError: bob.waitForSelector is not a function
+
+      135 |       ]);
+      136 |       
+    > 137 |       await bob.waitForSelector(`text=${group1}`, { timeout: 25000 });
+          |                 ^
+      138 |       await diana.waitForSelector(`text=${group2}`, { timeout: 25000 });
+      139 |       
+      140 |       await expect(bob['page'].locator(`text=${group1}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:137:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-mobile-chrome\test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-e3f7d-tiple-groups-simultaneously-mobile-chrome\error-context.md
+
+
+[95/140] [mobile-chrome] › tests\agents\multi-device-sync.test.ts:5:3 › Multi-Device Sync Tests › alice logs in on two devices - message sync
+  80) [mobile-chrome] › tests\agents\group-messaging.test.ts:149:3 › Group Messaging Tests › group message delivery receipts 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\group-messaging.test.ts:165:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-group-messaging-Gro-2963b-p-message-delivery-receipts-mobile-chrome\error-context.md
+
+
+[96/140] [mobile-chrome] › tests\agents\multi-device-sync.test.ts:40:3 › Multi-Device Sync Tests › bob receives message on both devices
+  81) [mobile-chrome] › tests\agents\multi-device-sync.test.ts:5:3 › Multi-Device Sync Tests › alice logs in on two devices - message sync 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('text=Sync test 1790963375440').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toBeVisible" locator('text=Sync test 1790963375440').first() with timeout 10000ms
+      - waiting for locator('text=Sync test 1790963375440').first()
+        17 × locator resolved to <span class="truncate">Sync test 1790963375440</span>
+           - unexpected value "hidden"
+
+
+      29 |       await bob.waitForMessage(message);
+      30 |       
+    > 31 |       await expect(alice2['page'].locator(`text=${message}`).first()).toBeVisible();
+         |                                                                       ^
+      32 |       await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
+      33 |     } finally {
+      34 |       for (const agent of agents) {
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:31:71
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-d0f41--two-devices---message-sync-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-d0f41--two-devices---message-sync-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-d0f41--two-devices---message-sync-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-d0f41--two-devices---message-sync-mobile-chrome\error-context.md
+
+
+[97/140] [mobile-chrome] › tests\agents\multi-device-sync.test.ts:75:3 › Multi-Device Sync Tests › read receipt sync across devices
+  82) [mobile-chrome] › tests\agents\multi-device-sync.test.ts:40:3 › Multi-Device Sync Tests › bob receives message on both devices 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Bob sync 1790963389909")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:63:18
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-0f0f4-ves-message-on-both-devices-mobile-chrome\error-context.md
+
+
+[98/140] [mobile-chrome] › tests\agents\multi-device-sync.test.ts:110:3 › Multi-Device Sync Tests › chat list sync across devices
+  83) [mobile-chrome] › tests\agents\multi-device-sync.test.ts:110:3 › Multi-Device Sync Tests › chat list sync across devices 
+
+    TypeError: alice2.waitForSelector is not a function
+
+      126 |       await alice1.createGroup(groupName, ['Bob Vance']);
+      127 |       
+    > 128 |       await alice2.waitForSelector(`text=${groupName}`, { timeout: 25000 });
+          |                    ^
+      129 |       await expect(alice2['page'].locator(`text=${groupName}`).first()).toBeVisible();
+      130 |       
+      131 |       await bob.waitForSelector(`text=${groupName}`, { timeout: 25000 });
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:128:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-5b3c8-at-list-sync-across-devices-mobile-chrome\error-context.md
+
+
+[99/140] [mobile-chrome] › tests\agents\multi-device-sync.test.ts:140:3 › Multi-Device Sync Tests › typing indicator sync across devices
+  84) [mobile-chrome] › tests\agents\multi-device-sync.test.ts:75:3 › Multi-Device Sync Tests › read receipt sync across devices 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Read receipt sync 1790963422916")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:97:20
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-7377a-receipt-sync-across-devices-mobile-chrome\error-context.md
+
+
+[100/140] [mobile-chrome] › tests\agents\multi-device-sync.test.ts:174:3 › Multi-Device Sync Tests › message order consistency across devices
+  85) [mobile-chrome] › tests\agents\multi-device-sync.test.ts:140:3 › Multi-Device Sync Tests › typing indicator sync across devices 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('header').locator('text=typing')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('header').locator('text=typing') with timeout 5000ms
+      - waiting for locator('header').locator('text=typing')
+
+
+      160 |       
+      161 |       const typingIndicator = bob['page'].locator(SELECTORS.typingIndicator);
+    > 162 |       await expect(typingIndicator).toBeVisible({ timeout: 5000 });
+          |                                     ^
+      163 |       
+      164 |       await alice1['page'].locator(SELECTORS.composer).fill('');
+      165 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:162:37
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-335ed-dicator-sync-across-devices-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-335ed-dicator-sync-across-devices-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-335ed-dicator-sync-across-devices-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-335ed-dicator-sync-across-devices-mobile-chrome\error-context.md
+
+
+[101/140] [mobile-chrome] › tests\agents\presence-typing.test.ts:5:3 › Presence and Typing Indicators Tests › alice sees bob online
+  86) [mobile-chrome] › tests\agents\multi-device-sync.test.ts:174:3 › Multi-Device Sync Tests › message order consistency across devices 
+
+    Error: expect(received).toEqual(expected) // deep equality
+
+    - Expected  -  5
+    + Received  + 10
+
+      Array [
+    -   "Msg 1 1790963472367
+    +   "Alice Walker
+    + Msg 1 1790963472367
+      Reply in thread
+      128
+      05:51 PM",
+    -   "Msg 2 1790963472367
+    +   "Alice Walker
+    + Msg 2 1790963472367
+      Reply in thread
+      128
+      05:51 PM",
+    -   "Msg 3 1790963472367
+    +   "Alice Walker
+    + Msg 3 1790963472367
+      Reply in thread
+      128
+      05:51 PM",
+    -   "Msg 4 1790963472367
+    +   "Alice Walker
+    + Msg 4 1790963472367
+      Reply in thread
+      128
+      05:51 PM",
+    -   "Msg 5 1790963472367
+    +   "Alice Walker
+    + Msg 5 1790963472367
+      Reply in thread
+      128
+      05:51 PM",
+      ]
+
+      212 |       const alice2Ordered = alice2Messages.filter(m => messages.some(msg => m.includes(msg)));
+      213 |       
+    > 214 |       expect(bobOrdered).toEqual(alice2Ordered);
+          |                          ^
+      215 |     } finally {
+      216 |       for (const agent of agents) {
+      217 |         await agent['context'].close();
+        at D:\projects\messagingproject\messagingproject\tests\agents\multi-device-sync.test.ts:214:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-multi-device-sync-M-98937--consistency-across-devices-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-multi-device-sync-M-98937--consistency-across-devices-mobile-chrome\error-context.md
+
+
+[102/140] [mobile-chrome] › tests\agents\presence-typing.test.ts:28:3 › Presence and Typing Indicators Tests › bob sees typing indicator when alice types
+[103/140] [mobile-chrome] › tests\agents\presence-typing.test.ts:59:3 › Presence and Typing Indicators Tests › typing indicator disappears after sending message
+[104/140] [mobile-chrome] › tests\agents\presence-typing.test.ts:90:3 › Presence and Typing Indicators Tests › presence updates when user goes offline
+[105/140] [mobile-chrome] › tests\agents\presence-typing.test.ts:119:3 › Presence and Typing Indicators Tests › multiple users typing in group
+  87) [mobile-chrome] › tests\agents\presence-typing.test.ts:90:3 › Presence and Typing Indicators Tests › presence updates when user goes offline 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: [data-testid="offline-badge"], text=offline
+    Expected: visible
+    Error: Unexpected token "=" while parsing css selector "[data-testid="offline-badge"], text=offline". Did you mean to CSS.escape it?
+
+    Call log:
+      - Expect "toBeVisible" [data-testid="offline-badge"], text=offline with timeout 10000ms
+      - waiting for [data-testid="offline-badge"], text=offline
+
+
+      109 |       await alice['page'].waitForTimeout(3000);
+      110 |       
+    > 111 |       await expect(alice['page'].locator('[data-testid="offline-badge"], text=offline')).toBeVisible({ timeout: 10000 });
+          |                                                                                          ^
+      112 |     } finally {
+      113 |       if (!alice['context']._closed) {
+      114 |         await alice['context'].close();
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:111:90
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-3012b-ates-when-user-goes-offline-mobile-chrome\error-context.md
+
+
+[106/140] [mobile-chrome] › tests\agents\presence-typing.test.ts:162:3 › Presence and Typing Indicators Tests › presence badge in chat list
+  88) [mobile-chrome] › tests\agents\presence-typing.test.ts:162:3 › Presence and Typing Indicators Tests › presence badge in chat list 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('aside').locator('text=Bob Vance')
+    Expected: visible
+    Error: strict mode violation: locator('aside').locator('text=Bob Vance') resolved to 2 elements:
+        1) <span class="text-[16px] font-bold text-white tracking-tight truncate leading-tight">Bob Vance</span> aka getByText('Bob Vance').first()
+        2) <span class="text-[16px] font-bold text-white tracking-tight truncate leading-tight">Bob Vance</span> aka getByText('Bob Vance').nth(1)
+
+    Call log:
+      - Expect "toBeVisible" locator('aside').locator('text=Bob Vance') with timeout 10000ms
+      - waiting for locator('aside').locator('text=Bob Vance')
+
+
+      175 |       
+      176 |       const chatList = alice['page'].locator(SELECTORS.chatList);
+    > 177 |       await expect(chatList.locator(`text=Bob Vance`)).toBeVisible();
+          |                                                        ^
+      178 |       
+      179 |       await bob['context'].close();
+      180 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:177:56
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-8e571-presence-badge-in-chat-list-mobile-chrome\error-context.md
+
+
+[107/140] [mobile-chrome] › tests\agents\webrtc-calling.test.ts:5:3 › WebRTC Calling Tests › alice initiates voice call to bob
+  89) [mobile-chrome] › tests\agents\presence-typing.test.ts:119:3 › Presence and Typing Indicators Tests › multiple users typing in group 
+
+    TimeoutError: locator.click: Timeout 10000ms exceeded.
+    Call log:
+      - waiting for locator('div.fixed.inset-0:has-text("Create")').getByText('Charlie Brown', { exact: true }).first()
+
+
+       at agents\base.ts:163
+
+      161 |
+      162 |     for (const member of members) {
+    > 163 |       await modal.getByText(member, { exact: true }).first().click({ timeout: 10000 });
+          |                                                              ^
+      164 |     }
+      165 |
+      166 |     await modal.locator('button[type="submit"]').click();
+        at TestAgent.createGroup (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:163:62)
+        at D:\projects\messagingproject\messagingproject\tests\agents\presence-typing.test.ts:135:7
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-mobile-chrome\test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-presence-typing-Pre-f8119-tiple-users-typing-in-group-mobile-chrome\error-context.md
+
+
+[108/140] [mobile-chrome] › tests\agents\webrtc-calling.test.ts:41:3 › WebRTC Calling Tests › alice initiates video call to bob
+  90) [mobile-chrome] › tests\agents\webrtc-calling.test.ts:5:3 › WebRTC Calling Tests › alice initiates voice call to bob 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="call-modal"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="call-modal"]') with timeout 10000ms
+      - waiting for locator('[data-testid="call-modal"]')
+
+
+      23 |       
+      24 |       const callModal = alice['page'].locator('[data-testid="call-modal"]');
+    > 25 |       await expect(callModal).toBeVisible({ timeout: 10000 });
+         |                               ^
+      26 |       
+      27 |       await bob['page'].waitForSelector('[data-testid="incoming-call"]', { timeout: 15000 });
+      28 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:25:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-06424-initiates-voice-call-to-bob-mobile-chrome\error-context.md
+
+
+[109/140] [mobile-chrome] › tests\agents\webrtc-calling.test.ts:77:3 › WebRTC Calling Tests › bob accepts incoming call
+  91) [mobile-chrome] › tests\agents\webrtc-calling.test.ts:41:3 › WebRTC Calling Tests › alice initiates video call to bob 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="call-modal"]')
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="call-modal"]') with timeout 10000ms
+      - waiting for locator('[data-testid="call-modal"]')
+
+
+      59 |       
+      60 |       const callModal = alice['page'].locator('[data-testid="call-modal"]');
+    > 61 |       await expect(callModal).toBeVisible({ timeout: 10000 });
+         |                               ^
+      62 |       
+      63 |       await bob['page'].waitForSelector('[data-testid="incoming-call"]', { timeout: 15000 });
+      64 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:61:31
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-5d3ce-initiates-video-call-to-bob-mobile-chrome\error-context.md
+
+
+[110/140] [mobile-chrome] › tests\agents\webrtc-calling.test.ts:112:3 › WebRTC Calling Tests › bob rejects incoming call
+  92) [mobile-chrome] › tests\agents\webrtc-calling.test.ts:77:3 › WebRTC Calling Tests › bob accepts incoming call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      93 |       
+      94 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 95 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+         |                                  ^
+      96 |       
+      97 |       await incomingCall.locator('button:has-text("Accept")').click();
+      98 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:95:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-461c2-s-bob-accepts-incoming-call-mobile-chrome\error-context.md
+
+
+[111/140] [mobile-chrome] › tests\agents\webrtc-calling.test.ts:145:3 › WebRTC Calling Tests › call toggle video during call
+  93) [mobile-chrome] › tests\agents\webrtc-calling.test.ts:112:3 › WebRTC Calling Tests › bob rejects incoming call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      128 |       
+      129 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 130 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      131 |       
+      132 |       await incomingCall.locator('button:has-text("Decline")').click();
+      133 |       
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:130:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-4b871-s-bob-rejects-incoming-call-mobile-chrome\error-context.md
+
+
+[112/140] [mobile-chrome] › tests\agents\webrtc-calling.test.ts:184:3 › WebRTC Calling Tests › call mute/unmute
+  94) [mobile-chrome] › tests\agents\webrtc-calling.test.ts:145:3 › WebRTC Calling Tests › call toggle video during call 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      161 |       
+      162 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 163 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      164 |       await incomingCall.locator('button:has-text("Accept")').click();
+      165 |       
+      166 |       const aliceCallModal = alice['page'].locator('[data-testid="call-modal"]');
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:163:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebR-68f93-ll-toggle-video-during-call-mobile-chrome\error-context.md
+
+
+[113/140] [mobile-safari] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob
+  95) [mobile-chrome] › tests\agents\webrtc-calling.test.ts:184:3 › WebRTC Calling Tests › call mute/unmute 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: locator('[data-testid="incoming-call"]')
+    Expected: visible
+    Timeout: 15000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" locator('[data-testid="incoming-call"]') with timeout 15000ms
+      - waiting for locator('[data-testid="incoming-call"]')
+
+
+      200 |       
+      201 |       const incomingCall = bob['page'].locator('[data-testid="incoming-call"]');
+    > 202 |       await expect(incomingCall).toBeVisible({ timeout: 15000 });
+          |                                  ^
+      203 |       await incomingCall.locator('button:has-text("Accept")').click();
+      204 |       
+      205 |       const aliceCallModal = alice['page'].locator('[data-testid="call-modal"]');
+        at D:\projects\messagingproject\messagingproject\tests\agents\webrtc-calling.test.ts:202:34
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-mobile-chrome\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-mobile-chrome\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-webrtc-calling-WebRTC-Calling-Tests-call-mute-unmute-mobile-chrome\error-context.md
+
+
+[114/140] [mobile-safari] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice
+  96) [mobile-safari] › tests\agents\direct-messaging.test.ts:35:3 › Direct Messaging Tests › bob replies to alice 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('text=Reply from Bob 1790963692399').first()
+    Expected: visible
+    Received: hidden
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toBeVisible" locator('text=Reply from Bob 1790963692399').first() with timeout 10000ms
+      - waiting for locator('text=Reply from Bob 1790963692399').first()
+        17 × locator resolved to <span class="truncate">Reply from Bob 1790963692399</span>
+           - unexpected value "hidden"
+
+
+      52 |       
+      53 |       await bob.waitForMessage(message);
+    > 54 |       await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
+         |                                                                    ^
+      55 |       
+      56 |       await alice.waitForMessage(message);
+      57 |       await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:54:68
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-e65ae--Tests-bob-replies-to-alice-mobile-safari\error-context.md
+
+
+[115/140] [mobile-safari] › tests\agents\direct-messaging.test.ts:65:3 › Direct Messaging Tests › bidirectional conversation
+  97) [mobile-safari] › tests\agents\direct-messaging.test.ts:5:3 › Direct Messaging Tests › alice sends message to bob 
+
+    TimeoutError: locator.waitFor: Timeout 20000ms exceeded.
+    Call log:
+      - waiting for locator('.msg-bubble:has-text("Hello from Alice 1790963683890")').first() to be visible
+
+
+       at agents\base.ts:150
+
+      148 |
+      149 |   async waitForMessage(text: string, timeout = 20000) {
+    > 150 |     await this.page.locator(`${SELECTORS.messageBubble}:has-text("${text}")`).first().waitFor({
+          |                                                                                       ^
+      151 |       state: 'visible',
+      152 |       timeout,
+      153 |     });
+        at TestAgent.waitForMessage (D:\projects\messagingproject\messagingproject\tests\agents\base.ts:150:87)
+        at D:\projects\messagingproject\messagingproject\tests\agents\direct-messaging.test.ts:26:17
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari\test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari\test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results\agents-direct-messaging-Di-c37a7--alice-sends-message-to-bob-mobile-safari\error-context.md
+
+
+[116/140] [mobile-safari] › tests\agents\direct-messaging.test.ts:104:3 › Direct Messaging Tests › message delivery receipts
+
+D:\projects\messagingproject\messagingproject>

@@ -9,6 +9,7 @@ import { setupWebSocketGateway } from './ws/gateway.js';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DashboardEventService } from './services/dashboardEventService.js';
+import { ScheduledMessageService } from './services/scheduledMessage.service.js';
 import { existsSync } from 'node:fs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,6 +60,27 @@ const server = app.listen(config.port, () => {
 });
 
 setupWebSocketGateway(server);
+
+// Background sweeps:
+//  * dispatchDue: delivers scheduled_messages whose time has come through the
+//    normal send path (receipts + chat:new_message fanout).
+//  * deleteExpiredMessages: enforces per-chat disappearing TTLs by hard-deleting
+//    messages past expires_at and broadcasting chat:message_deleted.
+const sweepTimer = setInterval(() => {
+    ScheduledMessageService.dispatchDue().catch((err) =>
+        console.error('[Scheduled Sweep]', err)
+    );
+    try {
+        const removed = ScheduledMessageService.deleteExpiredMessages();
+        if (removed > 0) {
+            console.log(`[TTL Sweep] removed ${removed} expired message(s)`);
+        }
+    } catch (err) {
+        console.error('[TTL Sweep]', err);
+    }
+}, 15_000);
+// Never keep the process alive just for the sweep.
+sweepTimer.unref();
 
 // Handle graceful shutdown
 process.on('SIGTERM', () => {

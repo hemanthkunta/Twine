@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { ApiService } from '../services/api';
 
 interface UserAvatarProps {
   name: string;
@@ -8,6 +9,52 @@ interface UserAvatarProps {
   className?: string;
 }
 
+// Uploaded avatars live behind the authenticated /uploads route, which a
+// plain <img> cannot request (no Authorization header). Fetch those with the
+// token and hand the <img> an object URL, mirroring MessageArea's media
+// loading. External (http/https/data/blob) URLs are used as-is.
+function useResolvedAvatar(avatarUrl?: string): string | undefined {
+  const [resolved, setResolved] = useState<string | undefined>(
+    avatarUrl && !avatarUrl.match(/^(\/uploads|uploads\/|\/media)/) ? avatarUrl : undefined
+  );
+
+  useEffect(() => {
+    if (!avatarUrl) {
+      setResolved(undefined);
+      return;
+    }
+    if (!avatarUrl.match(/^(\/uploads|uploads\/|\/media)/)) {
+      setResolved(avatarUrl);
+      return;
+    }
+
+    let cancelled = false;
+    let objectUrl: string | undefined;
+    (async () => {
+      try {
+        const token = ApiService.getToken();
+        const response = await fetch(ApiService.getMediaUrl(avatarUrl), {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!response.ok) return;
+        const blob = await response.blob();
+        if (!blob.size) return;
+        objectUrl = URL.createObjectURL(blob);
+        if (!cancelled) setResolved(objectUrl);
+      } catch {
+        /* fall back to initials */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [avatarUrl]);
+
+  return resolved;
+}
+
 export const UserAvatar: React.FC<UserAvatarProps> = ({
   name,
   avatarUrl,
@@ -15,6 +62,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   isOnline,
   className = '',
 }) => {
+  const resolvedAvatarUrl = useResolvedAvatar(avatarUrl);
   const sizeClasses = {
     sm: 'w-8 h-8 text-xs',
     md: 'w-11 h-11 text-sm',
@@ -59,9 +107,9 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
 
   return (
     <div className={`relative inline-flex flex-shrink-0 select-none ${className}`}>
-      {avatarUrl ? (
+      {resolvedAvatarUrl ? (
         <img
-          src={avatarUrl}
+          src={resolvedAvatarUrl}
           alt={name}
           className={`${sizeClasses[size]} rounded-full object-cover shadow-sm bg-[#1e2a38] border border-[rgba(255,255,255,0.08)]`}
           onError={(e) => {
@@ -76,7 +124,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
         className={`${sizeClasses[size]} rounded-full flex items-center justify-center font-medium text-white shadow-sm`}
         style={{
           background: getGradient(name || 'User'),
-          display: avatarUrl ? 'none' : 'flex',
+          display: resolvedAvatarUrl ? 'none' : 'flex',
         }}
       >
         {getInitials(name)}

@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { BaseService } from './base.service.js';
 import { ChatService } from './chat.service.js';
 import { RedisService } from './redis.service.js';
+import { PresenceService } from './presence.service.js';
 import { LinkPreviewData } from './LinkPreviewService.js';
 import { SignalProtocolService } from './signalProtocol.service.js';
 import { DashboardEventService } from './dashboardEventService.js';
@@ -31,6 +32,9 @@ interface RawMessageRow {
     is_edited: number;
     edit_timestamp: string | null;
     is_deleted: number;
+    forwarded_from_message_id: string | null;
+    forwarded_from_sender_id: string | null;
+    expires_at: string | null;
     created_at: string;
 }
 
@@ -61,6 +65,15 @@ export class MessageService {
             waveform?: number[];
             pollId?: string;
         };
+        /** Set (with forwardedFromSenderId unless attribution is hidden) when
+         *  this message is a forward of another message. Internal — populated
+         *  by forwardMessage, not by client sends. */
+        forwardedFromMessageId?: string;
+        forwardedFromSenderId?: string;
+        /** Disappearing-message TTL in seconds. When omitted (or undefined),
+         *  the chat's `disappearing_ttl_seconds` default applies; an explicit
+         *  0 forces a persistent message. */
+        ttlSeconds?: number;
     }): Promise<Message> {
         // Enforce chat membership authorization
         if (!ChatService.isChatMember(params.chatId, params.senderId)) {
@@ -99,10 +112,22 @@ export class MessageService {
         const msgType = params.type || 'TEXT';
         const metadataStr = params.mediaMetadata ? JSON.stringify(params.mediaMetadata) : null;
 
+        // Disappearing messages: resolve the effective TTL (per-message
+        // override, else the chat default), then stamp expires_at. The sweep
+        // in server.ts hard-deletes rows past this timestamp.
+        const ttl = params.ttlSeconds ?? ChatService.getDisappearingTtl(params.chatId);
+        const expiresAt =
+            ttl > 0
+                ? new Date(Date.now() + Math.min(ttl, 31536000) * 1000)
+                      .toISOString()
+                      .replace('T', ' ')
+                      .slice(0, 19)
+                : null;
+
         BaseService.execute(
             `
-      INSERT INTO messages (id, chat_id, sender_id, reply_to_message_id, type, content_text, ciphertext_payload, media_url, media_metadata)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO messages (id, chat_id, sender_id, reply_to_message_id, type, content_text, ciphertext_payload, media_url, media_metadata, forwarded_from_message_id, forwarded_from_sender_id, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
             [
                 msgId,
@@ -114,6 +139,9 @@ export class MessageService {
                 ciphertextToStore || null,
                 params.mediaUrl || null,
                 metadataStr,
+                params.forwardedFromMessageId || null,
+                params.forwardedFromSenderId || null,
+                expiresAt,
             ]
         );
 
@@ -177,6 +205,9 @@ export class MessageService {
       FROM messages m
       JOIN users u ON m.sender_id = u.id
       WHERE m.chat_id = ? AND m.is_deleted = 0
+      -- Belt-and-braces: the sweep hard-deletes expired messages, but a
+      -- request can race it, so expired rows must never be served.
+      AND (m.expires_at IS NULL OR m.expires_at > datetime('now'))
     `;
         const params: (string | number)[] = [chatId];
 
@@ -392,6 +423,75 @@ export class MessageService {
         return result;
     }
 
+    /**
+     * Forward a message into one or more target chats (with or without
+     * attribution). Each forward is a normal new message authored by the
+     * forwarding user; forwarded_from_* columns link it back to the source.
+     */
+    static async forwardMessage(params: {
+        userId: string;
+        messageId: string;
+        targetChatIds: string[];
+        hideAttribution?: boolean;
+    }): Promise<Message[]> {
+        const { userId, messageId, targetChatIds, hideAttribution } = params;
+
+        if (!Array.isArray(targetChatIds) || targetChatIds.length === 0) {
+            throw new Error('targetChatIds must be a non-empty array');
+        }
+        if (targetChatIds.length > 100) {
+            throw new Error('Cannot forward to more than 100 chats at once');
+        }
+
+        const source = BaseService.queryOne<RawMessageRow>(
+            `SELECT * FROM messages WHERE id = ? AND is_deleted = 0`,
+            [messageId]
+        );
+        if (!source) {
+            throw new Error('Message not found');
+        }
+        if (!ChatService.isChatMember(source.chat_id, userId)) {
+            throw new Error('You are not a member of the source chat');
+        }
+
+        const created: Message[] = [];
+        for (const targetChatId of new Set(targetChatIds)) {
+            if (!ChatService.isChatMember(targetChatId, userId)) {
+                throw new Error(`You are not a member of chat ${targetChatId}`);
+            }
+
+            const msg = await this.createMessage({
+                chatId: targetChatId,
+                senderId: userId,
+                contentText: source.content_text || '',
+                type: source.type as MessageType,
+                ciphertextPayload: source.ciphertext_payload || undefined,
+                mediaUrl: source.media_url || undefined,
+                mediaMetadata: source.media_metadata ? JSON.parse(source.media_metadata) : undefined,
+                forwardedFromMessageId: source.id,
+                forwardedFromSenderId: hideAttribution ? undefined : source.sender_id,
+            });
+            created.push(msg);
+
+            // Fan out exactly like a normal send: recipients receive
+            // chat:new_message with the forwardedFrom field populated.
+            const memberIds = ChatService.getChatMemberIds(targetChatId);
+            for (const memberId of memberIds) {
+                if (memberId !== userId && PresenceService.isUserOnline(memberId)) {
+                    this.updateReceipt(msg.id, memberId, 'DELIVERED');
+                    msg.status = 'DELIVERED';
+                }
+            }
+            PresenceService.broadcastToUsers(memberIds, {
+                type: 'chat:new_message',
+                payload: { message: msg, chat_id: msg.chat_id },
+                timestamp: Date.now(),
+            });
+        }
+
+        return created;
+    }
+
     static async searchMessages(
         userId: string,
         params: {
@@ -404,7 +504,7 @@ export class MessageService {
         }
     ): Promise<Message[]> {
         const { query, senderId, startDate, endDate, messageType, chatId } = params;
-        const q = `%${query.trim().toLowerCase()}%`;
+        const trimmedQuery = query.trim();
 
         // Build query dynamically. The chat_members join is already scoped to the
         // requesting user, so history they cleared must not surface in search
@@ -420,39 +520,70 @@ export class MessageService {
 
         const paramsArray: string[] = [userId];
 
-        if (query.trim() !== '') {
-            sql += ` AND LOWER(m.content_text) LIKE ?`;
-            paramsArray.push(q);
+        // True full-text search via the FTS5 mirror table. Each token is
+        // double-quoted (escaping inner quotes) so user input can never break
+        // the MATCH syntax; tokens are OR-ed like the old LIKE behaviour
+        // matched any substring. Falls back to LIKE only if the FTS query
+        // itself throws (e.g. mirror table missing on a very old database).
+        let useFts = trimmedQuery !== '';
+        let ftsMatch = '';
+        if (useFts) {
+            ftsMatch = trimmedQuery
+                .split(/\s+/)
+                .filter(Boolean)
+                .map((token) => `"${token.replace(/"/g, '""')}"`)
+                .join(' OR ');
+            sql += ` AND m.id IN (SELECT message_id FROM messages_fts WHERE messages_fts MATCH ?)`;
+            paramsArray.push(ftsMatch);
         }
 
-        if (senderId) {
-            sql += ` AND m.sender_id = ?`;
-            paramsArray.push(senderId);
+        const pushFiltersAndRun = (): MessageRowWithSender[] => {
+            let filteredSql = sql;
+            const allParams = [...paramsArray];
+
+            if (senderId) {
+                filteredSql += ` AND m.sender_id = ?`;
+                allParams.push(senderId);
+            }
+
+            if (startDate) {
+                filteredSql += ` AND m.created_at >= ?`;
+                allParams.push(startDate);
+            }
+
+            if (endDate) {
+                filteredSql += ` AND m.created_at <= ?`;
+                allParams.push(endDate);
+            }
+
+            if (messageType) {
+                filteredSql += ` AND m.type = ?`;
+                allParams.push(messageType);
+            }
+
+            if (chatId) {
+                filteredSql += ` AND m.chat_id = ?`;
+                allParams.push(chatId);
+            }
+
+            filteredSql += ` ORDER BY m.created_at DESC LIMIT 30`;
+            return BaseService.query(filteredSql, allParams) as MessageRowWithSender[];
+        };
+
+        let rows: MessageRowWithSender[];
+        try {
+            rows = pushFiltersAndRun();
+        } catch (err) {
+            if (!useFts) throw err;
+            // Defensive fallback to the pre-FTS LIKE semantics.
+            useFts = false;
+            sql = sql.replace(
+                ` AND m.id IN (SELECT message_id FROM messages_fts WHERE messages_fts MATCH ?)`,
+                ` AND LOWER(m.content_text) LIKE ?`
+            );
+            paramsArray[paramsArray.length - 1] = `%${trimmedQuery.toLowerCase()}%`;
+            rows = pushFiltersAndRun();
         }
-
-        if (startDate) {
-            sql += ` AND m.created_at >= ?`;
-            paramsArray.push(startDate);
-        }
-
-        if (endDate) {
-            sql += ` AND m.created_at <= ?`;
-            paramsArray.push(endDate);
-        }
-
-        if (messageType) {
-            sql += ` AND m.type = ?`;
-            paramsArray.push(messageType);
-        }
-
-        if (chatId) {
-            sql += ` AND m.chat_id = ?`;
-            paramsArray.push(chatId);
-        }
-
-        sql += ` ORDER BY m.created_at DESC LIMIT 30`;
-
-        const rows = BaseService.query(sql, paramsArray) as MessageRowWithSender[];
 
         return Promise.all(rows.map((r) => this.formatMessageRow(r)));
     }
@@ -781,45 +912,51 @@ export class MessageService {
     }
 
     private static async formatMessageRow(row: MessageRowWithSender): Promise<Message> {
-        // Check if chat is E2E-enabled and decrypt content if needed
-        // Priority: decrypt ciphertext_payload if present, otherwise use content_text
+        // Server-side decryption exists only for the legacy `[ENCRYPTED:...]`
+        // placeholder format this service itself produces. Real client-sealed
+        // WebCrypto envelopes ({"v":1,"n":...,"c":...}) MUST stay sealed here:
+        // copying the ciphertext into content_text would make the client's
+        // decryptIncoming skip it (see client/src/services/e2ee.ts) and the UI
+        // would render raw ciphertext JSON.
         let contentText = row.content_text;
         const isE2EE = await ChatService.isChatE2EE(row.chat_id);
         if (isE2EE) {
-            // If we have encrypted payload, try to decrypt it first
             if (row.ciphertext_payload) {
-                try {
-                    const decrypted = await SignalProtocolService.decryptMessage(
-                        row.chat_id, // Using chatId as recipient identifier for simplicity
-                        row.sender_id,
-                        row.ciphertext_payload
-                    );
-                    // Only use decrypted content if decryption succeeded
-                    if (decrypted) {
-                        contentText = decrypted;
+                // Client-sealed payload: leave content_text as stored (blank) and
+                // let the recipient's browser open the envelope. Only the legacy
+                // placeholder format is server-decryptable.
+                if (SignalProtocolService.isEncryptedMessage(row.ciphertext_payload)) {
+                    try {
+                        const decrypted = await SignalProtocolService.decryptMessage(
+                            row.chat_id, // Using chatId as recipient identifier for simplicity
+                            row.sender_id,
+                            row.ciphertext_payload
+                        );
+                        if (decrypted) {
+                            contentText = decrypted;
+                        }
+                    } catch (err) {
+                        console.warn(`Failed to decrypt message ${row.id}:`, err);
                     }
-                } catch (err) {
-                    // If decryption fails, keep original content (could be plaintext or already decrypted)
-                    console.warn(`Failed to decrypt message ${row.id}:`, err);
-                    // Fall back to content_text below
                 }
             }
-            // If no ciphertext_payload or decryption failed, try content_text
+            // If no ciphertext_payload, the content may still be the legacy
+            // server-side placeholder (bot/system messages in E2EE chats).
             else if (row.content_text) {
-                try {
-                    const decrypted = await SignalProtocolService.decryptMessage(
-                        row.chat_id, // Using chatId as recipient identifier for simplicity
-                        row.sender_id,
-                        row.content_text
-                    );
-                    // Only use decrypted content if decryption succeeded and returned different content
-                    if (decrypted && decrypted !== row.content_text) {
-                        contentText = decrypted;
+                if (SignalProtocolService.isEncryptedMessage(row.content_text)) {
+                    try {
+                        const decrypted = await SignalProtocolService.decryptMessage(
+                            row.chat_id, // Using chatId as recipient identifier for simplicity
+                            row.sender_id,
+                            row.content_text
+                        );
+                        // Only use decrypted content if decryption succeeded and returned different content
+                        if (decrypted && decrypted !== row.content_text) {
+                            contentText = decrypted;
+                        }
+                    } catch (err) {
+                        console.warn(`Failed to decrypt message ${row.id}:`, err);
                     }
-                } catch (err) {
-                    // If decryption fails, keep original content (could be plaintext or already decrypted)
-                    console.warn(`Failed to decrypt message ${row.id}:`, err);
-                    // Keep original contentText
                 }
             }
         }
@@ -895,6 +1032,25 @@ export class MessageService {
             [row.id]
         );
 
+        // Forwarding provenance: attribution fields are present only when the
+        // forwarder kept attribution (forwarded_from_sender_id set).
+        let forwardedFrom: Message['forwardedFrom'];
+        if (row.forwarded_from_message_id) {
+            forwardedFrom = { messageId: row.forwarded_from_message_id };
+            if (row.forwarded_from_sender_id) {
+                const originalSender = BaseService.queryOne<{
+                    id: string;
+                    display_name: string;
+                }>(`SELECT id, display_name FROM users WHERE id = ?`, [
+                    row.forwarded_from_sender_id,
+                ]);
+                if (originalSender) {
+                    forwardedFrom.senderId = originalSender.id;
+                    forwardedFrom.senderName = originalSender.display_name;
+                }
+            }
+        }
+
         // Get views from Redis
         const views = (await RedisService.getInstance().getViews(row.id)) || 128;
 
@@ -918,8 +1074,10 @@ export class MessageService {
             edit_timestamp: row.edit_timestamp || undefined,
             is_deleted: Boolean(row.is_deleted),
             created_at: row.created_at,
+            expires_at: row.expires_at ?? null,
             status,
             linkPreview,
+            forwardedFrom,
             sender: {
                 id: row.sender_id,
                 username: row.sender_username,

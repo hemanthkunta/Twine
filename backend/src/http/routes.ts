@@ -12,6 +12,9 @@ import { ChannelAnalyticsService } from '../services/analytics.service.js';
 import { FederationBridgeService } from '../services/federation.service.js';
 import { PushNotificationService } from '../services/push.service.js';
 import { BlockService } from '../services/block.service.js';
+import { KeyDirectoryService } from '../services/keyDirectory.service.js';
+import { SenderKeyService, BadRequestError, ForbiddenError } from '../services/senderKey.service.js';
+import { ScheduledMessageService } from '../services/scheduledMessage.service.js';
 import { RateLimiter } from '../middleware/rateLimiter.js';
 import { TurnService } from '../services/turn.service.js';
 import { MetricsService } from '../services/metrics.service.js';
@@ -291,6 +294,25 @@ router.post('/users/sessions/:id/revoke', authMiddleware, (req: Request, res: Re
     res.json({ success: true });
 });
 
+// Server-side logout: revokes the caller's current session (the session_id is
+// embedded in the auth token by the auth middleware).
+router.post('/auth/logout', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const sessionId = (req as any).user.session_id;
+
+    if (sessionId) {
+        AuthService.revokeSession(userId, sessionId);
+
+        PresenceService.sendToUser(userId, {
+            type: 'auth:session_revoked',
+            payload: { session_id: sessionId },
+            timestamp: Date.now(),
+        });
+    }
+
+    res.json({ success: true });
+});
+
 // 3. User Directory & Search
 router.get('/users/search', authMiddleware, (req: Request, res: Response) => {
     const userId = (req as any).user.id;
@@ -454,7 +476,129 @@ router.get('/messages/search', authMiddleware, async (req: Request, res: Respons
     res.json({ messages });
 });
 
-// Protected Media Downloads
+// 5b. Message Forwarding
+// POST /messages/forward — copy a message into one or more chats the caller
+// belongs to. hideAttribution drops forwarded_from_sender_id so recipients
+// only see "Forwarded" without the original sender's name.
+router.post('/messages/forward', authMiddleware, async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { messageId, targetChatIds, hideAttribution } = req.body ?? {};
+
+    if (typeof messageId !== 'string' || messageId.trim() === '') {
+        return res.status(400).json({ error: 'messageId is required' });
+    }
+    if (!Array.isArray(targetChatIds) || targetChatIds.length === 0) {
+        return res.status(400).json({ error: 'targetChatIds must be a non-empty array' });
+    }
+
+    try {
+        const messages = await MessageService.forwardMessage({
+            userId,
+            messageId,
+            targetChatIds,
+            hideAttribution: Boolean(hideAttribution),
+        });
+        res.json({ messages });
+    } catch (err: any) {
+        const msg: string = err?.message ?? 'Forward failed';
+        if (msg === 'Message not found') {
+            return res.status(404).json({ error: msg });
+        }
+        if (msg.includes('not a member')) {
+            return res.status(403).json({ error: msg });
+        }
+        res.status(400).json({ error: msg });
+    }
+});
+// 5c. Scheduled Messages
+// POST /chats/:id/schedule queues a message for future delivery; the sweep in
+// server.ts dispatches it through the normal send path (receipts + fanout).
+router.post('/chats/:id/schedule', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const chatId = req.params.id;
+    const { content, type, replyToMessageId, mediaUrl, mediaMetadata, scheduledAt } =
+        req.body ?? {};
+
+    if (typeof content !== 'string' || content.trim() === '') {
+        return res.status(400).json({ error: 'content is required' });
+    }
+    const when = new Date(scheduledAt);
+    if (!scheduledAt || isNaN(when.getTime())) {
+        return res.status(400).json({ error: 'scheduledAt must be a valid ISO timestamp' });
+    }
+
+    try {
+        const scheduled = ScheduledMessageService.create({
+            chatId,
+            senderId: userId,
+            contentText: content,
+            type,
+            replyToMessageId,
+            mediaUrl,
+            mediaMetadata,
+            scheduledAt: when,
+        });
+        res.json({ scheduled });
+    } catch (err: any) {
+        const msg: string = err?.message ?? 'Failed to schedule message';
+        if (msg.includes('not a member')) {
+            return res.status(403).json({ error: msg });
+        }
+        res.status(400).json({ error: msg });
+    }
+});
+
+router.get('/chats/:id/scheduled', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        const scheduled = ScheduledMessageService.listPending(req.params.id, userId);
+        res.json({ scheduled });
+    } catch (err: any) {
+        res.status(403).json({ error: err?.message ?? 'Forbidden' });
+    }
+});
+
+router.delete('/scheduled-messages/:id', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    try {
+        ScheduledMessageService.cancel(req.params.id, userId);
+        res.json({ success: true });
+    } catch (err: any) {
+        const msg: string = err?.message ?? 'Cancel failed';
+        if (msg === 'Scheduled message not found') {
+            return res.status(404).json({ error: msg });
+        }
+        res.status(msg.includes('authorized') ? 403 : 400).json({ error: msg });
+    }
+});
+
+// 5d. Per-Chat Disappearing Messages (server-enforced TTL).
+// Any member sets the chat default; new messages inherit it into expires_at
+// and the sweep in server.ts hard-deletes them, broadcasting
+// chat:message_deleted to all members/devices.
+router.put('/chats/:id/disappearing', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const chatId = req.params.id;
+    if (!ChatService.isChatMember(chatId, userId)) {
+        return res.status(403).json({ error: 'Not a member of this chat' });
+    }
+    const { ttlSeconds } = req.body ?? {};
+    if (typeof ttlSeconds !== 'number' || !Number.isInteger(ttlSeconds) || ttlSeconds < 0) {
+        return res.status(400).json({ error: 'ttlSeconds must be a non-negative integer (0 = off)' });
+    }
+    if (ttlSeconds > 31536000) {
+        return res.status(400).json({ error: 'TTL cannot exceed one year' });
+    }
+    ChatService.setDisappearingTtl(chatId, ttlSeconds);
+
+    // Let every member's client update the chat (header badge, composer hint).
+    PresenceService.broadcastToUsers(ChatService.getChatMemberIds(chatId), {
+        type: 'chat:updated',
+        payload: { chat_id: chatId, disappearing_ttl_seconds: ttlSeconds },
+        timestamp: Date.now(),
+    });
+    res.json({ success: true, ttlSeconds });
+});
 //
 // One authenticated, membership-checked handler serves two paths:
 //   * `/media/:filename`   — the original route.
@@ -871,6 +1015,81 @@ router.get('/users/blocked', authMiddleware, (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const blockedUserIds = BlockService.getBlockedUserIds(userId);
     res.json({ blockedUserIds });
+});
+
+// E2EE Public-Key Directory (identity keys + wrapped group sender keys).
+// Only public keys and opaque sealed blobs travel over the wire; private key
+// material never leaves the client (see client/src/services/e2ee.ts).
+router.post('/keys/publish', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { publicKey } = req.body ?? {};
+    if (!KeyDirectoryService.isValidPublicKey(publicKey)) {
+        res.status(400).json({ error: 'Invalid public key format', code: 'KEYS_001' });
+        return;
+    }
+    try {
+        const stored = KeyDirectoryService.publish(userId, publicKey);
+        res.json({ user_id: stored.user_id, public_key: stored.public_key });
+    } catch (err: any) {
+        console.error('[Key Publish Error]', err);
+        res.status(500).json({ error: 'Failed to publish identity key' });
+    }
+});
+
+router.get('/keys/:userId', authMiddleware, (req: Request, res: Response) => {
+    const stored = KeyDirectoryService.get(req.params.userId);
+    if (!stored) {
+        res.status(404).json({ error: 'No identity key published for this user', code: 'KEYS_404' });
+        return;
+    }
+    res.json({ user_id: stored.user_id, public_key: stored.public_key });
+});
+
+// Wrapped group sender keys, one row per (sender, recipient). Each copy is
+// sealed to the recipient's identity key in the browser before upload, so the
+// server stores and routes the blob but cannot read any group message.
+router.post('/chats/:id/sender-keys', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const chatId = req.params.id;
+    const { keys } = req.body ?? {};
+    try {
+        // SenderKeyService validates membership (sender + every recipient),
+        // the sealed {n,c} shape of each wrap, and per-request caps before
+        // writing anything.
+        const { stored } = SenderKeyService.publish(chatId, userId, keys);
+        res.json({ success: true, stored });
+    } catch (err: any) {
+        if (err instanceof ForbiddenError) {
+            res.status(403).json({ error: err.message, code: 'KEYS_403' });
+            return;
+        }
+        if (err instanceof BadRequestError) {
+            res.status(400).json({ error: err.message, code: 'KEYS_002' });
+            return;
+        }
+        console.error('[Sender Keys Upload Error]', err);
+        res.status(500).json({ error: 'Failed to store sender keys' });
+    }
+});
+
+router.get('/chats/:id/sender-keys', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const chatId = req.params.id;
+    try {
+        // Sender keys this chat's members have addressed TO the caller, plus
+        // the distinct recipients the CALLER has already distributed to, so
+        // one round trip answers "is anything missing?".
+        const keys = SenderKeyService.getForRecipient(chatId, userId);
+        const myRecipients = SenderKeyService.getMyRecipients(chatId, userId);
+        res.json({ keys, my_recipients: myRecipients });
+    } catch (err: any) {
+        if (err instanceof ForbiddenError) {
+            res.status(403).json({ error: err.message, code: 'KEYS_403' });
+            return;
+        }
+        console.error('[Sender Keys Fetch Error]', err);
+        res.status(500).json({ error: 'Failed to fetch sender keys' });
+    }
 });
 
 // 13. WebRTC Dynamic Time-Limited TURN Credentials (HMAC-SHA1 / Managed API)

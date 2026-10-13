@@ -28,8 +28,8 @@ test.describe('Multi-Device Sync Tests', () => {
       await alice2.waitForMessage(message);
       await bob.waitForMessage(message);
       
-      await expect(alice2['page'].locator(`text=${message}`)).toBeVisible();
-      await expect(bob['page'].locator(`text=${message}`)).toBeVisible();
+      await expect(alice2['page'].locator(`text=${message}`).first()).toBeVisible();
+      await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();
@@ -63,8 +63,8 @@ test.describe('Multi-Device Sync Tests', () => {
       await bob1.waitForMessage(message);
       await bob2.waitForMessage(message);
       
-      await expect(bob1['page'].locator(`text=${message}`)).toBeVisible();
-      await expect(bob2['page'].locator(`text=${message}`)).toBeVisible();
+      await expect(bob1['page'].locator(`text=${message}`).first()).toBeVisible();
+      await expect(bob2['page'].locator(`text=${message}`).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();
@@ -89,6 +89,7 @@ test.describe('Multi-Device Sync Tests', () => {
       
       await bob.selectChat('Alice Walker');
       await alice1.selectChat('Bob Vance');
+      await alice2.selectChat('Bob Vance');
       
       const message = `Read receipt sync ${Date.now()}`;
       await bob.sendMessage(message);
@@ -125,11 +126,11 @@ test.describe('Multi-Device Sync Tests', () => {
       const groupName = `Sync Group ${Date.now()}`;
       await alice1.createGroup(groupName, ['Bob Vance']);
       
-      await alice2.waitForSelector(`text=${groupName}`, { timeout: 25000 });
-      await expect(alice2['page'].locator(`text=${groupName}`)).toBeVisible();
+      await alice2['page'].waitForSelector(`text=${groupName}`, { timeout: 25000 });
+      await expect(alice2['page'].locator(`text=${groupName}`).first()).toBeVisible();
       
-      await bob.waitForSelector(`text=${groupName}`, { timeout: 25000 });
-      await expect(bob['page'].locator(`text=${groupName}`)).toBeVisible();
+      await bob['page'].waitForSelector(`text=${groupName}`, { timeout: 25000 });
+      await expect(bob['page'].locator(`text=${groupName}`).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();

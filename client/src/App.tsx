@@ -23,6 +23,7 @@ import {
 import { ApiService } from './services/api';
 import { wsClient } from './services/ws';
 import { sounds } from './services/sound';
+import { NotificationPrefs } from './services/notificationPrefs';
 import { offlineStorage } from './services/storage';
 import { CryptoService } from './services/crypto';
 import { E2EEService } from './services/e2ee';
@@ -45,6 +46,8 @@ import { MeshRadarModal } from './components/MeshRadarModal';
 import { LoRaBridgeModal } from './components/LoRaBridgeModal';
 import { SafetyNumberModal } from './components/SafetyNumberModal';
 import { DisappearingTimerModal } from './components/DisappearingTimerModal';
+import { ScheduledMessagesModal } from './components/ScheduledMessagesModal';
+import { ForwardMessageModal } from './components/ForwardMessageModal';
 import { MultiDeviceLinkModal } from './components/MultiDeviceLinkModal';
 import { AIModerationModal } from './components/AIModerationModal';
 import { CallSummaryModal } from './components/CallSummaryModal';
@@ -83,6 +86,8 @@ export function App() {
     const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
     const [showSettingsModal, setShowSettingsModal] = useState(false);
     const [showGlobalSearchModal, setShowGlobalSearchModal] = useState(false);
+    // ChatId the search modal is scoped to (null = global search everywhere).
+    const [searchScopeChatId, setSearchScopeChatId] = useState<string | null>(null);
     const [showMeshRadarModal, setShowMeshRadarModal] = useState(false);
     const [showLoRaBridgeModal, setShowLoRaBridgeModal] = useState(false);
     const [showSafetyNumberModal, setShowSafetyNumberModal] = useState(false);
@@ -93,8 +98,10 @@ export function App() {
     const [showChannelDashboardModal, setShowChannelDashboardModal] = useState(false);
     const [showFederationModal, setShowFederationModal] = useState(false);
     const [threadParentMessage, setThreadParentMessage] = useState<Message | null>(null);
+    const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
     const [callSummaryData, setCallSummaryData] = useState<any | null>(null);
     const [currentDisappearingTimer, setCurrentDisappearingTimer] = useState<DisappearingTimer>(0);
+    const [showScheduledModal, setShowScheduledModal] = useState(false);
 
     // WebRTC Call State
     const [activeCall, setActiveCall] = useState<{
@@ -121,6 +128,10 @@ export function App() {
     // messages from this user's own. Kept in a ref for the same reason as above.
     const currentUserIdRef = useRef<string | null>(null);
     currentUserIdRef.current = currentUser?.id ?? null;
+
+    // Signed-in username, used by the realtime layer for @mention detection.
+    const currentUsernameRef = useRef<string | null>(null);
+    currentUsernameRef.current = currentUser?.username ?? null;
 
     const activeChatPeerRef = useRef<string | null>(null);
     activeChatPeerRef.current = activeChatId
@@ -255,7 +266,17 @@ export function App() {
             if (activeChatRef.current === packet.chat_id) {
                 setMessages((prev) => [...prev, meshMsg]);
             }
-            sounds.playReceived();
+            const meshChat = chatsRef.current.find((c) => c.id === packet.chat_id) ?? null;
+            if (
+                NotificationPrefs.shouldNotify(
+                    meshChat,
+                    meshMsg,
+                    currentUserIdRef.current,
+                    currentUsernameRef.current
+                )
+            ) {
+                NotificationPrefs.playChatSound(packet.chat_id);
+            }
         });
 
         return () => {
@@ -378,9 +399,11 @@ export function App() {
             setSmartReplies([]);
             return;
         }
-
-        // Load disappearing timer for chat
-        const timerVal = disappearingService.getChatTimer(activeChatId);
+        // Load disappearing timer for chat: the server-side TTL (enforced on
+        // all devices) takes precedence over the per-device local timer.
+        const serverTtl = activeChatObjRef.current?.disappearing_ttl_seconds;
+        const timerVal = (serverTtl ??
+            disappearingService.getChatTimer(activeChatId)) as DisappearingTimer;
         setCurrentDisappearingTimer(timerVal);
 
         const openChat = activeChatObjRef.current;
@@ -504,6 +527,7 @@ export function App() {
         chatsRef,
         activeCallRef,
         currentUserIdRef,
+        currentUsernameRef,
         setMessages,
         setChats,
         setSmartReplies,
@@ -515,7 +539,6 @@ export function App() {
         refreshChats,
     });
 
-    // Actions
     const handleSendMessage = async (
         content: string,
         replyToId?: string,
@@ -949,7 +972,11 @@ export function App() {
                                 onNewChat={() => setShowNewChatModal(true)}
                                 onNewGroup={() => setShowCreateGroupModal(true)}
                                 onOpenSettings={() => setShowSettingsModal(true)}
-                                onOpenSearch={() => setShowGlobalSearchModal(true)}
+                                onOpenSearch={() => {
+                                    // Global search: no chat scope.
+                                    setSearchScopeChatId(null);
+                                    setShowGlobalSearchModal(true);
+                                }}
                                 onSwitchAccount={() => setShowAuthModal(true)}
                                 onLogout={handleLogout}
                                 onlineUserIds={onlineUserIds}
@@ -979,10 +1006,15 @@ export function App() {
                                     disappearingTimer={currentDisappearingTimer}
                                     suggestedTopics={suggestedTopics}
                                     onBackMobile={() => setMobileChatOpen(false)}
-                                    onOpenSearch={() => setShowGlobalSearchModal(true)}
+                                    onOpenSearch={() => {
+                                        // "Search in Conversation": scope the modal to this chat.
+                                        setSearchScopeChatId(activeChat.id);
+                                        setShowGlobalSearchModal(true);
+                                    }}
                                     onOpenMeshRadar={() => setShowMeshRadarModal(true)}
                                     onOpenSafetyNumber={() => setShowSafetyNumberModal(true)}
                                     onOpenDisappearingTimer={() => setShowDisappearingModal(true)}
+                                    onOpenScheduled={() => setShowScheduledModal(true)}
                                     onOpenAIModeration={() => setShowAIModerationModal(true)}
                                     onOpenCreatePoll={() => setShowCreatePollModal(true)}
                                     onOpenChannelDashboard={() =>
@@ -1027,6 +1059,7 @@ export function App() {
                                     onDelete={handleDeleteMessage}
                                     onReact={handleReact}
                                     onPin={handlePin}
+                                    onForward={(msg) => setForwardingMessage(msg)}
                                     onOpenThread={(msg) => setThreadParentMessage(msg)}
                                 />
 
@@ -1065,6 +1098,21 @@ export function App() {
                                         onClearReply={() => setReplyToMessage(null)}
                                         onClearEdit={() => setEditingMessage(null)}
                                         onSendMessage={handleSendMessage}
+                                        onScheduleMessage={(text, scheduledAt, replyToId) => {
+                                            if (!activeChat) return;
+                                            ApiService.scheduleMessage(activeChat.id, {
+                                                content: text,
+                                                scheduledAt,
+                                                replyToMessageId: replyToId,
+                                            })
+                                                .then(() => {
+                                                    sounds.playSent();
+                                                    setShowScheduledModal(true);
+                                                })
+                                                .catch((err) =>
+                                                    console.error('Schedule message failed:', err)
+                                                );
+                                        }}
                                         onEditSubmit={handleEditSubmit}
                                         onTyping={handleTyping}
                                     />
@@ -1212,6 +1260,7 @@ export function App() {
 
             {showGlobalSearchModal && (
                 <GlobalSearchModal
+                    scopeChatId={searchScopeChatId}
                     onClose={() => setShowGlobalSearchModal(false)}
                     onSelectResult={(chatId) => {
                         setActiveChatId(chatId);
@@ -1255,6 +1304,13 @@ export function App() {
                 />
             )}
 
+            {showScheduledModal && activeChat && (
+                <ScheduledMessagesModal
+                    chatId={activeChat.id}
+                    onClose={() => setShowScheduledModal(false)}
+                />
+            )}
+
             {showMultiDeviceModal && (
                 <MultiDeviceLinkModal
                     onClose={() => setShowMultiDeviceModal(false)}
@@ -1265,7 +1321,22 @@ export function App() {
                 />
             )}
 
+            {forwardingMessage && (
+                <ForwardMessageModal
+                    message={forwardingMessage}
+                    chats={chats}
+                    currentChatId={activeChat?.id}
+                    onClose={() => setForwardingMessage(null)}
+                    onForwarded={() => {
+                        // The forwarded copies arrive via chat:new_message like
+                        // any other message; nothing else to do here.
+                        setForwardingMessage(null);
+                    }}
+                />
+            )}
+
             {showAIModerationModal && activeChat && (
+
                 <AIModerationModal
                     chatTitle={activeChat.title || 'Group'}
                     onClose={() => setShowAIModerationModal(false)}

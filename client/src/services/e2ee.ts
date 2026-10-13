@@ -52,6 +52,16 @@ export class E2EEService {
     /** Cached peer public key lookup. Returns null when unavailable. */
     static async getPeerKey(userId: string): Promise<string | null> {
         if (peerKeyCache.has(userId)) return peerKeyCache.get(userId) ?? null;
+        return E2EEService.getPeerKeyFresh(userId);
+    }
+
+    /**
+     * Always hit the directory and update the cache. Used when sealing (a stale
+     * cached key after a peer reinstalled/rotated would produce envelopes the
+     * peer can never open) and as the retry path when a decrypt attempt fails
+     * with a possibly-stale cached key.
+     */
+    static async getPeerKeyFresh(userId: string): Promise<string | null> {
         try {
             const res = await ApiService.getPublicKey(userId);
             peerKeyCache.set(userId, res.public_key);
@@ -107,7 +117,10 @@ export class E2EEService {
         const peerId = chat!.peer_user!.id;
         if (peerId === myUserId) return null;
 
-        const peerKey = await E2EEService.getPeerKey(peerId);
+        // Outgoing seals always use the directory's CURRENT key: a cached stale
+        // key (e.g. primed by last-message previews before the peer rotated)
+        // would silently produce envelopes the peer can never open.
+        const peerKey = await E2EEService.getPeerKeyFresh(peerId);
         if (!peerKey) return null;
 
         try {
@@ -180,7 +193,20 @@ export class E2EEService {
         try {
             message.content_text = await CryptoService.openFromPeer(payload, key);
         } catch {
-            // Wrong key, tampered ciphertext, or a rotated identity key.
+            // Stale cached key? The sender may have rotated since we last looked.
+            // Retry once with the directory's current key before giving up.
+            const fresh = await E2EEService.getPeerKeyFresh(keyOwnerId);
+            if (fresh && fresh !== key) {
+                try {
+                    message.content_text = await CryptoService.openFromPeer(payload, fresh);
+                    return;
+                } catch {
+                    // Fall through to the failure placeholder below.
+                }
+            }
+            // Wrong key, tampered ciphertext, or a rotated identity key (key
+            // history is not kept — older messages become unopenable on
+            // rotation, which is the documented v1 trade-off).
             message.content_text = '[Unable to decrypt this message]';
         }
     }

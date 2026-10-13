@@ -6,11 +6,14 @@ import { ApiService } from '../services/api';
 interface GlobalSearchModalProps {
     onClose: () => void;
     onSelectResult: (chatId: string) => void;
+    /** When set, search is scoped to this chat (opened from a chat header). */
+    scopeChatId?: string | null;
 }
 
 export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     onClose,
     onSelectResult,
+    scopeChatId,
 }) => {
     const [query, setQuery] = useState('');
     const [mode, setMode] = useState<'keyword' | 'semantic'>('semantic');
@@ -28,12 +31,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         setLoading(true);
         const timer = setTimeout(() => {
             if (mode === 'semantic') {
-                ApiService.semanticSearch(query)
+                ApiService.semanticSearch(query, scopeChatId ?? undefined)
                     .then((res) => setResults(res.results))
                     .catch((err) => console.error(err))
                     .finally(() => setLoading(false));
             } else {
-                ApiService.searchMessages({ query })
+                ApiService.searchMessages({ query, chatId: scopeChatId ?? undefined })
                     .then((res) => setResults(res.messages.map((m) => ({ message: m }))))
                     .catch((err) => console.error(err))
                     .finally(() => setLoading(false));
@@ -41,7 +44,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         }, 250);
 
         return () => clearTimeout(timer);
-    }, [query, mode]);
+    }, [query, mode, scopeChatId]);
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
@@ -60,12 +63,23 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder={
-                            mode === 'semantic'
-                                ? 'Ask or search conceptually (e.g. "where we discussed the deploy issue")...'
-                                : 'Search exact words...'
+                            scopeChatId
+                                ? 'Search in this conversation...'
+                                : mode === 'semantic'
+                                  ? 'Ask or search conceptually (e.g. "where we discussed the deploy issue")...'
+                                  : 'Search exact words...'
                         }
                         className="flex-1 bg-transparent text-white text-sm focus:outline-none placeholder-[#5e6d7d]"
                     />
+
+                    {scopeChatId && (
+                        <span
+                            className="px-2 py-1 rounded-lg bg-[#2b5278]/60 border border-[#3fc5f0]/30 text-[10px] font-bold text-[#3fc5f0] flex-shrink-0 select-none"
+                            title="Search is scoped to the current conversation"
+                        >
+                            THIS CHAT
+                        </span>
+                    )}
 
                     <button
                         onClick={onClose}
@@ -104,7 +118,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     </div>
 
                     <span className="text-[10px] text-[#7f91a4]">
-                        {mode === 'semantic' ? 'Conceptual Intent Engine' : 'Substring Match'}
+                        {scopeChatId
+                            ? 'Scoped to this conversation'
+                            : mode === 'semantic'
+                              ? 'Conceptual Intent Engine'
+                              : 'Substring Match'}
                     </span>
                 </div>
 
@@ -122,9 +140,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     ) : !query ? (
                         <div className="py-10 text-center text-xs text-[#7f91a4] space-y-1">
                             <p className="font-semibold text-white/80">
-                                Semantic Vector Search Active
+                                {scopeChatId
+                                    ? 'Searching This Conversation'
+                                    : 'Semantic Vector Search Active'}
                             </p>
-                            <p>Type any topic or concept to find messages by meaning.</p>
+                            <p>
+                                {scopeChatId
+                                    ? 'Results are limited to the current chat.'
+                                    : 'Type any topic or concept to find messages by meaning.'}
+                            </p>
                         </div>
                     ) : (
                         results.map((item, idx) => (

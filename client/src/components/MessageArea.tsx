@@ -19,6 +19,7 @@ import {
     MessageSquare,
     Eye,
     BarChart2,
+    Forward,
 } from 'lucide-react';
 import { ApiService } from '../services/api';
 import { PollCard } from './PollCard';
@@ -33,6 +34,7 @@ interface MessageAreaProps {
     onDelete: (messageId: string) => void;
     onReact: (messageId: string, emoji: string) => void;
     onPin: (messageId: string, isPinned: boolean) => void;
+    onForward?: (message: Message) => void;
     onOpenThread?: (message: Message) => void;
 }
 
@@ -89,6 +91,7 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
     onDelete,
     onReact,
     onPin,
+    onForward,
     onOpenThread,
 }) => {
     const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -619,13 +622,23 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                         </button>
                                                     ))}
 
-                                                    <button
+                                                     <button
                                                         onClick={() => onReply(msg)}
                                                         className="p-1 text-[#7f91a4] hover:text-white rounded hover:bg-[#28384b]"
                                                         title="Reply"
                                                     >
                                                         <Reply className="w-3.5 h-3.5" />
                                                     </button>
+
+                                                    {onForward && !isSystem && (
+                                                        <button
+                                                            onClick={() => onForward(msg)}
+                                                            className="p-1 text-[#7f91a4] hover:text-[#3fc5f0] rounded hover:bg-[#28384b]"
+                                                            title="Forward"
+                                                        >
+                                                            <Forward className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
 
                                                     {isOut && (
                                                         <button
@@ -691,6 +704,18 @@ export const MessageArea: React.FC<MessageAreaProps> = ({
                                                                 <span>BOT</span>
                                                             </span>
                                                         )}
+                                                    </div>
+                                                )}
+
+                                                {/* Forwarded provenance header */}
+                                                {msg.forwardedFrom && (
+                                                    <div className="mb-1 flex items-center space-x-1 text-[11px] italic text-[#8e9aa8]">
+                                                        <Forward className="w-3 h-3" />
+                                                        <span>
+                                                            {msg.forwardedFrom.senderName
+                                                                ? `Forwarded from ${msg.forwardedFrom.senderName}`
+                                                                : 'Forwarded'}
+                                                        </span>
                                                     </div>
                                                 )}
 

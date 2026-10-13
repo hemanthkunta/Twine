@@ -1,5 +1,23 @@
 // Web Audio API Synthesizer for Telegram/Twine interface sounds & real-time WebRTC calling audio
 
+export type NotificationSoundId = 'default' | 'subtle' | 'pop' | 'chime' | 'retro';
+
+export interface NotificationSoundDef {
+  id: NotificationSoundId;
+  name: string;
+  description: string;
+}
+
+export const NOTIFICATION_SOUNDS: NotificationSoundDef[] = [
+  { id: 'default', name: 'Default', description: 'Classic two-tone message ping' },
+  { id: 'subtle', name: 'Subtle', description: 'Soft, quiet nudge' },
+  { id: 'pop', name: 'Pop', description: 'Short percussive bubble pop' },
+  { id: 'chime', name: 'Chime', description: 'Gentle bell arpeggio' },
+  { id: 'retro', name: 'Retro', description: 'Old-school 8-bit blip' },
+];
+
+export const DEFAULT_NOTIFICATION_SOUND: NotificationSoundId = 'default';
+
 class SoundService {
   private ctx: AudioContext | null = null;
   private ringtoneInterval: any = null;
@@ -75,6 +93,163 @@ class SoundService {
     } catch {
       // Ignore
     }
+  }
+
+  // --- Customizable Notification Tones ---
+
+  private toneDefault() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(600, now);
+    osc1.frequency.setValueAtTime(900, now + 0.06);
+
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(750, now);
+    osc2.frequency.setValueAtTime(1100, now + 0.06);
+
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.18);
+    osc2.stop(now + 0.18);
+  }
+
+  private toneSubtle() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(660, now);
+
+    gain.gain.setValueAtTime(0.05, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.12);
+  }
+
+  private tonePop() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(700, now);
+    osc.frequency.exponentialRampToValueAtTime(1400, now + 0.03);
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.07);
+  }
+
+  private toneChime() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [523.25, 659.25, 783.99];
+
+    notes.forEach((freq, i) => {
+      const t = now + i * 0.09;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.14, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.3);
+    });
+  }
+
+  private toneRetro() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [440, 554.37, 659.25, 880];
+
+    notes.forEach((freq, i) => {
+      const t = now + i * 0.055;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, t);
+
+      gain.gain.setValueAtTime(0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(t);
+      osc.stop(t + 0.06);
+    });
+  }
+
+  /**
+   * Play one of the named notification tones. Falls back to 'default' for
+   * unknown/undefined ids.
+   */
+  playNotification(soundId?: string | null) {
+    try {
+      switch (soundId) {
+        case 'subtle':
+          this.toneSubtle();
+          break;
+        case 'pop':
+          this.tonePop();
+          break;
+        case 'chime':
+          this.toneChime();
+          break;
+        case 'retro':
+          this.toneRetro();
+          break;
+        default:
+          this.toneDefault();
+      }
+    } catch {
+      // Audio not permitted or supported
+    }
+  }
+
+  /** Preview a notification sound (used by settings pickers). */
+  previewSound(soundId: NotificationSoundId) {
+    this.playNotification(soundId);
   }
 
   // --- WebRTC Calling Sounds ---

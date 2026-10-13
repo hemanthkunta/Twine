@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Chat, Message, ReceiptStatus, TransportMode, UserSummary } from '../types/index';
 import { wsClient } from '../services/ws';
-import { sounds } from '../services/sound';
+import { NotificationPrefs } from '../services/notificationPrefs';
 import { offlineStorage } from '../services/storage';
 import { meshService } from '../services/mesh';
 import { disappearingService } from '../services/disappearing.service';
@@ -25,6 +25,8 @@ interface UseRealtimeSubscriptionsParams {
     activeCallRef: React.MutableRefObject<ActiveCallState | null>;
     /** Signed-in user, needed to tell "their" sealed messages from "mine". */
     currentUserIdRef: React.MutableRefObject<string | null>;
+    /** Signed-in username, used for @mention detection in notification prefs. */
+    currentUsernameRef?: React.MutableRefObject<string | null>;
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
     setChats: React.Dispatch<React.SetStateAction<Chat[]>>;
     setSmartReplies: React.Dispatch<React.SetStateAction<string[]>>;
@@ -49,6 +51,7 @@ export function useRealtimeSubscriptions({
     chatsRef,
     activeCallRef,
     currentUserIdRef,
+    currentUsernameRef,
     setMessages,
     setChats,
     setSmartReplies,
@@ -74,13 +77,14 @@ export function useRealtimeSubscriptions({
             'chat:new_message',
             async (payload: { message: Message; chat_id: string }) => {
                 const { message, chat_id } = payload;
-                sounds.playReceived();
 
-                // Open sealed bodies *before* caching or rendering so an
-                // encrypted message never flashes an empty bubble. The message
-                // is inbound, so the key belongs to the sender. A group message
-                // additionally needs its Chat, to fetch the sender's chain if the
-                // distribution arrived after this message did.
+                // Open sealed bodies *before* caching, rendering or notifying
+                // so an encrypted message never flashes an empty bubble — and
+                // so @mention detection sees plaintext, not ciphertext. The
+                // message is inbound, so the key belongs to the sender. A
+                // group message additionally needs its Chat, to fetch the
+                // sender's chain if the distribution arrived after this
+                // message did.
                 const chat = chatsRef.current.find((c) => c.id === chat_id) ?? null;
                 await E2EEService.decryptIncoming(
                     message,
@@ -88,6 +92,21 @@ export function useRealtimeSubscriptions({
                     null,
                     chat
                 );
+
+                // Per-chat notify mode + global mentions-only toggle decide
+                // whether this message makes a sound; the resolved per-chat /
+                // global tone is what plays. Reply-to context and the signed-in
+                // username feed mention detection.
+                if (
+                    NotificationPrefs.shouldNotify(
+                        chat,
+                        message,
+                        currentUserIdRef.current,
+                        currentUsernameRef?.current
+                    )
+                ) {
+                    NotificationPrefs.playChatSound(chat_id);
+                }
 
                 offlineStorage.saveMessageLocally(message);
 
@@ -168,12 +187,27 @@ export function useRealtimeSubscriptions({
                 offlineStorage.saveMessageLocally(payload.message);
             }
         );
-
         // D. Message Deleted
+
         const unsubMsgDeleted = wsClient.on(
             'chat:message_deleted',
             (payload: { message_id: string; chat_id: string }) => {
                 setMessages((prev) => prev.filter((m) => m.id !== payload.message_id));
+            }
+        );
+
+        // D2. Chat Updated (e.g. disappearing timer changed by any member)
+        const unsubChatUpdated = wsClient.on(
+            'chat:updated',
+            (payload: { chat_id: string; disappearing_ttl_seconds?: number }) => {
+                if (typeof payload.disappearing_ttl_seconds !== 'number') return;
+                setChats((prev) =>
+                    prev.map((c) =>
+                        c.id === payload.chat_id
+                            ? { ...c, disappearing_ttl_seconds: payload.disappearing_ttl_seconds }
+                            : c
+                    )
+                );
             }
         );
 
@@ -373,6 +407,7 @@ export function useRealtimeSubscriptions({
             unsubMsgAck();
             unsubMsgEdited();
             unsubMsgDeleted();
+            unsubChatUpdated();
             unsubReaction();
             unsubPin();
             unsubTyping();
@@ -395,5 +430,6 @@ export function useRealtimeSubscriptions({
         setCallSummaryData,
         setTransportMode,
         currentUserIdRef,
+        currentUsernameRef,
     ]);
 }

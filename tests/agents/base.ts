@@ -18,6 +18,7 @@ export const SELECTORS = {
   typingIndicator: 'header >> text=typing',
   onlineBadge: 'header >> text=online',
   lastSeenBadge: 'header >> text=/last seen/',
+  statusTicks: 'span[title="Sent"], span[title="Delivered"], span[title="Read"]',
   callButton: 'button[title="Voice Call (WebRTC)"]',
   videoCallButton: 'button[title="Video Call (WebRTC)"]',
   callModal: 'div.fixed.inset-0:has-text("Call")',
@@ -136,6 +137,17 @@ export class TestAgent {
     }
 
     await this.startDirectChat(contactName);
+  }
+
+  async selectGroup(groupName: string) {
+    const group = this.page
+      .locator(SELECTORS.chatList)
+      .locator('div.cursor-pointer')
+      .getByText(groupName, { exact: true })
+      .first();
+    await group.waitFor({ state: 'visible', timeout: 25000 });
+    await group.click({ timeout: 15000 });
+    await this.page.waitForSelector(SELECTORS.composer, { timeout: 15000 });
   }
 
   async startDirectChat(displayName: string) {

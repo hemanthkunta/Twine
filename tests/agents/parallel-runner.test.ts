@@ -48,6 +48,8 @@ test.describe.parallel('Parallel Agent Tests - Core Features', () => {
     
     await alice.selectChat('Bob Vance');
     await charlie.selectChat('Diana Prince');
+    await bob.selectChat('Alice Walker');
+    await diana.selectChat('Charlie Brown');
     
     const timestamp = Date.now();
     await Promise.all([
@@ -60,8 +62,8 @@ test.describe.parallel('Parallel Agent Tests - Core Features', () => {
       diana.waitForMessage(`Charlie->Diana concurrent ${timestamp}`),
     ]);
     
-    await expect(bob['page'].locator(`text=Alice->Bob concurrent ${timestamp}`)).toBeVisible();
-    await expect(diana['page'].locator(`text=Charlie->Diana concurrent ${timestamp}`)).toBeVisible();
+    await expect(bob['page'].locator(`text=Alice->Bob concurrent ${timestamp}`).first()).toBeVisible();
+    await expect(diana['page'].locator(`text=Charlie->Diana concurrent ${timestamp}`).first()).toBeVisible();
   });
 
   test('cross-messaging all agents', async () => {
@@ -125,8 +127,8 @@ test.describe.parallel('Parallel Agent Tests - Core Features', () => {
     await agents[1].waitForSelector(`text=${group1}`, { timeout: 25000 });
     await agents[3].waitForSelector(`text=${group2}`, { timeout: 25000 });
     
-    await expect(agents[1]['page'].locator(`text=${group1}`)).toBeVisible();
-    await expect(agents[3]['page'].locator(`text=${group2}`)).toBeVisible();
+    await expect(agents[1]['page'].locator(`text=${group1}`).first()).toBeVisible();
+    await expect(agents[3]['page'].locator(`text=${group2}`).first()).toBeVisible();
   });
 
   test('concurrent typing indicators', async () => {
@@ -319,7 +321,7 @@ test.describe.parallel('Parallel Agent Tests - Edge Cases', () => {
     await alice.sendMessage(msg);
     await bob.waitForMessage(msg);
     
-    const messageElement = alice['page'].locator(`text=${msg}`).locator('..');
+    const messageElement = alice['page'].locator(`text=${msg}`).first().locator('..');
     
     if (await messageElement.locator('[data-testid="edit-message"]').isVisible({ timeout: 2000 })) {
       await messageElement.locator('[data-testid="edit-message"]').click();

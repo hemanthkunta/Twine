@@ -1291,6 +1291,14 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
             outgoingCallStartedRef.current = true;
             sounds.startDialTone();
             startOutgoingCall();
+        } else {
+            // React 18 StrictMode (dev) runs mount -> cleanup -> mount. The first
+            // mount's in-flight startOutgoingCall() is cancelled by cleanup()
+            // bumping callGenerationRef, and the ref guard above blocks a re-dial —
+            // so the offer never went out and the callee never saw a ringing dialog.
+            // Dial again on the StrictMode re-run.
+            sounds.startDialTone();
+            startOutgoingCall();
         }
 
         const durationTimer = setInterval(() => {
@@ -1532,6 +1540,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
     return (
         <div
             onClick={resumeAudioContext}
+            data-testid="call-modal"
             className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-6 bg-slate-950/75 backdrop-blur-xl animate-in fade-in duration-200"
         >
             {/* Hidden dedicated audio element for continuous high-fidelity remote audio streaming */}
@@ -1539,7 +1548,10 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
 
             {/* --- 1. INCOMING CALL RINGING DIALOG --- */}
             {callStatus === 'incoming_ringing' ? (
-                <div className="w-full max-w-sm bg-gradient-to-b from-[#1e2c3a] to-[#0f1720] sm:rounded-3xl rounded-2xl overflow-hidden shadow-2xl border border-white/15 flex flex-col items-center justify-between p-6 sm:p-8 text-center min-h-[380px] sm:min-h-[440px] animate-in fade-in zoom-in duration-200 m-4">
+                <div
+                    data-testid="incoming-call"
+                    className="w-full max-w-sm bg-gradient-to-b from-[#1e2c3a] to-[#0f1720] sm:rounded-3xl rounded-2xl overflow-hidden shadow-2xl border border-white/15 flex flex-col items-center justify-between p-6 sm:p-8 text-center min-h-[380px] sm:min-h-[440px] animate-in fade-in zoom-in duration-200 m-4"
+                >
                     <div className="space-y-2">
                         <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-[#3fc5f0]/15 border border-[#3fc5f0]/30 text-[#3fc5f0] text-xs font-semibold animate-pulse">
                             <PhoneCall className="w-3.5 h-3.5" />
@@ -1576,6 +1588,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                                 title="Decline Call"
                             >
                                 <PhoneOff className="w-6 h-6 sm:w-7 sm:h-7" />
+                                <span className="sr-only">Decline</span>
                             </button>
                             <span className="text-xs font-semibold text-red-400">Decline</span>
                         </div>
@@ -1585,10 +1598,11 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                             <button
                                 type="button"
                                 onClick={handleAcceptCall}
-                                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/50 transition-transform active:scale-90 animate-bounce"
+                                className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-500/50 transition-transform active:scale-90 animate-pulse"
                                 title="Accept Call"
                             >
                                 <Phone className="w-6 h-6 sm:w-7 sm:h-7" />
+                                <span className="sr-only">Accept</span>
                             </button>
                             <span className="text-xs font-semibold text-emerald-400">Accept</span>
                         </div>
@@ -1936,6 +1950,7 @@ export const WebRTCManager: React.FC<WebRTCManagerProps> = ({
                             title="End Call"
                         >
                             <PhoneOff className="w-6 h-6 sm:w-7 sm:h-7" />
+                            <span className="sr-only">End Call</span>
                         </button>
                     </div>
                 </div>

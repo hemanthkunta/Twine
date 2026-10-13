@@ -106,6 +106,8 @@ export interface Chat {
     avatar_url?: string;
     creator_id?: string;
     is_e2ee: boolean;
+    /** Default disappearing-message timer for the chat (seconds; 0 = off). */
+    disappearing_ttl_seconds?: number;
     is_saved_messages?: boolean;
     member_count?: number;
     created_at: string;
@@ -157,7 +159,19 @@ export interface Message {
     edit_timestamp?: string;
     is_deleted: boolean;
     created_at: string;
+    /** ISO timestamp after which the message self-destructs (server-enforced
+     *  disappearing TTL); null when the message persists. */
+    expires_at?: string | null;
     status: ReceiptStatus;
+    /**
+     * Present when this message is a forward of another message. senderId /
+     * senderName are omitted when the forwarder chose to hide attribution.
+     */
+    forwardedFrom?: {
+        messageId: string;
+        senderId?: string;
+        senderName?: string;
+    };
     sender?: UserSummary;
     isSending?: boolean;
 }

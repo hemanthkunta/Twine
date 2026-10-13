@@ -120,6 +120,9 @@ export const SCHEMA_SQL = `
           avatar_url TEXT,
           creator_id TEXT REFERENCES users(id) ON DELETE SET NULL,
           is_e2ee INTEGER DEFAULT 0,
+          -- Per-chat disappearing timer (seconds; 0 = off). New messages
+          -- inherit it into messages.expires_at.
+          disappearing_ttl_seconds INTEGER NOT NULL DEFAULT 0,
           created_at TEXT DEFAULT (datetime('now')),
           updated_at TEXT DEFAULT (datetime('now'))
         );
@@ -152,8 +155,33 @@ export const SCHEMA_SQL = `
           is_edited INTEGER DEFAULT 0,
           edit_timestamp TEXT,
           is_deleted INTEGER DEFAULT 0,
+          forwarded_from_message_id TEXT REFERENCES messages(id) ON DELETE SET NULL,
+          forwarded_from_sender_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+          expires_at TEXT,
           created_at TEXT DEFAULT (datetime('now'))
         );
+
+        -- Scheduled messages: rows wait here until their scheduled_at
+        -- timestamp passes; a server-side sweep (started in server.ts)
+        -- dispatches them through the normal send path and stamps
+        -- sent_message_id so they can be listed/cancelled before send.
+        CREATE TABLE IF NOT EXISTS scheduled_messages (
+          id TEXT PRIMARY KEY,
+          chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+          sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          reply_to_message_id TEXT REFERENCES messages(id) ON DELETE SET NULL,
+          content_text TEXT NOT NULL,
+          type TEXT NOT NULL DEFAULT 'TEXT',
+          media_url TEXT,
+          media_metadata TEXT,
+          scheduled_at TEXT NOT NULL,
+          sent_message_id TEXT REFERENCES messages(id) ON DELETE SET NULL,
+          created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_scheduled_due ON scheduled_messages(scheduled_at) WHERE sent_message_id IS NULL;
+
+        CREATE INDEX IF NOT EXISTS idx_messages_expires ON messages(expires_at) WHERE expires_at IS NOT NULL;
 
         CREATE TABLE IF NOT EXISTS message_receipts (
           id TEXT PRIMARY KEY,
@@ -276,6 +304,41 @@ export const SCHEMA_SQL = `
 
         CREATE INDEX IF NOT EXISTS idx_device_sync_user_device ON device_sync_state(user_id, device_id);
 
+        -- True full-text search over message bodies. Standalone FTS5 table
+        -- (not a content= external table) keyed by message_id; triggers keep
+        -- it in sync on insert/update/delete. messages_fts below is mirrored
+        -- in SCHEMA_MIGRATIONS for databases created before this existed.
+        CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+          message_id UNINDEXED,
+          chat_id UNINDEXED,
+          content
+        );
+
+        CREATE TRIGGER IF NOT EXISTS messages_fts_ai AFTER INSERT ON messages BEGIN
+          INSERT INTO messages_fts(message_id, chat_id, content)
+          VALUES (new.id, new.chat_id, COALESCE(new.content_text, ''));
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS messages_fts_au AFTER UPDATE OF content_text ON messages BEGIN
+          UPDATE messages_fts SET content = COALESCE(new.content_text, '')
+          WHERE message_id = new.id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS messages_fts_ad AFTER DELETE ON messages BEGIN
+          DELETE FROM messages_fts WHERE message_id = old.id;
+        END;
+
+        -- Unsent draft text, one row per (user, chat). Written by
+        -- PUT /chats/:id/draft so a draft follows the user across devices.
+        -- A draft with empty content_text is deleted rather than stored.
+        CREATE TABLE IF NOT EXISTS chat_drafts (
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+          content_text TEXT NOT NULL DEFAULT '',
+          updated_at TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (user_id, chat_id)
+        );
+
 `;
 
 /**
@@ -292,6 +355,66 @@ export const SCHEMA_MIGRATIONS: string[] = [
     // Per-user "clear history" marker: messages at or before this timestamp are
     // hidden for this member only, leaving other members' copies intact.
     'ALTER TABLE chat_members ADD COLUMN cleared_at TEXT',
+
+    // Disappearing messages (server-enforced TTL) and message forwarding.
+    'ALTER TABLE messages ADD COLUMN forwarded_from_message_id TEXT REFERENCES messages(id) ON DELETE SET NULL',
+    'ALTER TABLE messages ADD COLUMN forwarded_from_sender_id TEXT REFERENCES users(id) ON DELETE SET NULL',
+    'ALTER TABLE messages ADD COLUMN expires_at TEXT',
+    // Per-chat default disappearing timer (seconds; 0 = off). New messages in
+    // the chat inherit this TTL into messages.expires_at.
+    'ALTER TABLE chats ADD COLUMN disappearing_ttl_seconds INTEGER NOT NULL DEFAULT 0',
+
+    // Scheduled messages plus supporting indexes (CREATE IF NOT EXISTS is
+    // a no-op on current-schema databases).
+    `CREATE TABLE IF NOT EXISTS scheduled_messages (
+      id TEXT PRIMARY KEY,
+      chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+      sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reply_to_message_id TEXT REFERENCES messages(id) ON DELETE SET NULL,
+      content_text TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'TEXT',
+      media_url TEXT,
+      media_metadata TEXT,
+      scheduled_at TEXT NOT NULL,
+      sent_message_id TEXT REFERENCES messages(id) ON DELETE SET NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )`,
+    'CREATE INDEX IF NOT EXISTS idx_scheduled_due ON scheduled_messages(scheduled_at) WHERE sent_message_id IS NULL',
+    'CREATE INDEX IF NOT EXISTS idx_messages_expires ON messages(expires_at) WHERE expires_at IS NOT NULL',
+
+    // True full-text search: FTS5 mirror of messages.content_text, kept in
+    // sync by triggers. CREATE ... IF NOT EXISTS is a no-op on fresh
+    // databases; the backfill only inserts rows not already mirrored, so
+    // re-running it is also a no-op.
+    `CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+      message_id UNINDEXED,
+      chat_id UNINDEXED,
+      content
+    )`,
+    `CREATE TRIGGER IF NOT EXISTS messages_fts_ai AFTER INSERT ON messages BEGIN
+      INSERT INTO messages_fts(message_id, chat_id, content)
+      VALUES (new.id, new.chat_id, COALESCE(new.content_text, ''));
+    END`,
+    `CREATE TRIGGER IF NOT EXISTS messages_fts_au AFTER UPDATE OF content_text ON messages BEGIN
+      UPDATE messages_fts SET content = COALESCE(new.content_text, '')
+      WHERE message_id = new.id;
+    END`,
+    `CREATE TRIGGER IF NOT EXISTS messages_fts_ad AFTER DELETE ON messages BEGIN
+      DELETE FROM messages_fts WHERE message_id = old.id;
+    END`,
+    `INSERT INTO messages_fts(message_id, chat_id, content)
+     SELECT m.id, m.chat_id, COALESCE(m.content_text, '')
+     FROM messages m
+     WHERE NOT EXISTS (SELECT 1 FROM messages_fts f WHERE f.message_id = m.id)`,
+
+    // Cross-device unsent drafts. CREATE IF NOT EXISTS is a no-op on fresh DBs.
+    `CREATE TABLE IF NOT EXISTS chat_drafts (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+      content_text TEXT NOT NULL DEFAULT '',
+      updated_at TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (user_id, chat_id)
+    )`,
 
     // Offline caching & store-and-forward: durable outbox queue plus
     // per-device sync cursors. CREATE TABLE IF NOT EXISTS is a no-op on

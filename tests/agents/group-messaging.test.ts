@@ -23,10 +23,10 @@ test.describe('Group Messaging Tests', () => {
       await expect(alice['page'].locator(SELECTORS.composer)).toBeVisible();
       
       await bob.waitForSelector(`text=${groupName}`, { timeout: 25000 });
-      await expect(bob['page'].locator(`text=${groupName}`)).toBeVisible();
+      await expect(bob['page'].locator(`text=${groupName}`).first()).toBeVisible();
       
       await charlie.waitForSelector(`text=${groupName}`, { timeout: 25000 });
-      await expect(charlie['page'].locator(`text=${groupName}`)).toBeVisible();
+      await expect(charlie['page'].locator(`text=${groupName}`).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();
@@ -51,6 +51,8 @@ test.describe('Group Messaging Tests', () => {
       
       const groupName = `Fanout Group ${Date.now()}`;
       await alice.createGroup(groupName, ['Bob Vance', 'Charlie Brown']);
+      await bob.selectGroup(groupName);
+      await charlie.selectGroup(groupName);
       
       const message = `Group message ${Date.now()}`;
       await alice.sendMessage(message);
@@ -59,9 +61,9 @@ test.describe('Group Messaging Tests', () => {
       await bob.waitForMessage(message);
       await charlie.waitForMessage(message);
       
-      await expect(alice['page'].locator(`text=${message}`)).toBeVisible();
-      await expect(bob['page'].locator(`text=${message}`)).toBeVisible();
-      await expect(charlie['page'].locator(`text=${message}`)).toBeVisible();
+      await expect(alice['page'].locator(`text=${message}`).first()).toBeVisible();
+      await expect(bob['page'].locator(`text=${message}`).first()).toBeVisible();
+      await expect(charlie['page'].locator(`text=${message}`).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();
@@ -89,9 +91,8 @@ test.describe('Group Messaging Tests', () => {
       
       await alice.sendMessage(`Alice starts ${Date.now()}`);
       
-      await bob.waitForSelector(`text=${groupName}`, { timeout: 25000 });
-      await bob.click(`text=${groupName}`);
-      await bob['page'].waitForSelector(SELECTORS.composer, { timeout: 15000 });
+      await bob.selectGroup(groupName);
+      await charlie.selectGroup(groupName);
       
       const reply = `Bob replies ${Date.now()}`;
       await bob.sendMessage(reply);
@@ -99,8 +100,8 @@ test.describe('Group Messaging Tests', () => {
       await alice.waitForMessage(reply);
       await charlie.waitForMessage(reply);
       
-      await expect(alice['page'].locator(`text=${reply}`)).toBeVisible();
-      await expect(charlie['page'].locator(`text=${reply}`)).toBeVisible();
+      await expect(alice['page'].locator(`text=${reply}`).first()).toBeVisible();
+      await expect(charlie['page'].locator(`text=${reply}`).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();
@@ -137,8 +138,8 @@ test.describe('Group Messaging Tests', () => {
       await bob.waitForSelector(`text=${group1}`, { timeout: 25000 });
       await diana.waitForSelector(`text=${group2}`, { timeout: 25000 });
       
-      await expect(bob['page'].locator(`text=${group1}`)).toBeVisible();
-      await expect(diana['page'].locator(`text=${group2}`)).toBeVisible();
+      await expect(bob['page'].locator(`text=${group1}`).first()).toBeVisible();
+      await expect(diana['page'].locator(`text=${group2}`).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();
@@ -163,6 +164,8 @@ test.describe('Group Messaging Tests', () => {
       
       const groupName = `Receipt Group ${Date.now()}`;
       await alice.createGroup(groupName, ['Bob Vance', 'Charlie Brown']);
+      await bob.selectGroup(groupName);
+      await charlie.selectGroup(groupName);
       
       const message = `Receipt test ${Date.now()}`;
       await alice.sendMessage(message);
@@ -171,7 +174,7 @@ test.describe('Group Messaging Tests', () => {
       await bob.waitForMessage(message);
       await charlie.waitForMessage(message);
       
-      await expect(alice['page'].locator(SELECTORS.statusTicks)).toBeVisible();
+      await expect(alice['page'].locator(SELECTORS.statusTicks).first()).toBeVisible();
     } finally {
       for (const agent of agents) {
         await agent['context'].close();

@@ -4,8 +4,10 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  retries: process.env.CI ? 2 : 1,
+  // Cap local parallelism: five browser projects with unbounded workers melt the
+  // machine down (140 concurrent-ish sessions produced 68 test timeouts in one run).
+  workers: process.env.CI ? 1 : 2,
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['json', { outputFile: 'test-results/results.json' }],
@@ -46,7 +48,7 @@ export default defineConfig({
     timeout: 120000,
   },
   expect: {
-    timeout: 10000,
+    timeout: 15000,
   },
-  timeout: 60000,
+  timeout: 90000,
 });
