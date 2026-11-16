@@ -9,29 +9,30 @@
 
 | Test Suite | Status | Passed | Failed | Last Run |
 |------------|--------|--------|--------|----------|
-| `npm run test:schema` | ✅ PASS | 6 | 0 | 2026-11-16 |
-| `npm run test:security` | ✅ SECURE | 11 | 0 | 2026-11-16 |
-| `npm run test:comprehensive` | ✅ PASS | 30 | 0 | 2026-11-16 |
-| `npm run test:otp` | ✅ PASS | 24 | 0 | 2026-11-16 |
-| `npm run test:forward` | ✅ PASS | 12 | 0 | 2026-11-16 |
-| `npm run test:e2ee` | ✅ PASS | 8 | 0 | 2026-11-16 |
-| `npm run test:phase1` | ✅ PASS | 30 | 0 | 2026-11-16 |
-| `npm run test:sync` | ❌ FAIL* | - | - | 2026-11-16 |
-| `npm run test:e2e` (Playwright) | ⚠️ PARTIAL | - | - | 2026-11-16 |
+| `npm run test:schema` | ✅ PASS | 6 | 0 | 2026-11-17 |
+| `npm run test:security` | ✅ SECURE | 11 | 0 | 2026-11-17 |
+| `npm run test:comprehensive` | ✅ PASS | 30 | 0 | 2026-11-17 |
+| `npm run test:otp` | ✅ PASS | 24 | 0 | 2026-11-17 |
+| `npm run test:forward` | ✅ PASS | 12 | 0 | 2026-11-17 |
+| `npm run test:e2ee` | ✅ PASS | 8 | 0 | 2026-11-17 |
+| `npm run test:phase1` | ✅ PASS | 30 | 0 | 2026-11-17 |
+| `npm run test:sync` | ✅ PASS | 5 | 0 | 2026-11-17 |
+| `npm run test:e2e` (Playwright) | ⚠️ PARTIAL | - | - | 2026-11-17 |
 
-**Total Automated Checks:** **121 passing**
+**Total Automated Checks:** **126 passing** (was 121)
 
-*Sync test fails due to Redis unavailable (falls back to in-memory)
+*Sync test now passes with Redis running
 
 ---
 
 ## 🏗️ Infrastructure Running
 
-| Service | Port | PID | Status |
-|---------|------|-----|--------|
-| Backend API (tsx watch) | 4000 | 17048 | ✅ Running |
-| Frontend (Vite) | 3000 | 5452 | ✅ Running |
-| Webhook SMS Receiver | 8080 | 9452 | ✅ Running |
+| Service | Port | Status |
+|---------|------|--------|
+| Backend API (tsx watch) | 4000 | ✅ Running |
+| Frontend (Vite) | 3000 | ✅ Running |
+| Webhook SMS Receiver | 8080 | ✅ Running |
+| Redis | 6379 | ✅ Running |
 
 ---
 
@@ -184,13 +185,20 @@ VAPID_SUBJECT=mailto:admin@example.com
 - [x] Push Notification subagent: **FAILED** (HTTP 429 - Too Many Requests)
 - [x] E2EE Browser Test subagent: **BLOCKED** (Session sharing, modal dialogs, navigation)
 
+### 7. Redis & JWT_SECRET Fix (2026-11-17)
+- [x] Installed Redis on Windows (port 6379)
+- [x] Fixed JWT_SECRET mismatch between test + backend processes
+- [x] Added `JWT_SECRET=dev-jwt-secret-32-chars-minimum-length-fixed` to .env files
+- [x] Sync test now passes: **5/5 cross-platform tests**
+- [x] All backend tests passing: **126 total checks**
+
 ---
 
 ## ⚠️ Known Issues / Incomplete
 
 | Issue | Status | Notes |
 |-------|--------|-------|
-| Redis unavailable | Known | Falls back to in-memory; sync test fails |
+| Redis unavailable | **FIXED** | Redis installed & running on 6379; sync test passes |
 | Playwright E2E | Partial | Socket timeouts, flaky (~1/8 runs) |
 | Multi-server fan-out | Untested | Requires Redis cluster |
 | Real SMS delivery | Not verified | Needs Twilio/Vonage credentials |
