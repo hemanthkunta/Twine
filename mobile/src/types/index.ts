@@ -1,4 +1,4 @@
-﻿// ─── Shared Protocol Types ──────────────────────────────────────────
+// ─── Shared Protocol Types ──────────────────────────────────────────
 // Mirrored from backend/src/types/protocol.ts and client/src/types/index.ts
 
 export type UserRole = 'OWNER' | 'ADMIN' | 'MEMBER';
@@ -14,6 +14,7 @@ export type MessageType =
   | 'LOCATION'
   | 'POLL';
 export type ReceiptStatus = 'SENT' | 'DELIVERED' | 'READ' | 'QUEUED' | 'FAILED';
+export type MediaKind = 'image' | 'video' | 'file';
 
 export interface User {
   id: string;
@@ -124,6 +125,11 @@ export interface Message {
   updated_at: string;
   sender?: UserSummary;
   reactions?: Reaction[];
+  forwardedFrom?: {
+    messageId: string;
+    senderId?: string;
+    senderName?: string;
+  };
   isSending?: boolean;
 }
 
@@ -226,3 +232,22 @@ export interface UserSession {
   created_at: string;
   is_current?: boolean;
 }
+
+// ─── Auth Types ───────────────────────────────────────────────────────────────
+
+export interface LoginSession {
+  user: User;
+  token: string;
+  accessToken?: string;
+  sessionId?: string;
+  refreshToken?: string;
+}
+
+/** Returned instead of a session when the account has two-factor auth enabled. */
+export interface TwoFactorChallenge {
+  requiresTwoFactor: true;
+  challengeId: string;
+  method: 'totp' | 'backup';
+}
+
+export type LoginResult = LoginSession | TwoFactorChallenge;

@@ -558,13 +558,16 @@ async function runTests() {
             passed: true,
         });
 
-        PushNotificationService.saveSubscription({
+        const invalidSubscription = {
             userId: 'usr_alice_001',
             endpoint: 'https://fcm.googleapis.com/fcm/send/test',
             keys: { p256dh: 'test', auth: 'test' },
-        });
+        };
+        let rejected = false;
+        try { PushNotificationService.saveSubscription(invalidSubscription); } catch { rejected = true; }
+        assert(rejected, 'Fake push subscription rejected');
         const pushRes = await PushNotificationService.sendPush('usr_alice_001', 'Test', 'Body');
-        assert(pushRes.sent === true, 'Push notification dispatched');
+        assert(pushRes.sent === false, 'No simulated push success without a valid subscription/provider');
         results.push({
             module: 'B8:Push',
             testName: 'WebPush / FCM background notification dispatcher',

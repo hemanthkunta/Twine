@@ -16,7 +16,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     scopeChatId,
 }) => {
     const [query, setQuery] = useState('');
-    const [mode, setMode] = useState<'keyword' | 'semantic'>('semantic');
+    const [mode, setMode] = useState<'keyword' | 'semantic'>('keyword');
     const [results, setResults] = useState<
         { message: Message; score?: number; matchReason?: string }[]
     >([]);
@@ -126,6 +126,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     </span>
                 </div>
 
+                <p className="px-4 py-2 text-xs text-[#7f91a4]" role="note">
+                    Search covers unencrypted messages only. Encrypted message contents stay on your devices and are not searched here.
+                </p>
                 {/* Results Stream */}
                 <div className="max-h-96 overflow-y-auto p-3 space-y-2 divide-y divide-[rgba(255,255,255,0.03)]">
                     {loading ? (

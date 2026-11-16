@@ -6,7 +6,7 @@ import { BaseService } from './base.service.js';
 import { User } from '../types/protocol.js';
 import * as crypto from 'crypto';
 
-import { MetricsService} from "./metrics.service.js";
+import { MetricsService } from "./metrics.service.js";
 /**
  * In-memory store for Signal Protocol sessions and keys.
  * In a production environment, this would be backed by a persistent store
@@ -386,85 +386,165 @@ export class SignalProtocolService {
   }
 
   /**
-   * Encrypt a message for a recipient using the Signal Protocol
-   * This should be called before storing a message in the database
+   * Encrypt a message for a recipient using the Signal Protocol.
+   * Returns a v1 envelope: {v:1, n:nonce, c:ciphertext} as JSON string.
+   * If no session exists, falls back to a placeholder that the client can recognize.
    */
   static async encryptMessage(
     senderId: string,
     recipientId: string,
     plaintext: string
   ): Promise<string> {
-    // Get or create session with recipient
     const senderStore = this.getStore(senderId);
-      // Record successful encryption
-      MetricsService.recordE2eMessageEncrypted();
-    const recipientAddress = new SignalProtocolAddress(recipientId, 1); // Assuming device ID 1
+    const recipientAddress = new SignalProtocolAddress(recipientId, 1);
 
     try {
-      // For now, return a placeholder that indicates encryption would happen
-    // Record encryption error
-    MetricsService.recordE2eEncryptionError();
-      // In a full implementation, we would use SessionCipher to encrypt
-      return `[ENCRYPTED:${Buffer.from(plaintext).toString('base64')}]`;
+      const sessionCipher = new SessionCipher(senderStore, recipientAddress);
+      const plaintextBytes = new TextEncoder().encode(plaintext);
+      const ciphertextBuffer = await sessionCipher.encrypt(plaintextBytes.buffer) as unknown as ArrayBuffer;
+      
+      // libsignal returns ArrayBuffer; convert to base64
+      const ciphertextBase64 = Buffer.from(new Uint8Array(ciphertextBuffer)).toString('base64');
+      
+      // Record successful encryption
+      MetricsService.recordE2eMessageEncrypted();
+      
+      // Return v1 envelope matching client format
+      return JSON.stringify({ v: 1, n: '', c: ciphertextBase64 });
     } catch (error: unknown) {
-      // If encryption fails, log error and optionally fall back to unencrypted
+      MetricsService.recordE2eEncryptionError();
+      const msg = error instanceof Error ? error.message : String(error);
+      
+      // If session doesn't exist, fall back to placeholder so message can be stored
+      // Client will receive undecryptable placeholder and show appropriate UI
+      if (msg.includes('No record') || msg.includes('session') || msg.includes('Session')) {
+        console.warn(`Signal Protocol session missing for ${senderId}->${recipientId}, using placeholder`);
+        return `[ENCRYPTED:${Buffer.from(plaintext).toString('base64')}]`;
+      }
+      
       console.warn('Signal Protocol encryption failed:', error);
-      // For safety during rollout, we might want to fall back to unencrypted
-      // return plaintext; // Uncomment for fallback during testing
-      throw error; // Or require encryption to succeed
+      throw error;
     }
   }
 
   /**
-   * Decrypt a message from a sender using the Signal Protocol
- */
+   * Decrypt a message from a sender using the Signal Protocol.
+   * Expects a v1 envelope: {v:1, n:nonce, c:ciphertext} as JSON string.
+   * Also handles legacy `[ENCRYPTED:...]` placeholders for backward compatibility.
+   */
   static async decryptMessage(
     recipientId: string,
     senderId: string,
     ciphertext: string
   ): Promise<string> {
-    // Check if this is our encrypted format placeholder
-    if (ciphertext.startsWith("[ENCRYPTED:") && ciphertext.endsWith("]")) {
-      // Extract the base64 encoded content
+    // Legacy placeholder format: [ENCRYPTED:base64content]
+    if (ciphertext.startsWith('[ENCRYPTED:') && ciphertext.endsWith(']')) {
       const base64Content = ciphertext.substring(11, ciphertext.length - 1);
       try {
-        // Record successful decryption
         MetricsService.recordE2eMessageDecrypted();
-        return Buffer.from(base64Content, "base64").toString();
+        return Buffer.from(base64Content, 'base64').toString('utf8');
       } catch (error: unknown) {
-        // Record decryption error
         MetricsService.recordE2eDecryptionError();
         throw error;
       }
     }
 
-    // In a full implementation with actual Signal Protocol encryption:
+    // Only handle direct message envelopes; group envelopes (g:1) are not decryptable by server
+    if (!this.isDirectEnvelope(ciphertext)) {
+      throw new Error('Not a direct message envelope');
+    }
+
+    const { c } = JSON.parse(ciphertext) as { c: string };
+    const ciphertextArrayBuffer = Buffer.from(c, 'base64').buffer;
+
     try {
       const recipientStore = this.getStore(recipientId);
       const senderAddress = new SignalProtocolAddress(senderId, 1);
       const sessionCipher = new SessionCipher(recipientStore, senderAddress);
-      const decryptedBuffer = await sessionCipher.decryptWhisperMessage(ciphertext);
-      const plaintext = Buffer.from(decryptedBuffer).toString();
+      const decryptedBuffer = await sessionCipher.decryptWhisperMessage(ciphertextArrayBuffer);
+      const plaintext = Buffer.from(new Uint8Array(decryptedBuffer)).toString('utf8');
 
-      // Record successful decryption
       MetricsService.recordE2eMessageDecrypted();
       return plaintext;
     } catch (error: unknown) {
-      // Record decryption error
       MetricsService.recordE2eDecryptionError();
       console.warn("Signal Protocol decryption failed:", error);
-      // For now, if it's not our special format and decryption fails, return as-is (for backward compatibility)
-      // In a production system, you might want to handle this differently
-      return ciphertext;
+      throw error;
     }
   }
 
   /**
-   * Check if a message appears to be encrypted
+   * Check if a payload is a direct message envelope (v1, no g:1 tag)
+   * Matches client format: {v:1, n:nonce, c:ciphertext}
    */
-  static isEncryptedMessage(ciphertext: string): boolean {
-    return ciphertext.startsWith('[ENCRYPTED:') && ciphertext.endsWith(']');
+  static isDirectEnvelope(payload: unknown): payload is string {
+    if (typeof payload !== 'string' || !payload.startsWith('{')) return false;
+    try {
+      const parsed = JSON.parse(payload) as { v?: unknown; g?: unknown; n?: unknown; c?: unknown };
+      return (
+        parsed.v === 1 &&
+        parsed.g !== 1 &&
+        typeof parsed.n === 'string' &&
+        typeof parsed.c === 'string'
+      );
+    } catch {
+      return false;
+    }
   }
+
+  /**
+   * Check if a payload is a group message envelope (v1, g:1)
+   * Matches client format: {v:1, g:1, s:senderId, it:iteration, n:nonce, c:ciphertext}
+   */
+  static isGroupEnvelope(payload: unknown): payload is string {
+    if (typeof payload !== 'string' || !payload.startsWith('{')) return false;
+    try {
+      const parsed = JSON.parse(payload) as { v?: unknown; g?: unknown; s?: unknown; it?: unknown; n?: unknown; c?: unknown };
+      return (
+        parsed.v === 1 &&
+        parsed.g === 1 &&
+        typeof parsed.s === 'string' &&
+        typeof parsed.it === 'number' &&
+        typeof parsed.n === 'string' &&
+        typeof parsed.c === 'string'
+      );
+    } catch {
+      return false;
+    }
+  }
+
+    /**
+     * Check if a message appears to be encrypted (any envelope format)
+     */
+    static isEncryptedMessage(ciphertext: string): boolean {
+        return this.isDirectEnvelope(ciphertext) || this.isGroupEnvelope(ciphertext);
+    }
+
+    /**
+     * Check if a payload is the legacy `[ENCRYPTED:base64]` placeholder format.
+     * This is the only format the server can always open, because it carries
+     * the plaintext under a trivial base64 wrapper.
+     */
+    static isLegacyPlaceholder(payload: unknown): payload is string {
+        return (
+            typeof payload === 'string' &&
+            payload.startsWith('[ENCRYPTED:') &&
+            payload.endsWith(']')
+        );
+    }
+
+    /**
+     * Check if a payload is decryptable by the server.
+     *
+     * True for the legacy placeholder and for direct envelopes the server
+     * itself produced (it holds the matching Signal session). Group envelopes
+     * (g:1) are sealed to sender keys the server never sees, so they are
+     * explicitly excluded.
+     */
+    static isServerDecryptable(payload: unknown): payload is string {
+        return this.isLegacyPlaceholder(payload) || this.isDirectEnvelope(payload);
+    }
+
 
   /**
    * Calculate safety number for E2EE verification between two users

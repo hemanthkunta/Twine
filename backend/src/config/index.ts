@@ -78,4 +78,21 @@ export const config = {
     // Managed Provider Config (Optional alternative to Coturn)
     meteredApiKey: process.env.METERED_API_KEY,
     meteredAppName: process.env.METERED_APP_NAME,
+
+    // SMS Provider Config (Required for all environments)
+    // Supported: 'twilio', 'vonage', 'webhook'
+    smsProvider: process.env.SMS_PROVIDER,
+    // Twilio
+    twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
+    twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
+    twilioFromNumber: process.env.TWILIO_FROM_NUMBER,
+    // Vonage (Nexmo)
+    vonageApiKey: process.env.VONAGE_API_KEY,
+    vonageApiSecret: process.env.VONAGE_API_SECRET,
+    vonageFromNumber: process.env.VONAGE_FROM_NUMBER,
+    // Generic HTTP webhook
+    smsWebhookUrl: process.env.SMS_WEBHOOK_URL,
+    smsWebhookHeaders: process.env.SMS_WEBHOOK_HEADERS ? JSON.parse(process.env.SMS_WEBHOOK_HEADERS) : undefined,
+    smsWebhookMethod: process.env.SMS_WEBHOOK_METHOD || 'POST',
+    smsWebhookHmacSecret: process.env.SMS_WEBHOOK_HMAC_SECRET,
 };

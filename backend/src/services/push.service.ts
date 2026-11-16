@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import { db } from '../db/index.js';
 import { getLogger } from './logger.service.js';
+import webPush from 'web-push';
+import { PresenceService } from './presence.service.js';
 
 const logger = getLogger();
 
@@ -14,6 +16,27 @@ export interface PushSubscriptionPayload {
 }
 
 export class PushNotificationService {
+    static getPublicKey(): string | null {
+        return process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY && process.env.VAPID_SUBJECT
+            ? process.env.VAPID_PUBLIC_KEY : null;
+    }
+
+    static removeSubscription(userId: string, endpoint: string) {
+        db.prepare('DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?').run(userId, endpoint);
+    }
+
+    static async notifyOfflineMessage(chatId: string, senderId: string, messageId: string) {
+        try {
+            const members = db.prepare('SELECT user_id FROM chat_members WHERE chat_id = ? AND user_id != ? AND is_muted = 0')
+                .all(chatId, senderId) as { user_id: string }[];
+            await Promise.all(members.filter(m => !PresenceService.isUserOnline(m.user_id)).map(m =>
+                this.sendPush(m.user_id, 'Twine', 'You have a new message', { chatId, messageId })
+            ));
+        } catch (error) {
+            logger.error({ error }, 'Offline push dispatch failed');
+        }
+    }
+
     static saveSubscription(sub: PushSubscriptionPayload) {
         if (
             !sub ||
@@ -28,6 +51,16 @@ export class PushNotificationService {
             !sub.keys.auth
         ) {
             throw new Error('Invalid push subscription');
+        }
+        const endpoint = new URL(sub.endpoint);
+        const trustedHost = endpoint.hostname === 'fcm.googleapis.com' ||
+            endpoint.hostname === 'updates.push.services.mozilla.com' ||
+            endpoint.hostname.endsWith('.push.apple.com') ||
+            endpoint.hostname.endsWith('.notify.windows.com');
+        if (endpoint.protocol !== 'https:' || endpoint.port || endpoint.username || endpoint.password || !trustedHost ||
+            Buffer.from(sub.keys.p256dh, 'base64url').length !== 65 ||
+            Buffer.from(sub.keys.auth, 'base64url').length !== 16) {
+            throw new Error('Invalid push subscription endpoint or keys');
         }
 
         // Make sure the authenticated user actually exists.
@@ -111,7 +144,7 @@ export class PushNotificationService {
 
         if (subscriptions.length === 0) {
             logger.info(
-                `[Push Notification] No push subscription for user ${userId}, queuing offline.`
+                `[Push Notification] No push subscription for user ${userId}; message remains in chat history.`
             );
 
             return {
@@ -120,14 +153,22 @@ export class PushNotificationService {
             };
         }
 
-        logger.info(
-            `[Push Notification] Dispatched FCM/WebPush to ${userId}: "${title}" - "${body}"`
-        );
-
-        return {
-            sent: true,
-            subscriptionCount: subscriptions.length,
-            timestamp: Date.now(),
-        };
+        const publicKey = this.getPublicKey();
+        if (!publicKey) return { sent: false, reason: 'provider_not_configured' };
+        const results = await Promise.all(subscriptions.map(async (sub) => {
+            try {
+                await webPush.sendNotification(sub, JSON.stringify({ title, body, data }), {
+                    vapidDetails: { subject: process.env.VAPID_SUBJECT!, publicKey, privateKey: process.env.VAPID_PRIVATE_KEY! },
+                    TTL: 3600, timeout: 10000,
+                });
+                return true;
+            } catch (error: any) {
+                if (error.statusCode === 404 || error.statusCode === 410) this.removeSubscription(userId, sub.endpoint);
+                logger.warn({ statusCode: error.statusCode }, 'Push provider rejected delivery');
+                return false;
+            }
+        }));
+        const delivered = results.filter(Boolean).length;
+        return { sent: delivered > 0, subscriptionCount: subscriptions.length, delivered, failed: results.length - delivered };
     }
 }

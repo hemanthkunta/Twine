@@ -4,6 +4,7 @@ import { ChatService } from '../../services/chat.service.js';
 import { PresenceService } from '../../services/presence.service.js';
 import { ConnectedClient } from '../../services/presence.service.js';
 import { WSReactPayload } from '../../types/protocol.js';
+import { safeSend, createFrame } from './frameUtils.js';
 
 export function handleReaction(
     socket: WebSocket,
@@ -13,15 +14,7 @@ export function handleReaction(
     correlationId: string
 ): { clientSession: { userId: string; deviceId?: string } | null; registeredClient: ConnectedClient | null } {
     const sendFrame = (type: string, payload: unknown) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            const frame = {
-                type,
-                payload,
-                correlation_id: correlationId,
-                timestamp: Date.now(),
-            };
-            socket.send(JSON.stringify(frame));
-        }
+        safeSend(socket, createFrame(type, payload, correlationId));
     };
 
     const sendError = (code: string, message: string) => {

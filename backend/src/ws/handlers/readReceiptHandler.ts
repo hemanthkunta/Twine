@@ -4,6 +4,7 @@ import { ChatService } from '../../services/chat.service.js';
 import { PresenceService } from '../../services/presence.service.js';
 import { ConnectedClient } from '../../services/presence.service.js';
 import { WSReadReceiptPayload } from '../../types/protocol.js';
+import { safeSend, createFrame } from './frameUtils.js';
 
 export async function handleReadReceipt(
     socket: WebSocket,
@@ -16,15 +17,7 @@ export async function handleReadReceipt(
     registeredClient: ConnectedClient | null;
 }> {
     const sendFrame = (type: string, payload: unknown) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            const frame = {
-                type,
-                payload,
-                correlation_id: correlationId,
-                timestamp: Date.now(),
-            };
-            socket.send(JSON.stringify(frame));
-        }
+        safeSend(socket, createFrame(type, payload, correlationId));
     };
 
     const sendError = (code: string, message: string) => {
@@ -60,20 +53,14 @@ export async function handleReadReceipt(
     );
     if (updated && chat_id) {
         const memberIds = ChatService.getChatMemberIds(chat_id);
-        const updateFrame = {
-            type: 'chat:receipt_update',
-            payload: {
-                chat_id,
-                message_id: receiptPayload.message_id,
-                user_id: clientSession?.userId ?? '',
-                status: 'READ',
-                timestamp: new Date().toISOString(),
-            },
-            timestamp: Date.now(),
-        };
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify(updateFrame));
-        }
+        const updateFrame = createFrame('chat:receipt_update', {
+            chat_id,
+            message_id: receiptPayload.message_id,
+            user_id: clientSession?.userId ?? '',
+            status: 'READ',
+            timestamp: new Date().toISOString(),
+        });
+        safeSend(socket, updateFrame);
         PresenceService.broadcastToUsers(memberIds, updateFrame, socket);
     }
     return { clientSession, registeredClient };

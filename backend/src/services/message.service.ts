@@ -7,6 +7,7 @@ import { PresenceService } from './presence.service.js';
 import { LinkPreviewData } from './LinkPreviewService.js';
 import { SignalProtocolService } from './signalProtocol.service.js';
 import { DashboardEventService } from './dashboardEventService.js';
+import { PushNotificationService } from './push.service.js';
 import {
     Message,
     MessageType,
@@ -80,6 +81,9 @@ export class MessageService {
             throw new Error(
                 `User ${params.senderId} is not authorized to send messages in chat ${params.chatId}`
             );
+        }
+        if (!await ChatService.isAllowedToSend(params.chatId, params.senderId)) {
+            throw new Error('You are not allowed to send messages in this chat');
         }
 
         // Enforce maximum payload text limit (10,000 characters)
@@ -168,7 +172,9 @@ export class MessageService {
             timestamp: new Date().toISOString()
         });
 
-        return (await this.getMessageById(msgId))!;
+        const message = (await this.getMessageById(msgId))!;
+        void PushNotificationService.notifyOfflineMessage(message.chat_id, message.sender_id, message.id);
+        return message;
     }
 
     static async getMessageById(id: string): Promise<Message | null> {
@@ -433,6 +439,7 @@ export class MessageService {
         messageId: string;
         targetChatIds: string[];
         hideAttribution?: boolean;
+        destinationPayloads?: Record<string, string>;
     }): Promise<Message[]> {
         const { userId, messageId, targetChatIds, hideAttribution } = params;
 
@@ -454,18 +461,33 @@ export class MessageService {
             throw new Error('You are not a member of the source chat');
         }
 
-        const created: Message[] = [];
-        for (const targetChatId of new Set(targetChatIds)) {
+        const targets = [...new Set(targetChatIds)];
+        // Validate every destination before creating any copies.
+        for (const targetChatId of targets) {
+            if (typeof targetChatId !== 'string') throw new Error('Invalid target chat');
             if (!ChatService.isChatMember(targetChatId, userId)) {
                 throw new Error(`You are not a member of chat ${targetChatId}`);
             }
+            if (!await ChatService.isAllowedToSend(targetChatId, userId)) {
+                throw new Error('You are not allowed to send messages in this chat');
+            }
+            const payload = params.destinationPayloads?.[targetChatId];
+            if (payload !== undefined && (typeof payload !== 'string' || !payload || payload.length > 1000000)) {
+                throw new Error('Invalid destination ciphertext');
+            }
+            if (source.ciphertext_payload && (!payload || payload === source.ciphertext_payload)) {
+                throw new Error('Encrypted forwards require fresh destination ciphertext');
+            }
+        }
 
+        const created: Message[] = [];
+        for (const targetChatId of targets) {
             const msg = await this.createMessage({
                 chatId: targetChatId,
                 senderId: userId,
-                contentText: source.content_text || '',
+                contentText: params.destinationPayloads?.[targetChatId] ? '' : source.content_text || '',
                 type: source.type as MessageType,
-                ciphertextPayload: source.ciphertext_payload || undefined,
+                ciphertextPayload: params.destinationPayloads?.[targetChatId],
                 mediaUrl: source.media_url || undefined,
                 mediaMetadata: source.media_metadata ? JSON.parse(source.media_metadata) : undefined,
                 forwardedFromMessageId: source.id,
@@ -515,6 +537,8 @@ export class MessageService {
               JOIN users u ON m.sender_id = u.id
               JOIN chat_members cm ON m.chat_id = cm.chat_id AND cm.user_id = ?
               WHERE m.is_deleted = 0
+                AND (m.ciphertext_payload IS NULL OR m.ciphertext_payload = '')
+                AND (m.expires_at IS NULL OR m.expires_at > datetime('now'))
                 AND m.created_at > COALESCE(cm.cleared_at, '')
           `;
 
@@ -673,6 +697,9 @@ export class MessageService {
         correctOptionIndex?: number;
         explanation?: string;
     }): Promise<Message> {
+        if (!await ChatService.isAllowedToSend(params.chatId, params.senderId)) {
+            throw new Error('You are not allowed to send messages in this chat');
+        }
         const pollId = `poll_${crypto.randomUUID().slice(0, 12)}`;
         const pollOptions: PollOption[] = params.options.map((optText, idx) => ({
             id: `opt_${idx}_${crypto.randomUUID().slice(0, 6)}`,
@@ -924,8 +951,10 @@ export class MessageService {
             if (row.ciphertext_payload) {
                 // Client-sealed payload: leave content_text as stored (blank) and
                 // let the recipient's browser open the envelope. Only the legacy
-                // placeholder format is server-decryptable.
-                if (SignalProtocolService.isEncryptedMessage(row.ciphertext_payload)) {
+                // placeholder format and direct envelopes the server itself
+                // produced are server-decryptable; group envelopes (g:1) are
+                // sealed to sender keys the server never sees.
+                if (SignalProtocolService.isServerDecryptable(row.ciphertext_payload)) {
                     try {
                         const decrypted = await SignalProtocolService.decryptMessage(
                             row.chat_id, // Using chatId as recipient identifier for simplicity
@@ -936,14 +965,18 @@ export class MessageService {
                             contentText = decrypted;
                         }
                     } catch (err) {
-                        console.warn(`Failed to decrypt message ${row.id}:`, err);
+                        // A direct envelope the server has no session for is
+                        // client-sealed: expected, and the client opens it.
+                        if (SignalProtocolService.isLegacyPlaceholder(row.ciphertext_payload)) {
+                            console.warn(`Failed to decrypt message ${row.id}:`, err);
+                        }
                     }
                 }
             }
             // If no ciphertext_payload, the content may still be the legacy
             // server-side placeholder (bot/system messages in E2EE chats).
             else if (row.content_text) {
-                if (SignalProtocolService.isEncryptedMessage(row.content_text)) {
+                if (SignalProtocolService.isServerDecryptable(row.content_text)) {
                     try {
                         const decrypted = await SignalProtocolService.decryptMessage(
                             row.chat_id, // Using chatId as recipient identifier for simplicity
@@ -955,7 +988,11 @@ export class MessageService {
                             contentText = decrypted;
                         }
                     } catch (err) {
-                        console.warn(`Failed to decrypt message ${row.id}:`, err);
+                        // A direct envelope the server has no session for is
+                        // client-sealed: expected, and the client opens it.
+                        if (SignalProtocolService.isLegacyPlaceholder(row.content_text)) {
+                            console.warn(`Failed to decrypt message ${row.id}:`, err);
+                        }
                     }
                 }
             }

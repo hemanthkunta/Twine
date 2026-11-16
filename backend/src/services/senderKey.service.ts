@@ -16,15 +16,23 @@ import { ChatService } from './chat.service.js';
  * and routes it. There is deliberately no column holding a chain key in the clear
  * (an earlier design had one, which would have handed the server every group).
  *
- * ## Known limitation
+ * ## ⚠️ SECURITY WARNING: Key Substitution Vulnerability (v1 Limitation)
  *
- * Wraps are encrypted but not *signed* — ECDH keys cannot sign. A malicious server
- * could therefore substitute a wrap under another member's `sender_id`, and the
- * recipient would decrypt it successfully because the AEAD key would be genuine.
- * Detecting that requires authenticated identity keys (signatures) or comparing
- * safety numbers out of band, which is where trust currently rests. What the
- * `chatId`/`senderId` binding in the sealed payload does defend is accidental
- * cross-chat and cross-sender mixups by an honest server.
+ * Wraps are encrypted but NOT signed — ECDH keys cannot sign. A malicious or
+ * compromised server CAN substitute a wrap under another member's `sender_id`.
+ * The recipient would decrypt it successfully (valid AEAD) and believe it came
+ * from that sender, enabling MESSAGE INJECTION and SENDER IMPERSONATION in groups.
+ *
+ * MITIGATIONS (v1):
+ * - Safety Number verification (out-of-band) detects this.
+ * - Clients SHOULD warn if a wrap's sender_id changes unexpectedly.
+ * - Server operators MUST audit access to this table.
+ *
+ * FIX PLANNED (v2):
+ * - Add per-sender Ed25519 identity key to key directory.
+ * - Include signature over (chat_id, sender_id, recipient_id, wrapped_key).
+ * - Clients verify signature on receipt before accepting a wrap.
+ * - See TODO.md for tracking.
  */
 
 export interface SenderKeyUpload {

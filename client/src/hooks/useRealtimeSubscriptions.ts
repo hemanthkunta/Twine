@@ -89,6 +89,7 @@ export function useRealtimeSubscriptions({
                 await E2EEService.decryptIncoming(
                     message,
                     currentUserIdRef.current ?? '',
+                    1, // default deviceId
                     null,
                     chat
                 );
@@ -161,19 +162,24 @@ export function useRealtimeSubscriptions({
 
         // B. Message Sent ACK
         const unsubMsgAck = wsClient.on('chat:message_ack', (payload) => {
+            void offlineStorage.acknowledgeMessage(payload.temp_id, payload.message_id, payload.status ?? 'SENT', payload.created_at);
             setMessages((prev) =>
                 prev.map((m) =>
                     m.id === payload.temp_id
                         ? {
                               ...m,
                               id: payload.message_id,
-                              status: 'SENT',
+                              status: payload.status ?? 'SENT',
                               isSending: false,
                               created_at: payload.created_at,
                           }
                         : m
                 )
             );
+            setChats(prev => prev.map(chat => chat.last_message && chat.last_message.id === payload.temp_id ? {
+                ...chat, last_message: { ...chat.last_message, id: payload.message_id,
+                    status: payload.status ?? 'SENT', isSending: false, created_at: payload.created_at },
+            } : chat));
             offlineStorage.removeFromOutbox(payload.temp_id);
         });
 
@@ -242,26 +248,36 @@ export function useRealtimeSubscriptions({
         );
 
         // G. Typing indicator
+        const typists = new Map<string, Map<string, { name: string; expires: number }>>();
+        const publishTyping = () => setTypingUsers(new Map(
+            [...typists].filter(([, users]) => users.size > 0)
+                .map(([chatId, users]) => [chatId, [...users.values()].map(u => u.name).join(', ')])
+        ));
         const unsubTyping = wsClient.on('chat:user_typing', (payload) => {
-            const { chat_id, display_name, is_typing } = payload;
-            setTypingUsers((prev) => {
-                const next = new Map(prev);
-                if (is_typing) next.set(chat_id, display_name);
-                else next.delete(chat_id);
-                return next;
-            });
+            const { chat_id, user_id, display_name, is_typing } = payload;
+            if (!user_id || user_id === currentUserIdRef.current) return;
+            const users = typists.get(chat_id) ?? new Map();
+            if (is_typing) users.set(user_id, { name: display_name, expires: Date.now() + 6000 });
+            else users.delete(user_id);
+            typists.set(chat_id, users);
+            publishTyping();
         });
+        const typingExpiry = setInterval(() => {
+            let changed = false;
+            for (const [chatId, users] of typists) {
+                for (const [userId, entry] of users) {
+                    if (entry.expires <= Date.now()) { users.delete(userId); changed = true; }
+                }
+                if (!users.size) typists.delete(chatId);
+            }
+            if (changed) publishTyping();
+        }, 1000);
 
         // H. Receipt updates
         const unsubReceipt = wsClient.on(
             'chat:receipt_update',
             (payload: { message_id: string; status: ReceiptStatus; chat_id?: string }) => {
                 const { message_id, status, chat_id } = payload;
-
-                // Ignore receipt events for another chat.
-                if (chat_id && activeChatRef.current !== chat_id) {
-                    return;
-                }
 
                 // Update the visible message immediately.
                 setMessages((prev) => {
@@ -306,6 +322,7 @@ export function useRealtimeSubscriptions({
                         if (currentStatus === 'READ' && status !== 'READ') {
                             return chat;
                         }
+                        if (currentStatus === 'DELIVERED' && status === 'SENT') return chat;
 
                         return {
                             ...chat,
@@ -322,6 +339,10 @@ export function useRealtimeSubscriptions({
         // I. Peer Presence updates
         const unsubPresence = wsClient.on('presence:update', (payload) => {
             const { user_id, is_online } = payload;
+            if (!is_online) {
+                for (const users of typists.values()) users.delete(user_id);
+                publishTyping();
+            }
             setOnlineUserIds((prev) => {
                 const next = new Set(prev);
                 if (is_online) next.add(user_id);
@@ -411,6 +432,8 @@ export function useRealtimeSubscriptions({
             unsubReaction();
             unsubPin();
             unsubTyping();
+            clearInterval(typingExpiry);
+            setTypingUsers(new Map());
             unsubReceipt();
             unsubPresence();
             unsubCall();

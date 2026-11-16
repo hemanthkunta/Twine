@@ -5,6 +5,7 @@ import { GroupService } from '../../services/group.service.js';
 import { PresenceService } from '../../services/presence.service.js';
 import { ConnectedClient } from '../../services/presence.service.js';
 import { WSDeleteMessagePayload } from '../../types/protocol.js';
+import { safeSend, createFrame } from './frameUtils.js';
 
 export async function handleDeleteMessage(
     socket: WebSocket,
@@ -17,15 +18,7 @@ export async function handleDeleteMessage(
     registeredClient: ConnectedClient | null;
 }> {
     const sendFrame = (type: string, payload: unknown) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            const frame = {
-                type,
-                payload,
-                correlation_id: correlationId,
-                timestamp: Date.now(),
-            };
-            socket.send(JSON.stringify(frame));
-        }
+        safeSend(socket, createFrame(type, payload, correlationId));
     };
 
     const sendError = (code: string, message: string) => {

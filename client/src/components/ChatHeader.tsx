@@ -47,6 +47,7 @@ interface ChatHeaderProps {
   onOpenSafetyNumber: () => void;
   onOpenDisappearingTimer: () => void;
   onOpenScheduled?: () => void;
+  onOpenHistoryTransfer: () => void;
   onOpenAIModeration?: () => void;
   onOpenCreatePoll?: () => void;
   onOpenChannelDashboard?: () => void;

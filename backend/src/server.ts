@@ -10,6 +10,7 @@ import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DashboardEventService } from './services/dashboardEventService.js';
 import { ScheduledMessageService } from './services/scheduledMessage.service.js';
+import { PresenceService } from './services/presence.service.js';
 import { existsSync } from 'node:fs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -61,12 +62,29 @@ const server = app.listen(config.port, () => {
 
 setupWebSocketGateway(server);
 
-// Background sweeps:
+// Background sweeps (self-rescheduling to avoid starvation under load):
 //  * dispatchDue: delivers scheduled_messages whose time has come through the
 //    normal send path (receipts + chat:new_message fanout).
 //  * deleteExpiredMessages: enforces per-chat disappearing TTLs by hard-deleting
-//    messages past expires_at and broadcasting chat:message_deleted.
-const sweepTimer = setInterval(() => {
+//    messages past expires_at and broadcasting chat:messages_deleted (batched).
+const SWEEP_INTERVAL_MS = 15_000;
+let sweepTimeout: NodeJS.Timeout | null = null;
+
+// Periodic cleanup for dead WebSocket connections (every 30s)
+const WS_CLEANUP_INTERVAL_MS = 30_000;
+let wsCleanupTimeout: NodeJS.Timeout | null = null;
+
+function runWsCleanup(): void {
+    const cleaned = PresenceService.cleanupDeadConnections();
+    if (cleaned > 0) {
+        console.log(`[WS Cleanup] removed ${cleaned} dead connections`);
+    }
+    wsCleanupTimeout = setTimeout(runWsCleanup, WS_CLEANUP_INTERVAL_MS);
+    wsCleanupTimeout.unref();
+}
+
+function runSweep(): void {
+    const start = Date.now();
     ScheduledMessageService.dispatchDue().catch((err) =>
         console.error('[Scheduled Sweep]', err)
     );
@@ -78,13 +96,20 @@ const sweepTimer = setInterval(() => {
     } catch (err) {
         console.error('[TTL Sweep]', err);
     }
-}, 15_000);
-// Never keep the process alive just for the sweep.
-sweepTimer.unref();
+    const elapsed = Date.now() - start;
+    const nextDelay = Math.max(100, SWEEP_INTERVAL_MS - elapsed); // yield if overrun
+    sweepTimeout = setTimeout(runSweep, nextDelay);
+    sweepTimeout.unref(); // Don't keep process alive for sweep
+}
+
+runSweep(); // Start the first sweep
+runWsCleanup(); // Start the first WS cleanup
 
 // Handle graceful shutdown
 process.on('SIGTERM', () => {
     console.log('SIGTERM received, shutting down gracefully');
+    if (sweepTimeout) clearTimeout(sweepTimeout);
+    if (wsCleanupTimeout) clearTimeout(wsCleanupTimeout);
     server.close(() => {
         console.log('👋 Server closed');
         process.exit(0);
@@ -93,6 +118,8 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
     console.log('SIGINT received, shutting down gracefully');
+    if (sweepTimeout) clearTimeout(sweepTimeout);
+    if (wsCleanupTimeout) clearTimeout(wsCleanupTimeout);
     server.close(() => {
         console.log('👋 Server closed');
         process.exit(0);

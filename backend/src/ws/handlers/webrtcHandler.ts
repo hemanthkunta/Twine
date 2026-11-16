@@ -10,6 +10,7 @@ import {
     WSWebRtcHangupPayload,
     WSWebRtcRenegotiatePayload,
 } from '../../types/protocol.js';
+import { safeSend, createFrame } from './frameUtils.js';
 
 export function handleWebRtcCallUser(
     socket: WebSocket,
@@ -22,15 +23,7 @@ export function handleWebRtcCallUser(
     registeredClient: ConnectedClient | null;
 } {
     const sendFrame = (type: string, payload: unknown) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            const frame = {
-                type,
-                payload,
-                correlation_id: correlationId,
-                timestamp: Date.now(),
-            };
-            socket.send(JSON.stringify(frame));
-        }
+        safeSend(socket, createFrame(type, payload, correlationId));
     };
 
     if (!clientSession) {

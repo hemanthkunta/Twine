@@ -1,6 +1,7 @@
 import { WebSocket } from 'ws';
 import { AuthService } from './auth.service.js';
 import { BaseService } from './base.service.js';
+import { KeyDirectoryService } from './keyDirectory.service.js';
 import { getLogger } from './logger.service.js';
 import { WSFrame, WSPresenceUpdatePayload, WSUserTypingPayload } from '../types/protocol.js';
 import { DashboardEventService } from './dashboardEventService.js';
@@ -64,6 +65,22 @@ export class PresenceService extends BaseService {
         return client;
     }
 
+    /**
+     * Check if a specific device of a user is revoked.
+     * Used to prevent message delivery to revoked devices.
+     *
+     * A device that was never registered in the key directory is NOT revoked —
+     * it is simply unknown, and unknown devices must still receive messages.
+     * Only a device that exists and has is_revoked = 1 is skipped.
+     */
+    static isDeviceRevoked(userId: string, deviceId?: string): boolean {
+        if (!deviceId) return false;
+        const numericDeviceId = parseInt(deviceId, 10);
+        if (!Number.isInteger(numericDeviceId)) return false;
+        const device = KeyDirectoryService.getDevice(userId, numericDeviceId);
+        return device?.isRevoked ?? false;
+    }
+
     static removeConnection(client: ConnectedClient) {
         const userClients = this.connections.get(client.userId);
         if (!userClients) return;
@@ -121,8 +138,17 @@ export class PresenceService extends BaseService {
         let sentCount = 0;
         for (const client of Array.from(clients)) {
             if (client.socket.readyState === WebSocket.OPEN) {
-                client.socket.send(data);
-                sentCount++;
+                try {
+                    client.socket.send(data);
+                    sentCount++;
+                } catch (err) {
+                    // Socket closed between readyState check and send
+                    console.warn(
+                        `[PresenceService] sendToUser: Failed to send to user ${userId} (socket closed):`,
+                        err instanceof Error ? err.message : String(err)
+                    );
+                    clients.delete(client);
+                }
             } else {
                 clients.delete(client);
             }
@@ -153,9 +179,26 @@ export class PresenceService extends BaseService {
                     continue;
                 }
 
-                if (client.socket.readyState === WebSocket.OPEN) {
-                    client.socket.send(data);
+                // Skip revoked devices
+                if (client.deviceId && this.isDeviceRevoked(userId, client.deviceId)) {
+                    continue;
                 }
+
+                if (client.socket.readyState === WebSocket.OPEN) {
+                    try {
+                        client.socket.send(data);
+                    } catch (err) {
+                        // Socket closed between readyState check and send
+                        console.warn(
+                            `[PresenceService] broadcastToUsers: Failed to send to user ${userId} (socket closed):`,
+                            err instanceof Error ? err.message : String(err)
+                        );
+                        clients.delete(client);
+                    }
+                }
+            }
+            if (clients.size === 0) {
+                this.connections.delete(userId);
             }
         }
     }
@@ -166,8 +209,19 @@ export class PresenceService extends BaseService {
             if (excludeUserId && userId === excludeUserId) continue;
             for (const client of clients) {
                 if (client.socket.readyState === WebSocket.OPEN) {
-                    client.socket.send(data);
+                    try {
+                        client.socket.send(data);
+                    } catch (err) {
+                        console.warn(
+                            `[PresenceService] broadcastToAll: Failed to send to user ${userId} (socket closed):`,
+                            err instanceof Error ? err.message : String(err)
+                        );
+                        clients.delete(client);
+                    }
                 }
+            }
+            if (clients.size === 0) {
+                this.connections.delete(userId);
             }
         }
     }
@@ -186,6 +240,43 @@ export class PresenceService extends BaseService {
         };
 
         this.broadcastToAll(frame);
+    }
+
+    /**
+     * Clean up all dead connections across all users.
+     * Call periodically to prevent memory leaks from abandoned sockets.
+     * Broadcasts offline status for users who lost their last connection.
+     */
+    static cleanupDeadConnections(): number {
+        let cleaned = 0;
+        const usersWentOffline: string[] = [];
+        
+        for (const [userId, clients] of this.connections.entries()) {
+            const hadConnections = clients.size > 0;
+            for (const client of Array.from(clients)) {
+                if (client.socket.readyState !== WebSocket.OPEN) {
+                    clients.delete(client);
+                    cleaned++;
+                }
+            }
+            if (clients.size === 0) {
+                this.connections.delete(userId);
+                if (hadConnections) {
+                    usersWentOffline.push(userId);
+                }
+            }
+        }
+        
+        // Broadcast offline status for users who lost their last connection
+        for (const userId of usersWentOffline) {
+            this.broadcastPresence(userId, false);
+            console.log(`[PresenceService] cleanupDeadConnections: user ${userId} went offline (last connection cleaned)`);
+        }
+        
+        if (cleaned > 0) {
+            console.log(`[PresenceService] cleanupDeadConnections: removed ${cleaned} dead connections`);
+        }
+        return cleaned;
     }
 
     static broadcastTyping(

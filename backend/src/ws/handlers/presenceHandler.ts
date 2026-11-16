@@ -2,6 +2,7 @@ import { WebSocket } from 'ws';
 import { AuthService } from '../../services/auth.service.js';
 import { ConnectedClient } from '../../services/presence.service.js';
 import { WSHeartbeatPayload } from '../../types/protocol.js';
+import { safeSend, createFrame } from './frameUtils.js';
 
 export function handlePresenceHeartbeat(
     socket: WebSocket,
@@ -11,14 +12,7 @@ export function handlePresenceHeartbeat(
     correlationId: string
 ): { clientSession: { userId: string; deviceId?: string } | null; registeredClient: ConnectedClient | null } {
     const sendFrame = (type: string, payload: unknown, correlationId?: string) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type,
-                payload,
-                correlation_id: correlationId,
-                timestamp: Date.now(),
-            }));
-        }
+        safeSend(socket, createFrame(type, payload, correlationId));
     };
 
     if (!clientSession) {

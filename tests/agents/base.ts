@@ -187,6 +187,103 @@ export class TestAgent {
   getName() {
     return this.name;
   }
+
+  // E2EE Helper Methods
+  /**
+   * Wait for E2EE key exchange to complete with a peer user.
+   * This polls the E2EE status in the chat header until the shield icon appears.
+   */
+  async waitForKeyExchange(peerDisplayName: string, timeout = 30000): Promise<void> {
+    await this.page.waitForFunction(
+      (name: string) => {
+        const header = document.querySelector('header');
+        if (!header) return false;
+        const shield = header.querySelector('span:has-text("E2EE"), svg.lucide-shield-check');
+        return !!shield;
+      },
+      peerDisplayName,
+      { timeout }
+    );
+  }
+
+  /**
+   * Enable E2EE with a peer user by ensuring both users have published identity keys
+   * and initiating the X3DH handshake. In this app, E2EE is automatic once both
+   * users have published keys, so this mainly verifies the keys are published.
+   */
+  async enableE2EEWith(peerDisplayName: string): Promise<void> {
+    // Navigate to chat with peer if not already there
+    await this.selectChat(peerDisplayName);
+
+    // Wait for E2EE to be established (shield icon in header)
+    await this.waitForKeyExchange(peerDisplayName);
+  }
+
+  /**
+   * Send an encrypted message to the current chat.
+   * This is the same as sendMessage since E2EE is transparent to the user.
+   */
+  async sendEncryptedMessage(text: string): Promise<void> {
+    return this.sendMessage(text);
+  }
+
+  /**
+   * Verify that an encrypted message shows delivery/read receipts.
+   * Checks for the status ticks in the message bubble.
+   */
+  async verifyEncryptedReceipt(messageText: string, expectedStatus: 'sent' | 'delivered' | 'read' = 'delivered', timeout = 20000): Promise<void> {
+    const statusMap = {
+      sent: 'span[title="Sent"]',
+      delivered: 'span[title="Delivered"]',
+      read: 'span[title="Read"]'
+    };
+
+    const messageBubble = this.page.locator(`${SELECTORS.messageBubble}:has-text("${messageText}")`).first();
+    await messageBubble.waitFor({ state: 'visible', timeout });
+
+    // Wait for the expected receipt status
+    await expect(messageBubble.locator(statusMap[expectedStatus])).toBeVisible({ timeout });
+  }
+
+  /**
+   * Open the Safety Number verification modal for the current chat.
+   */
+  async openSafetyNumberVerification(): Promise<void> {
+    await this.page.click('header >> button[title="Verify Safety Number & QR Code"]');
+    await this.page.waitForSelector('text=Safety Number', { state: 'visible', timeout: 10000 });
+  }
+
+  /**
+   * Get the displayed safety number from the verification modal.
+   */
+  async getSafetyNumber(): Promise<string> {
+    const safetyNumberElement = this.page.locator('text=/[0-9]{5}/').first();
+    await safetyNumberElement.waitFor({ state: 'visible', timeout: 5000 });
+    return await safetyNumberElement.textContent() || '';
+  }
+
+  /**
+   * Close the Safety Number verification modal.
+   */
+  async closeSafetyNumberVerification(): Promise<void> {
+    await this.page.keyboard.press('Escape');
+    await this.page.waitForSelector('text=Safety Number', { state: 'hidden', timeout: 5000 });
+  }
+
+  /**
+   * Check if the current chat shows E2EE indicator (shield icon).
+   */
+  async isE2EEEnabled(): Promise<boolean> {
+    const shield = this.page.locator('header >> text=E2EE');
+    return await shield.isVisible().catch(() => false);
+  }
+
+  /**
+   * Create a group chat with E2EE enabled (default for groups).
+   */
+  async createE2EEGroup(groupName: string, members: string[]): Promise<void> {
+    return this.createGroup(groupName, members);
+  }
 }
 
 export class MultiAgentTestRunner {

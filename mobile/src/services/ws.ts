@@ -2,13 +2,17 @@
 
 type MessageHandler = (frame: WsFrame) => void;
 
+const WS_BASE = process.env.EXPO_PUBLIC_WS_URL || 'ws://localhost:4000/ws';
+
 class WebSocketService {
   private ws: WebSocket | null = null;
   private url: string;
   private token: string | null = null;
+  private deviceId: string | null = null;
   private handlers: Map<string, Set<MessageHandler>> = new Map();
   private seq: number = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts: number = 0;
   private isConnected: boolean = false;
   private onConnectCallbacks: (() => void)[] = [];
   private onDisconnectCallbacks: ((error?: string) => void)[] = [];
@@ -17,14 +21,21 @@ class WebSocketService {
     this.url = url;
   }
 
-  connect(token: string) {
+  connect(token: string, deviceId: string) {
     this.token = token;
+    this.deviceId = deviceId;
+    this.reconnectAttempts = 0;
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
       this.isConnected = true;
+      this.reconnectAttempts = 0;
       // Send auth handshake (backend expects auth:handshake)
-      this.send('auth:handshake', { token, device_type: 'mobile' });
+      this.send('auth:handshake', {
+        token,
+        device_id: this.deviceId ?? undefined,
+        device_type: 'mobile',
+      });
       this.onConnectCallbacks.forEach((cb) => cb());
     };
 
@@ -62,6 +73,8 @@ class WebSocketService {
       this.ws = null;
     }
     this.isConnected = false;
+    this.reconnectTimer = null;
+    this.reconnectAttempts = 0;
   }
 
   send(type: string, payload: any = {}, correlation_id?: string) {
@@ -103,14 +116,25 @@ class WebSocketService {
     return this.isConnected;
   }
 
+  private getJitteredDelay(): number {
+    const baseAttempts = [1, 2, 4, 8];
+    const cappedIndex = Math.min(this.reconnectAttempts, baseAttempts.length - 1);
+    const baseDelay = baseAttempts[cappedIndex] ?? 30;
+    const jitter = Math.random() * 0.5 * baseDelay; // ±50% jitter
+    return Math.min(baseDelay + jitter, 30);
+  }
+
   private scheduleReconnect() {
     if (this.reconnectTimer) return;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
+      this.reconnectAttempts++;
       if (this.token) {
-        this.connect(this.token);
+        this.connect(this.token, this.deviceId ?? 'mobile');
+      } else {
+        this.scheduleReconnect();
       }
-    }, 3000);
+    }, this.getJitteredDelay());
   }
 }
 

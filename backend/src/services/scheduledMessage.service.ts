@@ -186,8 +186,8 @@ export class ScheduledMessageService {
 
     /**
      * Hard-delete messages whose expires_at has passed (server-enforced
-     * disappearing messages) and notify members via chat:message_deleted, the
-     * same frame a manual delete emits. Cascades clean up receipts, reactions
+     * disappearing messages) and notify members via chat:messages_deleted (batched),
+     * the same frame a manual delete emits. Cascades clean up receipts, reactions
      * and pins; the messages_fts delete trigger keeps search consistent.
      */
     static deleteExpiredMessages(): number {
@@ -197,12 +197,29 @@ export class ScheduledMessageService {
              LIMIT 200`,
             []
         );
+        if (expired.length === 0) return 0;
+
+        // Batch DELETE by collecting IDs per chat.
+        const idsByChat = new Map<string, string[]>();
         for (const row of expired) {
-            BaseService.execute('DELETE FROM messages WHERE id = ?', [row.id]);
-            const memberIds = ChatService.getChatMemberIds(row.chat_id);
+            const arr = idsByChat.get(row.chat_id) ?? [];
+            arr.push(row.id);
+            idsByChat.set(row.chat_id, arr);
+        }
+
+        // Single DELETE per chat with IN clause.
+        for (const [chatId, ids] of idsByChat) {
+            const placeholders = ids.map(() => '?').join(',');
+            BaseService.execute(
+                `DELETE FROM messages WHERE id IN (${placeholders})`,
+                ids
+            );
+
+            // One batched broadcast per chat.
+            const memberIds = ChatService.getChatMemberIds(chatId);
             PresenceService.broadcastToUsers(memberIds, {
-                type: 'chat:message_deleted',
-                payload: { chat_id: row.chat_id, message_id: row.id },
+                type: 'chat:messages_deleted',
+                payload: { chat_id: chatId, message_ids: ids },
                 timestamp: Date.now(),
             });
         }

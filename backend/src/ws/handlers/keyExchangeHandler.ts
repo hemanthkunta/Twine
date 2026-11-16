@@ -1,5 +1,3 @@
-import { SignalProtocolService } from '../../services/signalProtocol.service.js';
-import { KeyDirectoryService } from '../../services/keyDirectory.service.js';
 import { BaseService } from '../../services/base.service.js';
 import { MetricsService } from '../../services/metrics.service.js';
 import { WebSocket } from 'ws';
@@ -7,10 +5,13 @@ import {
     WSRequestPreKeyBundlePayload,
     WSPreKeyBundlePayload,
 } from '../../types/protocol.js';
+import { safeSend, createFrame } from './frameUtils.js';
 
 /**
  * Handle request for a user's prekey bundle (for X3DH handshake)
- * This is used when a user wants to initiate an E2E encrypted conversation with another user
+ * DEPRECATED: Server-side bundle generation is removed for E2EE security.
+ * Clients MUST generate bundles client-side and publish via REST /keys/bundle.
+ * This handler returns an error directing clients to the REST API.
  */
 export async function handleRequestPreKeyBundle(
     socket: WebSocket,
@@ -24,16 +25,7 @@ export async function handleRequestPreKeyBundle(
 }> {
     // Send error response helper
     const sendError = (code: string, message: string, correlationId?: string) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(
-                JSON.stringify({
-                    type: 'error',
-                    payload: { code, message },
-                    correlation_id: correlationId,
-                    timestamp: Date.now(),
-                })
-            );
-        }
+        safeSend(socket, createFrame('error', { code, message }, correlationId));
     };
 
     try {
@@ -52,7 +44,7 @@ export async function handleRequestPreKeyBundle(
             return { clientSession, registeredClient };
         }
 
-        // Prevent users from requesting their own prekey bundle (they should generate it client-side)
+        // Prevent users from requesting their own prekey bundle
         if (targetUserId === requesterId) {
             sendError('BAD_REQUEST', 'Cannot request own prekey bundle', correlation_id);
             return { clientSession, registeredClient };
@@ -69,22 +61,10 @@ export async function handleRequestPreKeyBundle(
             return { clientSession, registeredClient };
         }
 
-        // Generate prekey bundle for the target user
-        // Note: In a true E2E implementation, this would be done client-side
-        // For now, we're providing a server-assisted implementation for demonstration
-        const preKeyBundle = await SignalProtocolService.generatePreKeyBundle(targetUserId);
-
-        // Send the prekey bundle back to the requester
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(
-                JSON.stringify({
-                    type: 'key:prekey_bundle',
-                    payload: preKeyBundle,
-                    correlation_id: correlation_id,
-                    timestamp: Date.now(),
-                })
-            );
-        }
+        // DEPRECATED: Server-side pre-key bundle generation is removed.
+        // Clients MUST generate their own bundles client-side using libsignal
+        // and publish via POST /keys/bundle. Retrieve bundles via GET /keys/bundle/:userId.
+        sendError('DEPRECATED', 'WebSocket pre-key bundle request is deprecated. Use REST API: POST /keys/bundle to publish, GET /keys/bundle/:userId to retrieve.', correlation_id);
 
         MetricsService.recordWsMessageSent();
         return { clientSession, registeredClient };
@@ -98,7 +78,9 @@ export async function handleRequestPreKeyBundle(
 
 /**
  * Handle receiving a prekey bundle (typically sent after a request)
- * This allows users to exchange prekey bundles to establish sessions
+ * DEPRECATED: Server-side session creation from WebSocket bundles is removed for E2EE security.
+ * Clients MUST publish bundles via REST POST /keys/bundle and retrieve via GET /keys/bundle/:userId.
+ * Session establishment happens client-side using libsignal.
  */
 export async function handlePreKeyBundle(
     socket: WebSocket,
@@ -112,16 +94,7 @@ export async function handlePreKeyBundle(
 }> {
     // Send error response helper
     const sendError = (code: string, message: string, correlationId?: string) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(
-                JSON.stringify({
-                    type: 'error',
-                    payload: { code, message },
-                    correlation_id: correlationId,
-                    timestamp: Date.now(),
-                })
-            );
-        }
+        safeSend(socket, createFrame('error', { code, message }, correlationId));
     };
 
     try {
@@ -131,52 +104,11 @@ export async function handlePreKeyBundle(
             return { clientSession, registeredClient };
         }
 
-        const recipientId = clientSession.userId;
-        const {
-            user_id: senderId,
-            registration_id,
-            device_id,
-            pre_key_id,
-            pre_key_public,
-            signed_pre_key_id,
-            signed_pre_key_public,
-            signed_pre_key_signature,
-            identity_key
-        } = payload as WSPreKeyBundlePayload;
-
-        // Validate required fields
-        if (!senderId || !registration_id || !device_id || !pre_key_id ||
-            !pre_key_public || !signed_pre_key_id || !signed_pre_key_public ||
-            !signed_pre_key_signature || !identity_key) {
-            sendError('BAD_REQUEST', 'Missing required prekey bundle fields', correlation_id);
-            return { clientSession, registeredClient };
-        }
-
-        // Process the prekey bundle to create a session
-        await SignalProtocolService.processPreKeyBundle(
-            recipientId,      // recipient (current user)
-            senderId,         // sender (the user who sent the bundle)
-            registration_id,
-            device_id,
-            pre_key_id,
-            identity_key,
-            signed_pre_key_id,
-            signed_pre_key_public,
-            signed_pre_key_signature,
-            pre_key_public
-        );
-
-        // Send acknowledgment (optional)
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(
-                JSON.stringify({
-                    type: 'key:prekey_bundle_ack',
-                    payload: { status: 'processed' },
-                    correlation_id: correlation_id,
-                    timestamp: Date.now(),
-                })
-            );
-        }
+        // DEPRECATED: Server-side session creation from WebSocket bundles is removed.
+        // Clients MUST generate bundles client-side and publish via REST POST /keys/bundle.
+        // Retrieve bundles via REST GET /keys/bundle/:userId.
+        // Session establishment (X3DH + Double Ratchet) happens entirely client-side.
+        sendError('DEPRECATED', 'WebSocket pre-key bundle submission is deprecated. Use REST API: POST /keys/bundle to publish, GET /keys/bundle/:userId to retrieve. Sessions are established client-side.', correlation_id);
 
         MetricsService.recordWsMessageSent();
         return { clientSession, registeredClient };

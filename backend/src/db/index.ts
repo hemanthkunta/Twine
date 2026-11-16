@@ -108,6 +108,28 @@ class PooledDatabase {
     }
 
     /**
+     * Execute a function within a database transaction on a single leased connection.
+     * @param fn Function to execute within the transaction
+     * @returns The return value of the function
+     */
+    transaction<T>(fn: (conn: DatabaseSync) => T): T {
+        const conn = this.acquireConnection();
+        try {
+            conn.exec('BEGIN');
+            try {
+                const result = fn(conn);
+                conn.exec('COMMIT');
+                return result;
+            } catch (error) {
+                conn.exec('ROLLBACK');
+                throw error;
+            }
+        } finally {
+            // Connection released back to pool
+        }
+    }
+
+    /**
      * Close all connections in the pool.
      */
     close(): void {
@@ -190,8 +212,12 @@ export function checkDbHealth(): boolean {
  * legacy column and is only listed where the table was provably never written to.
  * `group_sender_keys` qualifies: its old `chain_key_hex` shape was referenced by
  * no code path in the repository.
+ *
+ * SAFETY: This function is gated by DROP_LEGACY_TABLES=1 env var. Without it,
+ * legacy tables are logged but NOT dropped, allowing manual inspection/migration.
  */
 function dropLegacyTables(conn: DatabaseSync): void {
+    const allowDrop = process.env.DROP_LEGACY_TABLES === '1';
     const legacyShapes: Array<{ table: string; legacyColumn: string }> = [
         { table: 'group_sender_keys', legacyColumn: 'chain_key_hex' },
     ];
@@ -207,9 +233,23 @@ function dropLegacyTables(conn: DatabaseSync): void {
         const columns = conn.prepare(`PRAGMA table_info(${table})`).all() as Array<{
             name: string;
         }>;
-        if (columns.some((c) => c.name === legacyColumn)) {
-            conn.exec(`DROP TABLE ${table}`);
+        if (!columns.some((c) => c.name === legacyColumn)) continue;
+
+        // Count rows that would be destroyed.
+        const countRow = conn.prepare(`SELECT COUNT(*) as cnt FROM ${table}`).get() as { cnt: number } | undefined;
+        const rowCount = countRow?.cnt ?? 0;
+
+        if (!allowDrop) {
+            logger.warn(
+                `[dropLegacyTables] Legacy table "${table}" has column "${legacyColumn}" and ${rowCount} row(s). ` +
+                `Set DROP_LEGACY_TABLES=1 to auto-drop, or migrate manually. ` +
+                `This destroys group sender keys — members will need to re-distribute keys.`
+            );
+            continue;
         }
+
+        logger.warn(`[dropLegacyTables] Dropping legacy table "${table}" (${rowCount} rows) — column "${legacyColumn}" detected.`);
+        conn.exec(`DROP TABLE ${table}`);
     }
 }
 
@@ -344,11 +384,13 @@ function seedInitialData(db: DatabaseSync): void {
         );
     }
 
-    // 2. Pre-seed Direct Chat (Alice & Bob)
+    // 2. Pre-seed Direct Chat (Alice & Bob) — non-E2EE so pre-seeded message doesn't need sessions
     const directChatId = 'chat_alice_bob_101';
     db.prepare(
-        `INSERT OR IGNORE INTO chats (id, type, title, is_e2ee) VALUES (?, 'DIRECT', ?, 1)`
+        `INSERT OR IGNORE INTO chats (id, type, title, is_e2ee) VALUES (?, 'DIRECT', ?, 0)`
     ).run(directChatId, 'Alice & Bob');
+    // Ensure is_e2ee=0 even if chat already existed with different value
+    db.prepare(`UPDATE chats SET is_e2ee = 0 WHERE id = ?`).run(directChatId);
     db.prepare(
         `INSERT OR IGNORE INTO chat_members (id, chat_id, user_id, role) VALUES (?, ?, ?, 'MEMBER')`
     ).run('cm_101_1', directChatId, 'usr_alice_001');

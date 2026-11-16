@@ -1,6 +1,6 @@
 # QA_REPORT — Twine / "Aether" Messaging Platform
 
-**Last verified:** 2026-09-15 · **Method:** every claim below was re-checked against the current source and, where it matters, by *running* the code.
+**Latest targeted audit:** 2026-11-02 (Phases 1–2; see below). **Historical full-report verification:** 2026-09-15. Findings outside the latest audit's scope retain their earlier verification status.
 
 > **This is a rewrite.** The previous revision was dated 2026-08-27 and had become actively
 > misleading: its three P0 items were all fixed, several "broken test suite" findings no longer
@@ -10,7 +10,64 @@
 
 ---
 
-## Legend
+## Remediation verification — 2026-11-03
+
+Code fixes cover all ten workstreams; completion still depends on physical SMS/push delivery and the remaining browser acceptance checks. The historical November 2 findings below describe the pre-fix state.
+
+- `test:core`: **28/28** checks pass using an isolated temporary database and HTTP server. Covers channel posting, destination ciphertext requirements, plaintext-only search, avatar ownership/access, forwarded-media access, real Signal signature validation/tampering, mocked Web Push acknowledgement/failure/expiry and SMS failure cleanup.
+- Browser hook harness: **6/6** checks pass for inactive-chat receipt updates, monotonic receipt state, concurrent typists, one typist stopping, disconnect and expiry.
+- Existing suites passed: schema **6/6**, security **11/11**, comprehensive **30/30**, OTP **24/24**, forwarding/FTS **12/12**. The comprehensive suite now rejects fake subscriptions instead of accepting simulated push success.
+- Browser sessions on isolated ports 4407/4408 confirmed login, encrypted direct delivery and encrypted group delivery. Database inspection found no plaintext in the encrypted rows. Screenshots are in `output/playwright/`.
+- Signal browser integration fixes include stable identity keys, device registration/discovery, correct signed-prekey verification, pre-key envelope decryption, acknowledgement caching and deduplicated message decryption. Encrypted sends skip server-side plaintext moderation.
+- CORE-04 uses the audit's explicitly permitted plaintext-only scope; encrypted local search has not been implemented.
+- Physical SMS delivery and offline Web Push receipt are **not verified**. Mocked provider responses are not evidence of device receipt. VAPID/SMS credentials and receiving devices are required. Legacy avatar uploads without ownership metadata need reuploading.
+
+See the remediation checklist at the top of TODO.md for individual closure state.
+
+## Historical Phase 1–2 audit — 2026-11-02
+
+**Verdict: Phases 1–2 are incomplete.** This targeted audit supersedes conflicting completion claims in the older report below and in TODO.md. The September verification date and sections 1 onward describe a historical audit; they are not a claim that the entire report was re-verified today. No implementation fixes were made during this audit.
+
+### Executed checks
+
+| Check | Result |
+|---|---|
+| Root `npm run build` (backend TypeScript + client TypeScript/Vite) | Passed |
+| `test:schema` | 6/6 |
+| `test:security` | 11/11 |
+| `test:comprehensive` | 30/30 |
+| `test:otp` | 24/24 |
+| `test:forward` | 12/12 |
+| `test:phase1` against isolated HTTP/WebSocket server | 30/30 |
+
+**113 checks passed.** Service tests used a separate temporary SQLite database; live checks used another temporary database on port 4407 with `NODE_ENV=test` and `SMS_PROVIDER=test`. The temporary server was stopped after the audit. No application source changes were made.
+
+Limits: browser E2E, real SMS/push delivery, multi-server behavior, and encrypted browser interoperability were not executed. Redis fell back to memory; test dashboard event delivery logged TLS errors without failing the suites. Vite emitted browser compatibility warnings for `path`/`fs` imports and bundle-size warnings. Passing builds do not establish browser runtime correctness. `forward_fts_check.ts` explicitly disables E2EE; the comprehensive push test accepts the stub's success response. These suites therefore do not prove feature completeness.
+
+### Open findings and evidence
+
+IDs below match the actionable checklist at the top of [TODO.md](TODO.md). Line references describe the audited working tree and may shift with later edits.
+
+| ID | Evidence | Finding / completion requirement |
+|---|---|---|
+| CORE-01 | VERIFIED: `backend/src/services/push.service.ts:109`; `client/src/App.tsx:1219`; `client/src/components/SettingsModal.tsx:97`; `client/src/main.tsx:32` | Push subscriptions are persisted, but clients submit fake subscription data, service workers are unregistered, and `sendPush` only logs and returns success. No production caller dispatches offline pushes. Implement subscription, provider, and offline-message integration; verify delivery on an offline device and provider failures. |
+| CORE-02 (P1) | EXECUTED; `backend/src/services/message.service.ts:458`; normal WS permission check in `backend/src/ws/handlers/messageHandler.ts:62` | Forwarding checks membership but not channel posting rights. An Alice-owned channel with Bob as MEMBER accepted Bob's `POST /messages/forward` with HTTP 200 and persisted a message attributed to Bob. Enforce channel posting policy consistently and add subscriber-denial/owner-success tests. |
+| CORE-03 | VERIFIED: `backend/src/services/message.service.ts:468`; `client/src/components/ForwardMessageModal.tsx:53` | Forwarding copies source ciphertext unchanged into a new sender/destination context. Implement authorized client decryption and destination encryption; verify that intended destination recipients can read the result without server plaintext exposure. Browser decryption failure was not separately reproduced. |
+| CORE-04 | VERIFIED: `backend/src/services/message.service.ts:99`; `backend/src/db/schema.ts:405`; `client/src/components/GlobalSearchModal.tsx:39` | Client-encrypted messages have blank `content_text`, while server FTS indexes that field and the UI uses server search. Add appropriate local encrypted-chat search or clearly scope search to plaintext; test real encrypted messages. |
+| CORE-05 | EXECUTED: `client/src/components/SettingsModal.tsx:188`; `backend/src/http/routes.ts:724` | Avatar upload and profile save return 200, but authenticated retrieval returns 404, `Media record not found`. Serving requires a referencing message, which an avatar lacks. Add avatar-aware authorization and upload/save/fetch regression coverage. |
+| CORE-06 | VERIFIED: `backend/src/services/message.service.ts:469`; `backend/src/http/routes.ts:729` | Forwarded media reuses the original URL, but serving selects only one referencing message using `LIMIT 1`. A destination-only recipient can be denied access. Authorize through any eligible reference and test destination-only recipients plus unrelated outsiders. Not live-reproduced in this audit. |
+| CORE-07 | VERIFIED: `client/src/hooks/useRealtimeSubscriptions.ts:262` | Receipt handling returns early for non-active chats, leaving sidebar delivery/read state stale. Update chat-list state independently of the selected message view; test switching chats before a receipt arrives. |
+| CORE-08 | VERIFIED: `client/src/hooks/useRealtimeSubscriptions.ts:246`; `client/src/components/MessageInput.tsx:91` | One typing entry per chat lets one user's stop event erase another user's indicator. There is no receiver expiry for disconnects. Track users separately, expire stale entries, and test overlap/disconnect. Existing multiple-user typing test runs users sequentially. |
+| CORE-09 | VERIFIED: `backend/src/services/otp.service.ts:17`; `backend/src/test/otp_flow.test.ts:13` | Twilio, Vonage and webhook SMS adapters now exist; the old “console stub only” description is obsolete. Tests force the test provider, so real delivery/failure handling remains unverified. Voice delivery is not verified. |
+| CORE-10 | NOT EXECUTED | Run browser acceptance flows after fixes, including encrypted forwarding/search, channel restrictions, avatars/forwarded attachments, inactive-chat receipts and concurrent typists. Keep relevant encryption enabled. |
+
+### Live reproduction observations
+
+- **Channel posting:** created channel `chat_channel_bb7a8e81f5a44b9d` in the temporary database, confirmed Bob's role was MEMBER, then forwarded `msg_alice_bob_001` as Bob. HTTP 200 created `msg_cd0f977a447049f5` with Bob as sender. This is a permission defect, despite the passing security suite.
+- **Profile photo:** demo login 200 → PNG upload 200 → save `avatarUrl` 200 → authenticated GET of the saved URL 404 with `{"error":"Media record not found"}`.
+- **Regular chat media:** the separate live Phase 1 suite passed byte-identical authenticated download, anonymous rejection, non-member rejection, and the legacy media URL check. The avatar/forwarding findings do not mean all media serving is broken.
+
+## Historical report legend
 
 - `[EXECUTED]` — I ran it and observed the result directly.
 - `[VERIFIED]` — confirmed by reading the current source.

@@ -2,6 +2,7 @@ import { WebSocket } from 'ws';
 import { AuthService } from '../../services/auth.service.js';
 import { PresenceService, ConnectedClient } from '../../services/presence.service.js';
 import { WSAuthHandshakePayload, WSAuthAckPayload } from '../../types/protocol.js';
+import { safeSend, createFrame } from './frameUtils.js';
 
 export function handleAuthHandshake(
     socket: WebSocket,
@@ -14,15 +15,8 @@ export function handleAuthHandshake(
     registeredClient: ConnectedClient | null;
 } {
     const sendFrame = (type: string, payload: unknown) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            const frame = {
-                type,
-                payload,
-                correlation_id: correlationId,
-                timestamp: Date.now(),
-            };
-            socket.send(JSON.stringify(frame));
-        }
+        const frame = createFrame(type, payload, correlationId);
+        safeSend(socket, frame);
     };
 
     const sendError = (code: string, message: string) => {

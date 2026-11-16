@@ -39,21 +39,21 @@ async function main() {
     await check('non-member cannot list', async () => {
         const strangerId = 'usr_nobody_000';
         try { ScheduledMessageService.listPending(chat.id, strangerId); throw new Error('allowed'); }
-        catch (e) { if (e.message === 'allowed') throw e; }
+        catch (e) { if (e instanceof Error && e.message === 'allowed') throw e; }
     });
 
     await check('rejects past date', async () => {
         try {
             ScheduledMessageService.create({ chatId: chat.id, senderId: alice.id, contentText: 'x', scheduledAt: new Date(now - 1000) });
             throw new Error('allowed');
-        } catch (e) { if (e.message === 'allowed') throw e; }
+        } catch (e) { if (e instanceof Error && e.message === 'allowed') throw e; }
     });
 
     await check('rejects > 1 year horizon', async () => {
         try {
             ScheduledMessageService.create({ chatId: chat.id, senderId: alice.id, contentText: 'x', scheduledAt: new Date(now + 400 * 86400000) });
             throw new Error('allowed');
-        } catch (e) { if (e.message === 'allowed') throw e; }
+        } catch (e) { if (e instanceof Error && e.message === 'allowed') throw e; }
     });
 
     await check('cancel works, then gone from pending', async () => {
@@ -93,7 +93,7 @@ async function main() {
         BaseService.execute("UPDATE scheduled_messages SET scheduled_at = datetime('now', '-1 minute') WHERE id = ?", [s.id]);
         await ScheduledMessageService.dispatchDue();
         try { ScheduledMessageService.cancel(s.id, alice.id); throw new Error('allowed'); }
-        catch (e) { if (e.message === 'allowed') throw e; }
+        catch (e) { if (e instanceof Error && e.message === 'allowed') throw e; }
     });
 
     await check('other user cannot cancel', async () => {
@@ -102,7 +102,7 @@ async function main() {
             contentText: 'mine', scheduledAt: new Date(now + 60000),
         });
         try { ScheduledMessageService.cancel(s.id, bob.id); throw new Error('allowed'); }
-        catch (e) { if (e.message === 'allowed') throw e; }
+        catch (e) { if (e instanceof Error && e.message === 'allowed') throw e; }
         ScheduledMessageService.cancel(s.id, alice.id);
     });
 

@@ -33,6 +33,29 @@ const parseAuthRefreshResponse = (
     return accessToken ? { accessToken, refreshToken } : null;
 };
 
+export interface TwoFactorStatus {
+    enabled: boolean;
+    enabledAt: string | null;
+    backupCodesRemaining: number;
+    pending: boolean;
+}
+
+export interface TwoFactorChallenge {
+    requiresTwoFactor: true;
+    challengeId: string;
+    method: 'totp' | 'backup';
+}
+
+export interface AuthSession {
+    user: User;
+    token: string;
+    accessToken?: string;
+    refreshToken?: string;
+    sessionId?: string;
+}
+
+export type AuthSignInResponse = AuthSession | TwoFactorChallenge;
+
 export interface ScheduledMessage {
     id: string;
     chat_id: string;
@@ -172,7 +195,8 @@ export class ApiService {
                     endpoint.includes('/auth/refresh') ||
                     endpoint.includes('/auth/request-otp') ||
                     endpoint.includes('/auth/verify-otp') ||
-                    endpoint.includes('/auth/demo-login');
+                    endpoint.includes('/auth/demo-login') ||
+                    endpoint.includes('/auth/2fa/challenge');
 
                 // The backend signals "authentication required" with 419 (see
                 // authMiddleware: missing/malformed header, invalid or expired
@@ -285,14 +309,17 @@ export class ApiService {
         return data;
     }
 
-    static async verifyOTPAndSignIn(params: { phoneNumber: string; otp: string }): Promise<{ user: User; token: string; refreshToken?: string }> {
-        const data = await this.request<{ user: User; token: string; refreshToken?: string }>(
+    static async verifyOTPAndSignIn(params: { phoneNumber: string; otp: string }): Promise<AuthSignInResponse> {
+        const data = await this.request<AuthSignInResponse>(
             '/auth/verify-otp',
             {
                 method: 'POST',
                 body: JSON.stringify(params),
             }
         );
+        if ('requiresTwoFactor' in data) {
+            return data;
+        }
         this.setToken(data.token, data.refreshToken);
         return data;
     }
@@ -300,15 +327,71 @@ export class ApiService {
     static async login(
         identifier: string,
         password?: string
-    ): Promise<{ user: User; token: string; refreshToken?: string }> {
-        const data = await this.request<{ user: User; token: string; refreshToken?: string }>(
+    ): Promise<AuthSignInResponse> {
+        const data = await this.request<AuthSignInResponse>(
             '/auth/login',
             {
                 method: 'POST',
                 body: JSON.stringify({ identifier, password }),
             }
         );
+        if ('requiresTwoFactor' in data) {
+            return data;
+        }
         this.setToken(data.token, data.refreshToken);
+        return data;
+    }
+
+    // --- Two-factor authentication ---
+
+    static async enableTwoFactor(): Promise<{
+        secret: string;
+        qrCodeUri: string;
+        qrCodeDataUrl: string;
+        pending: boolean;
+    }> {
+        return this.request('/auth/2fa/enable', {
+            method: 'POST',
+        });
+    }
+
+    static async verifyTwoFactor(token: string): Promise<{ valid: boolean; activated: boolean }> {
+        return this.request('/auth/2fa/verify', {
+            method: 'POST',
+            body: JSON.stringify({ token }),
+        });
+    }
+
+    static async disableTwoFactor(token: string): Promise<{ success: boolean }> {
+        return this.request('/auth/2fa/disable', {
+            method: 'POST',
+            body: JSON.stringify({ token }),
+        });
+    }
+
+    static async regenerateBackupCodes(token: string): Promise<{ backupCodes: string[] }> {
+        return this.request('/auth/2fa/backup-codes', {
+            method: 'POST',
+            body: JSON.stringify({ token }),
+        });
+    }
+
+    static async getTwoFactorStatus(): Promise<TwoFactorStatus> {
+        return this.request('/auth/2fa/status');
+    }
+
+    static async completeTwoFactorChallenge(challengeId: string, token: string): Promise<AuthSession> {
+        const data = await this.request<AuthSession>(
+            '/auth/2fa/challenge',
+            {
+                method: 'POST',
+                body: JSON.stringify({ challengeId, token }),
+            }
+        );
+        const accessToken = data.token || data.accessToken;
+        if (accessToken) {
+            this.setToken(accessToken, data.refreshToken);
+        }
         return data;
     }
 
@@ -356,6 +439,14 @@ export class ApiService {
     }
 
     static async logout(): Promise<void> {
+        try {
+            const registration = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
+            const subscription = await registration?.pushManager.getSubscription();
+            if (subscription) {
+                await this.request('/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint: subscription.endpoint }) });
+                await subscription.unsubscribe();
+            }
+        } catch { /* Logout must still revoke the session if push removal fails. */ }
         try {
             const rToken = this.getRefreshToken();
             await this.request('/auth/logout', {
@@ -412,6 +503,42 @@ export class ApiService {
         return this.request(`/keys/${userId}`);
     }
 
+    /** Publish a full pre-key bundle for X3DH key agreement. */
+    static async publishPreKeyBundle(bundle: {
+        registrationId: number;
+        deviceId: number;
+        preKeyId: number;
+        preKeyPublic: string;
+        signedPreKeyId: number;
+        signedPreKeyPublic: string;
+        signedPreKeySignature: string;
+        identityKey: string;
+        oneTimePreKeys?: Array<{ id: number; publicKey: string }>;
+    }): Promise<{ success: boolean }> {
+        return this.request('/keys/bundle', {
+            method: 'POST',
+            body: JSON.stringify(bundle),
+        });
+    }
+
+    /** Fetch a pre-key bundle for a user and optional device (X3DH). */
+    static async getPreKeyBundle(userId: string, deviceId?: number): Promise<{
+        bundle: {
+            registrationId: number;
+            deviceId: number;
+            identityKey: string;
+            signedPreKeyId: number;
+            signedPreKeyPublic: string;
+            signedPreKeySignature: string;
+            preKeyId: number;
+            preKeyPublic: string;
+            oneTimePreKeys: Array<{ id: number; publicKey: string }>;
+        };
+    }> {
+        const url = deviceId ? `/keys/bundle/${userId}/${deviceId}` : `/keys/bundle/${userId}`;
+        return this.request(url);
+    }
+
     /**
      * Upload sealed copies of this device's group sender key, one per recipient.
      * The payloads are already encrypted client-side; the server stores them as-is.
@@ -444,11 +571,12 @@ export class ApiService {
     static async forwardMessage(
         messageId: string,
         targetChatIds: string[],
-        hideAttribution = false
+        hideAttribution = false,
+        destinationPayloads?: Record<string, string>
     ): Promise<{ messages: Message[] }> {
         return this.request('/messages/forward', {
             method: 'POST',
-            body: JSON.stringify({ messageId, targetChatIds, hideAttribution }),
+            body: JSON.stringify({ messageId, targetChatIds, hideAttribution, destinationPayloads }),
         });
     }
     static async markChatRead(
@@ -494,6 +622,74 @@ export class ApiService {
         return this.request(`/chats/${chatId}/clear`, {
             method: 'POST',
         });
+    }
+
+    // --- Device Management ---
+    static async listPeerDevices(userId: string): Promise<{ devices: Array<{ deviceId: number; deviceName: string | null; publicKey: string; isRevoked: boolean }> }> {
+        return this.request(`/keys/devices/${encodeURIComponent(userId)}`);
+    }
+    static async listDevices(): Promise<{
+        devices: Array<{
+            deviceId: number;
+            deviceName: string | null;
+            publicKey: string;
+            isRevoked: boolean;
+            createdAt: string;
+            lastSeenAt: string | null;
+        }>;
+    }> {
+        return this.request('/devices');
+    }
+
+    static async registerDevice(deviceId: number, deviceName: string | null, publicKey: string): Promise<{
+        device: {
+            userId: string;
+            deviceId: number;
+            deviceName: string | null;
+            publicKey: string;
+            isRevoked: boolean;
+            createdAt: string;
+            lastSeenAt: string | null;
+        };
+    }> {
+        return this.request('/devices', {
+            method: 'POST',
+            body: JSON.stringify({ deviceId, deviceName, publicKey }),
+        });
+    }
+
+    static async getDevice(deviceId: number): Promise<{
+        device: {
+            userId: string;
+            deviceId: number;
+            deviceName: string | null;
+            publicKey: string;
+            isRevoked: boolean;
+            createdAt: string;
+            lastSeenAt: string | null;
+        };
+    }> {
+        return this.request(`/devices/${deviceId}`);
+    }
+
+    static async revokeDevice(deviceId: number): Promise<{ success: boolean }> {
+        return this.request(`/devices/${deviceId}`, { method: 'DELETE' });
+    }
+
+    static async getPreKeyBundleForDevice(userId: string, deviceId: number): Promise<{
+        bundle: {
+            registrationId: number;
+            deviceId: number;
+            identityKey: string;
+            signedPreKeyId: number;
+            signedPreKeyPublic: string;
+            signedPreKeySignature: string;
+            preKeyId: number;
+            preKeyPublic: string;
+            oneTimePreKeys: Array<{ id: number; publicKey: string }>;
+        };
+    }> {
+        return this.request(`/keys/bundle/${userId}/${deviceId}`);
     }
 
     static async setChatMuted(
@@ -751,6 +947,10 @@ export class ApiService {
         return this.request('/federation/status');
     }
 
+    static async getPushConfig(): Promise<{ publicKey: string | null }> {
+        return this.request('/push/config');
+    }
+
     static async subscribePush(subscription: any): Promise<{ success: boolean }> {
         return this.request('/push/subscribe', {
             method: 'POST',
@@ -798,5 +998,120 @@ export class ApiService {
             method: 'POST',
             body: JSON.stringify({ url }),
         });
+    }
+
+    // =============================================================================
+    // History Transfer API
+    // =============================================================================
+
+    /**
+     * Initiate a history transfer from this device to another device.
+     */
+    static async initiateHistoryTransfer(
+        sourceUserId: string,
+        sourceDeviceId: number,
+        destUserId: string,
+        destDeviceId: number,
+        policy: { include_groups?: boolean; include_direct?: boolean; date_range?: { start?: string; end?: string } | null }
+    ): Promise<{
+        transferId: string;
+        challenge: string; // base64
+        sourceEphemeralPubKey: string; // base64
+        expiresAt: string;
+    }> {
+        return this.request('/history-transfer/initiate', {
+            method: 'POST',
+            body: JSON.stringify({ sourceDeviceId, destDeviceId, destUserId, policy }),
+        });
+    }
+
+    /**
+     * Authorize a history transfer on the destination device.
+     */
+    static async authorizeHistoryTransfer(
+        transferId: string,
+        signature: string,
+        destEphemeralPubKey?: string
+    ): Promise<{ success: boolean }> {
+        return this.request('/history-transfer/authorize', {
+            method: 'POST',
+            body: JSON.stringify({ transferId, signature, destEphemeralPubKey }),
+        });
+    }
+
+    /**
+     * Check the status of a history transfer.
+     */
+    static async getHistoryTransferStatus(transferId: string): Promise<{
+        transferId: string;
+        status: string;
+        isSource: boolean;
+        isDest: boolean;
+        createdAt: string;
+        approvedAt: string | null;
+        expiresAt: string;
+        cancelledAt: string | null;
+        session: { status: string; totalBatches: number } | null;
+    }> {
+        return this.request(`/history-transfer/status/${transferId}`);
+    }
+
+    /**
+     * Cancel a history transfer.
+     */
+    static async cancelHistoryTransfer(transferId: string): Promise<{ success: boolean }> {
+        return this.request(`/history-transfer/cancel/${transferId}`, { method: 'POST' });
+    }
+
+    /**
+     * Complete a history transfer.
+     */
+    static async completeHistoryTransfer(transferId: string): Promise<{ success: boolean }> {
+        return this.request(`/history-transfer/complete/${transferId}`, { method: 'POST' });
+    }
+
+    /**
+     * Send a history batch to the destination device.
+     */
+    static async sendHistoryBatch(
+        transferId: string,
+        batchSeq: number,
+        envelopeB64: string
+    ): Promise<{ success: boolean }> {
+        return this.request(`/history-transfer/batch/${transferId}`, {
+            method: 'POST',
+            body: JSON.stringify({ batchSeq, envelope: envelopeB64 }),
+        });
+    }
+
+    /**
+     * Acknowledge receipt of a history batch.
+     */
+    static async acknowledgeHistoryBatch(
+        transferId: string,
+        batchSeq: number,
+        success: boolean
+    ): Promise<{ success: boolean }> {
+        return this.request(`/history-transfer/ack/${transferId}`, {
+            method: 'POST',
+            body: JSON.stringify({ batchSeq, success }),
+        });
+    }
+
+    /**
+     * Get list of active transfers for the current user.
+     */
+    static async listActiveHistoryTransfers(): Promise<{
+        transfers: Array<{
+            transferId: string;
+            role: 'source' | 'dest';
+            status: string;
+            partnerUserId: string;
+            partnerDeviceId: number;
+            createdAt: string;
+            progress: { current: number; total: number };
+        }>;
+    }> {
+        return this.request('/history-transfer/list');
     }
 }

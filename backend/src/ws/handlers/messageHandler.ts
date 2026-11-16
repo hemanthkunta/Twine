@@ -28,7 +28,15 @@ export async function handleSendMessage(
                 correlation_id: correlationId,
                 timestamp: Date.now(),
             };
-            socket.send(JSON.stringify(frame));
+            try {
+                socket.send(JSON.stringify(frame));
+            } catch (err) {
+                // Socket closed between readyState check and send
+                console.warn(
+                    `[MessageHandler] sendFrame: Failed to send "${type}" (socket closed):`,
+                    err instanceof Error ? err.message : String(err)
+                );
+            }
         }
     };
 
@@ -57,12 +65,15 @@ export async function handleSendMessage(
     }
 
     const memberIds = ChatService.getChatMemberIds(msgPayload.chat_id);
-    const peerId = memberIds.find((id) => id !== clientSession.userId);
 
-    // Block check: verify if sender or recipient has blocked the other
-    if (peerId && BlockService.isBlocked(clientSession.userId, peerId)) {
-        sendError('BLOCKED', 'Message cannot be delivered due to blocking');
-        return { clientSession, registeredClient };
+    // Block check: verify if sender has blocked any recipient, or any recipient has blocked sender
+    // For 1:1 chats, this checks the single peer. For groups, checks all members.
+    for (const memberId of memberIds) {
+        if (memberId === clientSession.userId) continue;
+        if (BlockService.isBlocked(clientSession.userId, memberId)) {
+            sendError('BLOCKED', 'Message cannot be delivered due to blocking');
+            return { clientSession, registeredClient };
+        }
     }
 
     const message = await MessageService.createMessage({
@@ -88,6 +99,8 @@ export async function handleSendMessage(
     }
     if (deliveredTo.length > 0) {
         message.status = 'DELIVERED';
+    } else {
+        message.status = 'SENT';
     }
 
     // Acknowledge back to sender
@@ -101,9 +114,11 @@ export async function handleSendMessage(
     sendFrame('chat:message_ack', ack);
 
     // Broadcast to chat members (excluding this specific socket, sending to all other sockets including other devices of the sender)
+    // Ensure message has status field for consistency between ack and broadcast
+    const messageForBroadcast = { ...message, status: message.status };
     const newMsgFrame = {
         type: 'chat:new_message',
-        payload: { message, chat_id: message.chat_id },
+        payload: { message: messageForBroadcast, chat_id: message.chat_id },
         timestamp: Date.now(),
     };
 

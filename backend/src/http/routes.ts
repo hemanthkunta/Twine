@@ -15,6 +15,7 @@ import { BlockService } from '../services/block.service.js';
 import { KeyDirectoryService } from '../services/keyDirectory.service.js';
 import { SenderKeyService, BadRequestError, ForbiddenError } from '../services/senderKey.service.js';
 import { ScheduledMessageService } from '../services/scheduledMessage.service.js';
+import { HistoryTransferService } from '../services/historyTransfer.service.js';
 import { RateLimiter } from '../middleware/rateLimiter.js';
 import { TurnService } from '../services/turn.service.js';
 import { MetricsService } from '../services/metrics.service.js';
@@ -27,6 +28,13 @@ export const router = Router();
 const authRateLimiter = RateLimiter.createMiddleware(100, 5.0); // 100 burst
 const apiRateLimiter = RateLimiter.createMiddleware(500, 50.0); // 500 burst
 const uploadRateLimiter = RateLimiter.createMiddleware(50, 5.0); // 50 burst
+
+// Strict rate limiters for 2FA endpoints
+const twofaVerifyLimiter = RateLimiter.createMiddleware(5, 5.0 / 60.0); // 5 per minute
+const twofaDisableLimiter = RateLimiter.createMiddleware(3, 3.0 / (5 * 60.0)); // 3 per 5 minutes
+const twofaBackupCodesLimiter = RateLimiter.createMiddleware(5, 5.0 / (60 * 60.0)); // 5 per hour
+const twofaEnableLimiter = RateLimiter.createMiddleware(3, 3.0 / (60 * 60.0)); // 3 per hour
+const twofaChallengeLimiter = RateLimiter.createMiddleware(20, 20.0 / 60.0); // 20 per minute
 
 // Global request metric recording & general rate limit (300 req/min)
 router.use((req: Request, res: Response, next: NextFunction) => {
@@ -143,13 +151,19 @@ router.post('/auth/login', authRateLimiter, (req: Request, res: Response) => {
             return;
         }
 
-        const result = AuthService.login(identifier, password, {
+        const result = AuthService.loginWithTwoFactor(identifier, password, {
             deviceName: 'Web Browser',
             deviceType: 'web',
             ipAddress: req.ip,
         });
 
-        res.json(result);
+        // Accounts with 2FA enabled get a challenge instead of a session.
+        if (result.kind === 'challenge') {
+            res.json(result.challenge);
+            return;
+        }
+
+        res.json(result.session);
     } catch (err: any) {
         res.status(401).json({
             error: 'Invalid credentials',
@@ -222,14 +236,120 @@ router.post('/auth/verify-otp', authRateLimiter, async (req: Request, res: Respo
             res.status(400).json({ error: 'phoneNumber and otp are required' });
             return;
         }
-        const result = await AuthService.verifyOTPAndSignIn({ phoneNumber, otp });
-        res.json(result);
+        const result = await AuthService.verifyOTPAndSignInWithChallenge({ phoneNumber, otp });
+
+        // Accounts with 2FA enabled get a challenge instead of a session.
+        if (result.kind === 'challenge') {
+            res.json(result.challenge);
+            return;
+        }
+
+        res.json(result.session);
     } catch (err: any) {
         if (err.message === 'Invalid or expired OTP') {
             res.status(400).json({ error: err.message });
         } else {
             res.status(400).json({ error: err.message || 'Verify OTP failed' });
         }
+    }
+});
+
+// ==================== 2FA Routes ====================
+
+// Start 2FA setup: returns secret, QR code URI, and QR code data URL.
+// The secret is stored as pending; 2FA only becomes active after /auth/2fa/verify.
+router.post('/auth/2fa/enable', twofaEnableLimiter, authMiddleware, async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const result = await AuthService.enable2FA(userId);
+        res.json(result);
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Enable 2FA failed' });
+    }
+});
+
+// Verify 2FA token. With a pending setup a correct code activates 2FA;
+// otherwise the token is checked against the active secret.
+// A wrong token is a normal response ({ valid: false }), not an error.
+router.post('/auth/2fa/verify', twofaVerifyLimiter, authMiddleware, (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { token } = req.body;
+        if (!token) {
+            res.status(400).json({ error: 'token is required' });
+            return;
+        }
+        const result = AuthService.verifyTwoFactorToken(userId, token);
+        res.json(result);
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Verify 2FA failed' });
+    }
+});
+
+// Complete a login challenge with a TOTP code or an unused backup code.
+// On success the normal sign-in response is returned and the challenge is consumed.
+router.post('/auth/2fa/challenge', twofaChallengeLimiter, async (req: Request, res: Response) => {
+    try {
+        const { challengeId, token } = req.body;
+        if (!challengeId || !token) {
+            res.status(400).json({ error: 'challengeId and token are required' });
+            return;
+        }
+        const session = await AuthService.completeTwoFactorChallenge(challengeId, token);
+        res.json(session);
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Two-factor verification failed' });
+    }
+});
+
+// Disable 2FA: requires TOTP token or backup code
+router.post('/auth/2fa/disable', twofaDisableLimiter, authMiddleware, async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { token } = req.body;
+        if (!token) {
+            res.status(400).json({ error: 'token (TOTP or backup code) is required' });
+            return;
+        }
+        const success = await AuthService.disable2FA(userId, token);
+        if (!success) {
+            res.status(400).json({ error: 'Invalid token or backup code' });
+            return;
+        }
+        res.json({ success: true });
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Disable 2FA failed' });
+    }
+});
+
+// Regenerate backup codes: requires valid TOTP token
+router.post('/auth/2fa/backup-codes', twofaBackupCodesLimiter, authMiddleware, async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const { token } = req.body;
+        if (!token) {
+            res.status(400).json({ error: 'token is required' });
+            return;
+        }
+        const backupCodes = await AuthService.regenerateBackupCodes(userId, token);
+        if (!backupCodes) {
+            res.status(400).json({ error: 'Invalid token' });
+            return;
+        }
+        res.json({ backupCodes });
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Regenerate backup codes failed' });
+    }
+});
+
+// Get 2FA status
+router.get('/auth/2fa/status', authMiddleware, (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+        const status = AuthService.get2FAStatus(userId);
+        res.json(status);
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Get 2FA status failed' });
     }
 });
 
@@ -482,7 +602,7 @@ router.get('/messages/search', authMiddleware, async (req: Request, res: Respons
 // only see "Forwarded" without the original sender's name.
 router.post('/messages/forward', authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as any).user.id;
-    const { messageId, targetChatIds, hideAttribution } = req.body ?? {};
+    const { messageId, targetChatIds, hideAttribution, destinationPayloads } = req.body ?? {};
 
     if (typeof messageId !== 'string' || messageId.trim() === '') {
         return res.status(400).json({ error: 'messageId is required' });
@@ -497,6 +617,7 @@ router.post('/messages/forward', authMiddleware, async (req: Request, res: Respo
             messageId,
             targetChatIds,
             hideAttribution: Boolean(hideAttribution),
+            destinationPayloads,
         });
         res.json({ messages });
     } catch (err: any) {
@@ -504,7 +625,7 @@ router.post('/messages/forward', authMiddleware, async (req: Request, res: Respo
         if (msg === 'Message not found') {
             return res.status(404).json({ error: msg });
         }
-        if (msg.includes('not a member')) {
+        if (msg.includes('not a member') || msg.includes('not allowed')) {
             return res.status(403).json({ error: msg });
         }
         res.status(400).json({ error: msg });
@@ -629,30 +750,41 @@ const serveMediaFile = (req: Request, res: Response) => {
         return;
     }
 
-    // Find the message that owns this media file.
+    // A file may be referenced by several chats or used as a profile photo.
     const mediaUrl = `/uploads/${safeFilename}`;
 
     const row = db
         .prepare(
             `
-            SELECT chat_id
-            FROM messages
-            WHERE media_url = ?
-              AND is_deleted = 0
+            SELECT m.chat_id FROM messages m
+            JOIN chat_members cm ON cm.chat_id = m.chat_id AND cm.user_id = ?
+            WHERE m.media_url = ? AND m.is_deleted = 0
+              AND (m.expires_at IS NULL OR m.expires_at > datetime('now'))
+              AND m.created_at > COALESCE(cm.cleared_at, '')
             LIMIT 1
             `
         )
-        .get(mediaUrl) as { chat_id: string } | undefined;
+        .get(userId, mediaUrl) as { chat_id: string } | undefined;
 
-    if (!row) {
-        res.status(404).json({
-            error: 'Media record not found',
+    const avatar = db.prepare(`SELECT u.id FROM users u
+        JOIN media_upload_owners mo ON mo.media_url = u.avatar_url AND mo.user_id = u.id
+        WHERE u.avatar_url = ? AND
+        (u.id = ? OR EXISTS (SELECT 1 FROM chat_members owner JOIN chat_members viewer
+          ON owner.chat_id = viewer.chat_id WHERE owner.user_id = u.id AND viewer.user_id = ?))
+        UNION SELECT c.id FROM chats c JOIN chat_members cm ON cm.chat_id = c.id
+          JOIN media_upload_owners mo ON mo.media_url = c.avatar_url AND mo.user_id = c.creator_id
+          WHERE c.avatar_url = ? AND cm.user_id = ? LIMIT 1`)
+        .get(mediaUrl, userId, userId, mediaUrl, userId);
+
+    if (!row && !avatar) {
+        res.status(403).json({
+            error: 'You are not authorized to access this media',
         });
         return;
     }
 
     // User must belong to the chat containing the file.
-    if (!ChatService.isChatMember(row.chat_id, userId)) {
+    if (row && !ChatService.isChatMember(row.chat_id, userId)) {
         res.status(403).json({
             error: 'You are not authorized to access this media',
         });
@@ -725,6 +857,7 @@ router.post('/media/upload', authMiddleware, uploadRateLimiter, (req: Request, r
             return;
         }
         const uploaded = MediaService.saveBase64Media({ base64Data, fileName, mimeType, waveform });
+        db.prepare('INSERT INTO media_upload_owners (media_url, user_id) VALUES (?, ?)').run(uploaded.url, (req as any).user.id);
         res.json({ media: uploaded });
     } catch (err: any) {
         res.status(500).json({ error: err.message || 'Media upload failed' });
@@ -808,10 +941,10 @@ router.post('/ai/semantic-search', authMiddleware, async (req: Request, res: Res
     }
 
     const allMessages = chatId
-        ? await MessageService.getChatMessages(chatId, 100)
+        ? await MessageService.getChatMessages(chatId, 100, undefined, userId)
         : await MessageService.searchMessages(userId, { query });
 
-    const results = AIService.semanticSearch(query, allMessages);
+    const results = AIService.semanticSearch(query, allMessages.filter(m => !m.ciphertext_payload));
     res.json({ results });
 });
 
@@ -989,11 +1122,22 @@ router.get('/federation/status', authMiddleware, (_req: Request, res: Response) 
 });
 
 // 11. Push Notifications
+router.get('/push/config', authMiddleware, (_req, res) => {
+    res.json({ publicKey: PushNotificationService.getPublicKey() });
+});
+router.delete('/push/subscribe', authMiddleware, (req, res) => {
+    PushNotificationService.removeSubscription((req as any).user.id, req.body.endpoint);
+    res.json({ success: true });
+});
 router.post('/push/subscribe', authMiddleware, (req: Request, res: Response) => {
     const userId = (req as any).user.id;
     const { subscription } = req.body;
-    PushNotificationService.saveSubscription({ ...subscription, userId });
-    res.json({ success: true });
+    try {
+        PushNotificationService.saveSubscription({ ...subscription, userId });
+        res.json({ success: true });
+    } catch (error: any) {
+        res.status(400).json({ error: error.message });
+    }
 });
 
 // 12. User Blocking & Unblocking
@@ -1045,7 +1189,213 @@ router.get('/keys/:userId', authMiddleware, (req: Request, res: Response) => {
     res.json({ user_id: stored.user_id, public_key: stored.public_key });
 });
 
-// Wrapped group sender keys, one row per (sender, recipient). Each copy is
+// E2EE Key Exchange - Pre-key Bundle Exchange (X3DH)
+router.post('/keys/bundle', authMiddleware, async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const {
+        registrationId,
+        deviceId,
+        preKeyId,
+        preKeyPublic,
+        signedPreKeyId,
+        signedPreKeyPublic,
+        signedPreKeySignature,
+        identityKey,
+        oneTimePreKeys
+    } = req.body ?? {};
+
+    // Validate required fields
+    if (!registrationId || !deviceId || !preKeyId || !preKeyPublic ||
+        !signedPreKeyId || !signedPreKeyPublic ||
+        !signedPreKeySignature || !identityKey) {
+        res.status(400).json({ error: 'Missing required pre-key bundle fields', code: 'KEYS_002' });
+        return;
+    }
+
+    // Validate deviceId is a positive integer
+    if (typeof deviceId !== 'number' || deviceId <= 0 || !Number.isInteger(deviceId)) {
+        res.status(400).json({ error: 'Invalid deviceId', code: 'KEYS_001' });
+        return;
+    }
+
+    // Verify the device is registered to this user and not revoked
+    const device = KeyDirectoryService.getDevice(userId, deviceId);
+    if (!device) {
+        res.status(404).json({ error: 'Device not found or not registered to this user', code: 'DEVICE_404' });
+        return;
+    }
+    if (device.isRevoked) {
+        res.status(403).json({ error: 'Device has been revoked', code: 'DEVICE_REVOKED' });
+        return;
+    }
+
+    // Validate the signed pre-key signature
+    if (!await KeyDirectoryService.verifySignedPreKey(identityKey, signedPreKeyPublic, signedPreKeySignature)) {
+        res.status(400).json({ error: 'Invalid signed pre-key signature', code: 'KEYS_003' });
+        return;
+    }
+
+    try {
+        KeyDirectoryService.storePreKeyBundle(userId, {
+            registrationId,
+            deviceId,
+            preKeyId,
+            preKeyPublic,
+            signedPreKeyId,
+            signedPreKeyPublic,
+            signedPreKeySignature,
+            identityKey,
+            oneTimePreKeys: oneTimePreKeys || []
+        });
+        res.json({ success: true });
+    } catch (err: any) {
+        console.error('[PreKey Bundle Store Error]', err);
+        res.status(500).json({ error: 'Failed to store pre-key bundle', code: 'KEYS_500' });
+    }
+});
+
+router.get('/keys/bundle/:userId', authMiddleware, async (req: Request, res: Response) => {
+    const targetUserId = req.params.userId;
+    const requesterId = (req as any).user.id;
+
+    // Prevent users from requesting their own bundle
+    if (targetUserId === requesterId) {
+        res.status(400).json({ error: 'Cannot request own pre-key bundle', code: 'KEYS_004' });
+        return;
+    }
+
+    const bundle = KeyDirectoryService.getPreKeyBundle(targetUserId);
+    if (!bundle) {
+        res.status(404).json({ error: 'No pre-key bundle available for this user', code: 'KEYS_404' });
+        return;
+    }
+
+    // Consume a one-time pre-key if available
+    const oneTimePreKey = KeyDirectoryService.consumeOneTimePreKey(targetUserId, bundle.deviceId);
+    if (oneTimePreKey) {
+        bundle.oneTimePreKeys = [oneTimePreKey];
+    }
+
+    res.json({ bundle });
+});
+
+// Device Management API
+// List all registered devices for the authenticated user
+router.get('/keys/devices/:userId', authMiddleware, (req, res) => {
+    const devices = KeyDirectoryService.listDevices(req.params.userId)
+        .filter(device => !device.isRevoked)
+        .map(({ deviceId, publicKey, isRevoked }) => ({ deviceId, publicKey, isRevoked, deviceName: null }));
+    res.json({ devices });
+});
+router.get('/devices', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const devices = KeyDirectoryService.listDevices(userId);
+    res.json({ devices });
+});
+
+// Register a new device for the authenticated user
+router.post('/devices', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { deviceId, deviceName, publicKey } = req.body ?? {};
+
+    if (!deviceId || typeof deviceId !== 'number') {
+        res.status(400).json({ error: 'Invalid deviceId', code: 'DEVICE_001' });
+        return;
+    }
+    if (!KeyDirectoryService.isValidPublicKey(publicKey)) {
+        res.status(400).json({ error: 'Invalid public key format', code: 'DEVICE_002' });
+        return;
+    }
+
+    try {
+        const device = KeyDirectoryService.registerDevice(userId, deviceId, deviceName ?? null, publicKey);
+        res.json({ device });
+    } catch (err: any) {
+        console.error('[Device Register Error]', err);
+        res.status(500).json({ error: 'Failed to register device', code: 'DEVICE_500' });
+    }
+});
+
+// Get a specific device
+router.get('/devices/:deviceId', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const deviceId = parseInt(req.params.deviceId, 10);
+
+    if (isNaN(deviceId)) {
+        res.status(400).json({ error: 'Invalid deviceId', code: 'DEVICE_001' });
+        return;
+    }
+
+    const device = KeyDirectoryService.getDevice(userId, deviceId);
+    if (!device) {
+        res.status(404).json({ error: 'Device not found', code: 'DEVICE_404' });
+        return;
+    }
+
+    res.json({ device });
+});
+
+// Revoke a device
+router.delete('/devices/:deviceId', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const deviceId = parseInt(req.params.deviceId, 10);
+
+    if (isNaN(deviceId)) {
+        res.status(400).json({ error: 'Invalid deviceId', code: 'DEVICE_001' });
+        return;
+    }
+
+    const success = KeyDirectoryService.revokeDevice(userId, deviceId);
+    if (!success) {
+        res.status(404).json({ error: 'Device not found or already revoked', code: 'DEVICE_404' });
+        return;
+    }
+
+    res.json({ success: true });
+});
+
+// Get pre-key bundle for a specific device
+router.get('/keys/bundle/:userId/:deviceId', authMiddleware, async (req: Request, res: Response) => {
+    const targetUserId = req.params.userId;
+    const targetDeviceId = parseInt(req.params.deviceId, 10);
+    const requesterId = (req as any).user.id;
+
+    if (isNaN(targetDeviceId)) {
+        res.status(400).json({ error: 'Invalid deviceId', code: 'KEYS_001' });
+        return;
+    }
+
+    // Prevent users from requesting their own bundle
+    if (targetUserId === requesterId) {
+        res.status(400).json({ error: 'Cannot request own pre-key bundle', code: 'KEYS_004' });
+        return;
+    }
+
+    // Verify the target device exists and is not revoked
+    const device = KeyDirectoryService.getDevice(targetUserId, targetDeviceId);
+    if (!device) {
+        res.status(404).json({ error: 'Device not found', code: 'DEVICE_404' });
+        return;
+    }
+    if (device.isRevoked) {
+        res.status(403).json({ error: 'Device has been revoked', code: 'DEVICE_REVOKED' });
+        return;
+    }
+
+    const bundle = KeyDirectoryService.getPreKeyBundle(targetUserId, targetDeviceId);
+    if (!bundle) {
+        res.status(404).json({ error: 'No pre-key bundle available for this device', code: 'KEYS_404' });
+        return;
+    }
+
+    // Consume a one-time pre-key if available
+    const oneTimePreKey = KeyDirectoryService.consumeOneTimePreKey(targetUserId, targetDeviceId);
+    if (oneTimePreKey) {
+        bundle.oneTimePreKeys = [oneTimePreKey];
+    }
+
+    res.json({ bundle });
+});
 // sealed to the recipient's identity key in the browser before upload, so the
 // server stores and routes the blob but cannot read any group message.
 router.post('/chats/:id/sender-keys', authMiddleware, (req: Request, res: Response) => {
@@ -1167,7 +1517,188 @@ router.get('/ready', (_req: Request, res: Response) => {
     }
 });
 
-router.get('/metrics', (_req: Request, res: Response) => {
+// =============================================================================
+// History Transfer API
+// =============================================================================
+
+// Initiate a history transfer from source device
+router.post('/history-transfer/initiate', authMiddleware, async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const {
+        sourceDeviceId,
+        destDeviceId,
+        destUserId,
+        policy
+    } = req.body ?? {};
+
+    if (!sourceDeviceId || !destDeviceId || !destUserId) {
+        res.status(400).json({ error: 'Missing required fields: sourceDeviceId, destDeviceId, destUserId', code: 'TRANSFER_001' });
+        return;
+    }
+
+    if (typeof sourceDeviceId !== 'number' || sourceDeviceId <= 0 || !Number.isInteger(sourceDeviceId) ||
+        typeof destDeviceId !== 'number' || destDeviceId <= 0 || !Number.isInteger(destDeviceId)) {
+        res.status(400).json({ error: 'Invalid deviceId', code: 'TRANSFER_002' });
+        return;
+    }
+
+    try {
+        const result = await HistoryTransferService.initiateTransfer(
+            userId,
+            sourceDeviceId,
+            destUserId,
+            destDeviceId,
+            policy || { include_groups: true, include_direct: true, date_range: null }
+        );
+
+        res.json({
+            transferId: result.transferId,
+            challenge: result.challenge.toString('base64'),
+            sourceEphemeralPubKey: result.sourceEphemeralPubKey.toString('base64'),
+            expiresAt: result.expiresAt,
+        });
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Failed to initiate transfer', code: 'TRANSFER_003' });
+    }
+});
+
+// Destination device approves the transfer
+router.post('/history-transfer/authorize', authMiddleware, async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { transferId, signature, destEphemeralPubKey } = req.body ?? {};
+
+    if (!transferId || !signature) {
+        res.status(400).json({ error: 'Missing required fields: transferId, signature', code: 'TRANSFER_001' });
+        return;
+    }
+
+    try {
+        const result = await HistoryTransferService.authorizeTransfer(
+            userId,
+            transferId,
+            signature,
+            destEphemeralPubKey
+        );
+        res.json(result);
+    } catch (err: any) {
+        res.status(400).json({ error: err.message || 'Failed to authorize transfer', code: 'TRANSFER_005' });
+    }
+});
+
+// Check transfer status
+router.get('/history-transfer/status/:transferId', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { transferId } = req.params;
+
+    const status = HistoryTransferService.getTransferStatus(userId, transferId);
+    if (!status) {
+        res.status(404).json({ error: 'Transfer not found', code: 'TRANSFER_404' });
+        return;
+    }
+
+    res.json(status);
+});
+
+// Cancel a transfer
+router.post('/history-transfer/cancel/:transferId', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { transferId } = req.params;
+
+    try {
+        HistoryTransferService.cancelTransfer(userId, transferId);
+        res.json({ success: true });
+    } catch (err: any) {
+        res.status(404).json({ error: err.message || 'Transfer not found', code: 'TRANSFER_404' });
+    }
+});
+
+// Complete a transfer
+router.post('/history-transfer/complete/:transferId', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { transferId } = req.params;
+
+    if (!HistoryTransferService.isTransferValid(transferId)) {
+        res.status(400).json({ error: 'Transfer is not active or has expired', code: 'TRANSFER_006' });
+        return;
+    }
+
+    const status = HistoryTransferService.getTransferStatus(userId, transferId);
+    if (!status) {
+        res.status(404).json({ error: 'Transfer not found', code: 'TRANSFER_404' });
+        return;
+    }
+
+    HistoryTransferService.completeTransfer(transferId);
+    res.json({ success: true });
+});
+
+// Relay an encrypted history batch from source to destination
+router.post('/history-transfer/batch/:transferId', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { transferId } = req.params;
+    const { batchSeq, envelope } = req.body ?? {};
+
+    if (typeof batchSeq !== 'number' || !Number.isInteger(batchSeq) || batchSeq < 0) {
+        res.status(400).json({ error: 'Invalid batchSeq', code: 'TRANSFER_007' });
+        return;
+    }
+    if (typeof envelope !== 'string' || envelope.length === 0) {
+        res.status(400).json({ error: 'Missing envelope', code: 'TRANSFER_008' });
+        return;
+    }
+
+    const status = HistoryTransferService.getTransferStatus(userId, transferId);
+    if (!status) {
+        res.status(404).json({ error: 'Transfer not found', code: 'TRANSFER_404' });
+        return;
+    }
+    if (!status.isSource) {
+        res.status(403).json({ error: 'Only the source device can send batches', code: 'TRANSFER_009' });
+        return;
+    }
+    if (!HistoryTransferService.isTransferValid(transferId)) {
+        res.status(400).json({ error: 'Transfer is not active or has expired', code: 'TRANSFER_006' });
+        return;
+    }
+
+    const envelopeBytes = Buffer.from(envelope, 'base64');
+    HistoryTransferService.recordBatchSent(transferId, batchSeq, 0, envelopeBytes.length);
+
+    res.json({ success: true });
+});
+
+// Acknowledge receipt of a history batch
+router.post('/history-transfer/ack/:transferId', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const { transferId } = req.params;
+    const { batchSeq, success } = req.body ?? {};
+
+    if (typeof batchSeq !== 'number' || !Number.isInteger(batchSeq) || batchSeq < 0) {
+        res.status(400).json({ error: 'Invalid batchSeq', code: 'TRANSFER_007' });
+        return;
+    }
+
+    const status = HistoryTransferService.getTransferStatus(userId, transferId);
+    if (!status) {
+        res.status(404).json({ error: 'Transfer not found', code: 'TRANSFER_404' });
+        return;
+    }
+    if (!status.isDest) {
+        res.status(403).json({ error: 'Only the destination device can acknowledge batches', code: 'TRANSFER_010' });
+        return;
+    }
+
+    HistoryTransferService.recordBatchAck(transferId, batchSeq, success !== false);
+    res.json({ success: true });
+});
+
+// List active transfers for the current user
+router.get('/history-transfer/list', authMiddleware, (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    res.json({ transfers: HistoryTransferService.listActiveTransfers(userId) });
+});
+
+router.get('/metrics', authMiddleware, (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; version=0.0.4');
     res.send(MetricsService.getMetricsText());
 });

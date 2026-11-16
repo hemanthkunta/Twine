@@ -20,6 +20,7 @@ import {
     TransportMode,
     MeshPacket,
 } from './types/index';
+import { enablePush } from './services/push';
 import { ApiService } from './services/api';
 import { wsClient } from './services/ws';
 import { sounds } from './services/sound';
@@ -50,6 +51,7 @@ import { ScheduledMessagesModal } from './components/ScheduledMessagesModal';
 import { ForwardMessageModal } from './components/ForwardMessageModal';
 import { MultiDeviceLinkModal } from './components/MultiDeviceLinkModal';
 import { AIModerationModal } from './components/AIModerationModal';
+import { HistoryTransferModal } from './components/HistoryTransferModal';
 import { CallSummaryModal } from './components/CallSummaryModal';
 import { CreatePollModal } from './components/CreatePollModal';
 import { ThreadModal } from './components/ThreadModal';
@@ -62,6 +64,7 @@ import { useRealtimeSubscriptions } from './hooks/useRealtimeSubscriptions';
 
 export function App() {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
+    const [currentDeviceId, setCurrentDeviceId] = useState<number>(1);
     const [demoUsers, setDemoUsers] = useState<UserSummary[]>([]);
     const [chats, setChats] = useState<Chat[]>([]);
     const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -92,16 +95,17 @@ export function App() {
     const [showLoRaBridgeModal, setShowLoRaBridgeModal] = useState(false);
     const [showSafetyNumberModal, setShowSafetyNumberModal] = useState(false);
     const [showDisappearingModal, setShowDisappearingModal] = useState(false);
-    const [showMultiDeviceModal, setShowMultiDeviceModal] = useState(false);
-    const [showAIModerationModal, setShowAIModerationModal] = useState(false);
-    const [showCreatePollModal, setShowCreatePollModal] = useState(false);
-    const [showChannelDashboardModal, setShowChannelDashboardModal] = useState(false);
-    const [showFederationModal, setShowFederationModal] = useState(false);
-    const [threadParentMessage, setThreadParentMessage] = useState<Message | null>(null);
-    const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
-    const [callSummaryData, setCallSummaryData] = useState<any | null>(null);
-    const [currentDisappearingTimer, setCurrentDisappearingTimer] = useState<DisappearingTimer>(0);
-    const [showScheduledModal, setShowScheduledModal] = useState(false);
+const [showMultiDeviceModal, setShowMultiDeviceModal] = useState(false);
+      const [showAIModerationModal, setShowAIModerationModal] = useState(false);
+      const [showCreatePollModal, setShowCreatePollModal] = useState(false);
+      const [showChannelDashboardModal, setShowChannelDashboardModal] = useState(false);
+      const [showFederationModal, setShowFederationModal] = useState(false);
+      const [threadParentMessage, setThreadParentMessage] = useState<Message | null>(null);
+      const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
+      const [callSummaryData, setCallSummaryData] = useState<any | null>(null);
+      const [currentDisappearingTimer, setCurrentDisappearingTimer] = useState<DisappearingTimer>(0);
+      const [showScheduledModal, setShowScheduledModal] = useState(false);
+      const [showHistoryTransferModal, setShowHistoryTransferModal] = useState(false);
 
     // WebRTC Call State
     const [activeCall, setActiveCall] = useState<{
@@ -175,24 +179,24 @@ export function App() {
                     ApiService.getMe()
                         .then((meRes) => {
                             setCurrentUser(meRes.user);
-                            E2EEService.ensureIdentityPublished(meRes.user.id);
+                            E2EEService.ensureIdentityPublished(meRes.user.id, currentDeviceId);
                             wsClient.connect();
                         })
-                        .catch(async () => {
-                            const refreshed = await ApiService.refreshSession();
-                            if (refreshed) {
-                                try {
-                                    const meRes = await ApiService.getMe();
-                                    setCurrentUser(meRes.user);
-                                    E2EEService.ensureIdentityPublished(meRes.user.id);
-                                    wsClient.connect();
-                                    return;
-                                } catch {}
-                            }
-                            ApiService.setToken(null, null);
-                            setCurrentUser(null);
-                            setShowAuthModal(true);
-                        });
+.catch(async () => {
+                        const refreshed = await ApiService.refreshSession();
+                        if (refreshed) {
+                            try {
+                                const meRes = await ApiService.getMe();
+                                setCurrentUser(meRes.user);
+                                E2EEService.ensureIdentityPublished(meRes.user.id, currentDeviceId);
+                                wsClient.connect();
+                                return;
+                            } catch {}
+                        }
+                        ApiService.setToken(null, null);
+                        setCurrentUser(null);
+                        setShowAuthModal(true);
+                    });
                 } else {
                     setCurrentUser(null);
                     setShowAuthModal(true);
@@ -205,7 +209,7 @@ export function App() {
                     try {
                         const meRes = await ApiService.getMe();
                         setCurrentUser(meRes.user);
-                        E2EEService.ensureIdentityPublished(meRes.user.id);
+                        E2EEService.ensureIdentityPublished(meRes.user.id, currentDeviceId);
                         wsClient.connect();
                         return;
                     } catch {}
@@ -368,6 +372,7 @@ export function App() {
                         await E2EEService.decryptIncoming(
                             last,
                             currentUser.id,
+                            currentDeviceId,
                             chat.peer_user?.id ?? null,
                             chat
                         );
@@ -437,6 +442,7 @@ export function App() {
                 await E2EEService.decryptAll(
                     localMsgs,
                     currentUser.id,
+                    currentDeviceId,
                     activeChatPeerRef.current,
                     openChat
                 );
@@ -461,6 +467,7 @@ export function App() {
                 await E2EEService.decryptAll(
                     loadedMessages,
                     currentUser.id,
+                    currentDeviceId,
                     activeChatPeerRef.current,
                     openChat
                 );
@@ -549,7 +556,7 @@ export function App() {
         if (!activeChatId || !currentUser) return;
 
         // AI Moderation check for sensitive text (safely wrapped)
-        if (content) {
+        if (content && !E2EEService.canSeal(activeChat)) {
             try {
                 const mod = await ApiService.moderateContent(content);
                 if (mod && mod.flagged && mod.action === 'DELETE') {
@@ -562,9 +569,19 @@ export function App() {
         }
 
         // Seal the body for direct chats when both sides have published keys.
-        // `sealed` is null when the chat cannot be encrypted, in which case the
-        // message is sent in the clear (see E2EEService for the rationale).
-        const sealed = await E2EEService.sealForChat(content, activeChat, currentUser.id);
+        // Throws on failure for E2EE chats, aborting the send.
+        let sealed: string;
+        try {
+            sealed = content
+                ? await E2EEService.sealForChat(content, activeChat, currentUser.id, currentDeviceId)
+                : '__PLAINTEXT__'; // An attachment without a caption has no text body to seal.
+        } catch (err) {
+            console.error('E2EE sealing failed, aborting send:', err);
+            alert(`❌ Message not sent: ${err instanceof Error ? err.message : 'Encryption failed'}`);
+            return;
+        }
+
+        const isPlaintext = sealed === '__PLAINTEXT__';
 
         const isConnected = wsClient.getIsConnected() && navigator.onLine;
         const tempId = `temp_${Date.now()}`;
@@ -584,6 +601,7 @@ export function App() {
                 : undefined,
             type: mediaType,
             content_text: content,
+            ciphertext_payload: isPlaintext ? undefined : sealed,
             media_url: mediaUrl,
             media_metadata: mediaMetadata,
             is_edited: false,
@@ -620,8 +638,8 @@ export function App() {
                 chat_id: activeChatId,
                 // A sealed body travels only as ciphertext: the plaintext must
                 // not reach the server, or there is no encryption at all.
-                content: sealed ? '' : content,
-                ciphertext_payload: sealed ?? undefined,
+                content: isPlaintext ? content : '',
+                ciphertext_payload: isPlaintext ? undefined : sealed,
                 type: mediaType,
                 reply_to_id: replyToId,
                 media_url: mediaUrl,
@@ -649,6 +667,8 @@ export function App() {
                 media_url: mediaUrl,
                 media_metadata: mediaMetadata,
                 created_at: optimisticMessage.created_at,
+                ciphertext_payload: isPlaintext ? undefined : sealed,
+                is_plaintext: isPlaintext,
             });
 
             // Relay via P2P Mesh
@@ -729,10 +749,11 @@ export function App() {
         }
         const res = await ApiService.demoLogin(userId);
         setCurrentUser(res.user);
+        setCurrentDeviceId(1); // Reset to default device on switch
         // New identity: drop cached peer keys and in-memory key material first.
         E2EEService.reset();
         CryptoService.reset();
-        E2EEService.ensureIdentityPublished(res.user.id);
+        E2EEService.ensureIdentityPublished(res.user.id, 1);
         wsClient.connect();
     };
 
@@ -1017,6 +1038,7 @@ export function App() {
                                     onOpenScheduled={() => setShowScheduledModal(true)}
                                     onOpenAIModeration={() => setShowAIModerationModal(true)}
                                     onOpenCreatePoll={() => setShowCreatePollModal(true)}
+                                    onOpenHistoryTransfer={() => setShowHistoryTransferModal(true)}
                                     onOpenChannelDashboard={() =>
                                         setShowChannelDashboardModal(true)
                                     }
@@ -1186,35 +1208,13 @@ export function App() {
                 <AuthModal
                     onSuccess={(user) => {
                         setCurrentUser(user);
+                        setCurrentDeviceId(1);
                         setShowAuthModal(false);
-                        E2EEService.ensureIdentityPublished(user.id);
+                        E2EEService.ensureIdentityPublished(user.id, 1);
                         wsClient.connect();
 
-                        // Automatically trigger native push notification permission request ONE TIME after successful new login
-                        if ('Notification' in window && Notification.permission === 'default') {
-                            setTimeout(() => {
-                                Notification.requestPermission()
-                                    .then(async (perm) => {
-                                        if (perm === 'granted') {
-                                            try {
-                                                await ApiService.subscribePush({
-                                                    endpoint:
-                                                        'https://fcm.googleapis.com/fcm/send/twine_web_push',
-                                                    keys: {
-                                                        p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QT9Ac',
-                                                        auth: 'tBHItJI5svbpez7KI4CCXg',
-                                                    },
-                                                });
-                                            } catch (pushErr) {
-                                                console.warn(
-                                                    '[Push] Background registration notice:',
-                                                    pushErr
-                                                );
-                                            }
-                                        }
-                                    })
-                                    .catch(() => {});
-                            }, 500);
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            enablePush(false).catch(console.warn);
                         }
                     }}
                     onClose={currentUser ? () => setShowAuthModal(false) : undefined}
@@ -1289,9 +1289,11 @@ export function App() {
                 />
             )}
 
-            {showSafetyNumberModal && activeChat?.peer_user && (
+            {showSafetyNumberModal && activeChat?.peer_user && currentUser && (
                 <SafetyNumberModal
                     peer={activeChat.peer_user}
+                    myUserId={currentUser.id}
+                    myDeviceId={currentDeviceId}
                     onClose={() => setShowSafetyNumberModal(false)}
                 />
             )}
@@ -1311,25 +1313,40 @@ export function App() {
                 />
             )}
 
-            {showMultiDeviceModal && (
-                <MultiDeviceLinkModal
-                    onClose={() => setShowMultiDeviceModal(false)}
-                    onBack={() => {
-                        setShowMultiDeviceModal(false);
-                        setShowSettingsModal(true);
-                    }}
-                />
-            )}
+{showMultiDeviceModal && (
+                  <MultiDeviceLinkModal
+                      onClose={() => setShowMultiDeviceModal(false)}
+                      onBack={() => {
+                          setShowMultiDeviceModal(false);
+                          setShowSettingsModal(true);
+                      }}
+                  />
+              )}
+
+              {showHistoryTransferModal && currentUser && (
+                  <HistoryTransferModal
+                      currentUser={currentUser}
+                      currentDeviceId={currentDeviceId}
+                      onClose={() => setShowHistoryTransferModal(false)}
+                  />
+              )}
 
             {forwardingMessage && (
                 <ForwardMessageModal
                     message={forwardingMessage}
+                    userId={currentUser!.id}
+                    deviceId={currentDeviceId}
                     chats={chats}
                     currentChatId={activeChat?.id}
                     onClose={() => setForwardingMessage(null)}
-                    onForwarded={() => {
-                        // The forwarded copies arrive via chat:new_message like
-                        // any other message; nothing else to do here.
+                    onForwarded={(_targets, forwarded) => {
+                        const byId = new Map(forwarded.map(message => [message.id, message]));
+                        setMessages(previous => {
+                            const updated = previous.map(message => byId.get(message.id) ?? message);
+                            return [...updated, ...forwarded.filter(message => message.chat_id === activeChatId && !previous.some(m => m.id === message.id))];
+                        });
+                        setChats(previous => previous.map(chat => chat.last_message && byId.has(chat.last_message.id)
+                            ? { ...chat, last_message: byId.get(chat.last_message.id)! } : chat));
                         setForwardingMessage(null);
                     }}
                 />

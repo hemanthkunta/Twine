@@ -13,6 +13,10 @@
 -- runs. (An earlier revision of this file claimed to be a "PostgreSQL Production
 -- Schema" while being neither PostgreSQL nor accurate.)
 
+CREATE TABLE IF NOT EXISTS media_upload_owners (
+          media_url TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL
+        );
 CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
           phone_number TEXT UNIQUE NOT NULL,
@@ -22,6 +26,11 @@ CREATE TABLE IF NOT EXISTS users (
           avatar_url TEXT,
           password_hash TEXT,
           is_2fa_enabled INTEGER DEFAULT 0,
+          totp_secret TEXT,
+          backup_codes TEXT,
+          twofa_enabled_at TEXT,
+          totp_pending_secret TEXT,
+          totp_pending_backup_codes TEXT,
           is_bot INTEGER DEFAULT 0,
           last_seen_at TEXT DEFAULT (datetime('now')),
           created_at TEXT DEFAULT (datetime('now')),
@@ -87,6 +96,40 @@ CREATE TABLE IF NOT EXISTS users (
             updated_at TEXT DEFAULT (datetime('now'))
         );
 
+        -- Registered devices for each user. Each device has its own identity key
+        -- and pre-key bundle. A user may have multiple registered devices.
+        CREATE TABLE IF NOT EXISTS devices (
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            device_id INTEGER NOT NULL,
+            device_name TEXT,
+            public_key TEXT NOT NULL,  -- Ed25519 identity public key (33 bytes with 0x05 prefix, base64)
+            is_revoked INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now')),
+            last_seen_at TEXT,
+            PRIMARY KEY (user_id, device_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_devices_revoked ON devices(user_id, is_revoked);
+
+        -- Pre-key bundles for X3DH handshake. One row per (user, device), storing all
+        -- public key material needed for X3DH key agreement. Private keys
+        -- never leave the client; this table stores only public material.
+        CREATE TABLE IF NOT EXISTS pre_key_bundles (
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            device_id INTEGER NOT NULL,
+            registration_id INTEGER NOT NULL,
+            identity_key TEXT NOT NULL,
+            signed_pre_key_id INTEGER NOT NULL,
+            signed_pre_key_public TEXT NOT NULL,
+            signed_pre_key_signature TEXT NOT NULL,
+            pre_key_id INTEGER NOT NULL,
+            pre_key_public TEXT NOT NULL,
+            one_time_pre_keys TEXT DEFAULT '[]',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            PRIMARY KEY (user_id, device_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_pre_key_bundles_user ON pre_key_bundles(user_id);
+
         -- Wrapped sender keys for group E2EE, one row per (sender, recipient).
         --
         -- A group has no single shared secret, so each member mints their own
@@ -120,7 +163,7 @@ CREATE TABLE IF NOT EXISTS users (
           description TEXT,
           avatar_url TEXT,
           creator_id TEXT REFERENCES users(id) ON DELETE SET NULL,
-          is_e2ee INTEGER DEFAULT 0,
+          is_e2ee INTEGER DEFAULT 1,
           -- Per-chat disappearing timer (seconds; 0 = off). New messages
           -- inherit it into messages.expires_at.
           disappearing_ttl_seconds INTEGER NOT NULL DEFAULT 0,
@@ -209,13 +252,62 @@ CREATE TABLE IF NOT EXISTS users (
           created_at TEXT DEFAULT (datetime('now'))
         );
 
-        CREATE TABLE IF NOT EXISTS blocked_users (
-          id TEXT PRIMARY KEY,
-          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          blocked_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          created_at TEXT DEFAULT (datetime('now')),
-          UNIQUE(user_id, blocked_user_id)
+CREATE TABLE IF NOT EXISTS blocked_users (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            blocked_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(user_id, blocked_user_id)
         );
+
+        -- History Transfer Authorization & Session Tables
+        -- Transfer authorizations: track device-to-device history transfer approvals
+        CREATE TABLE IF NOT EXISTS history_transfer_auth (
+            transfer_id TEXT PRIMARY KEY,
+            source_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            source_device_id INTEGER NOT NULL,
+            dest_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            dest_device_id INTEGER NOT NULL,
+            challenge BLOB NOT NULL,                    -- 32-byte random challenge
+            challenge_signature BLOB,                   -- Ed25519 signature from dest device
+            source_ephemeral_pubkey BLOB NOT NULL,      -- X25519 ephemeral public key (32 bytes)
+            dest_ephemeral_pubkey BLOB,                 -- X25519 ephemeral public key (optional, for mutual auth)
+            policy TEXT NOT NULL DEFAULT '{}',          -- JSON: {include_groups, include_direct, date_range}
+            status TEXT NOT NULL DEFAULT 'pending',     -- pending/approved/expired/revoked/cancelled
+            created_at TEXT DEFAULT (datetime('now')),
+            approved_at TEXT,
+            expires_at TEXT NOT NULL,
+            cancelled_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_history_transfer_auth_source ON history_transfer_auth(source_user_id, source_device_id);
+        CREATE INDEX IF NOT EXISTS idx_history_transfer_auth_dest ON history_transfer_auth(dest_user_id, dest_device_id);
+        CREATE INDEX IF NOT EXISTS idx_history_transfer_auth_status ON history_transfer_auth(status);
+
+        -- Transfer sessions: ephemeral session keys for encryption
+        CREATE TABLE IF NOT EXISTS history_transfer_sessions (
+            transfer_id TEXT PRIMARY KEY REFERENCES history_transfer_auth(transfer_id) ON DELETE CASCADE,
+            session_enc_key BLOB NOT NULL,              -- 32-byte AES-256 encryption key
+            session_auth_key BLOB NOT NULL,             -- 32-byte authentication key
+            total_batches INTEGER NOT NULL DEFAULT 0,
+            next_batch_seq INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'active',      -- active/completed/failed/expired
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        -- Transfer batch tracking (for resumption and acknowledgment)
+        CREATE TABLE IF NOT EXISTS history_transfer_batches (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            transfer_id TEXT NOT NULL REFERENCES history_transfer_sessions(transfer_id) ON DELETE CASCADE,
+            batch_seq INTEGER NOT NULL,
+            message_count INTEGER NOT NULL,
+            byte_size INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending',     -- pending/acknowledged/failed
+            sent_at TEXT,
+            acked_at TEXT,
+            UNIQUE(transfer_id, batch_seq)
+        );
+        CREATE INDEX IF NOT EXISTS idx_history_transfer_batches_transfer ON history_transfer_batches(transfer_id);
 
         -- Polls persist in SQLite so they survive restarts (replacing the
         -- previous Redis/in-memory store). Options and votes are normalized:
@@ -328,4 +420,15 @@ CREATE TABLE IF NOT EXISTS users (
         CREATE TRIGGER IF NOT EXISTS messages_fts_ad AFTER DELETE ON messages BEGIN
           DELETE FROM messages_fts WHERE message_id = old.id;
         END;
+
+        -- Unsent draft text, one row per (user, chat). Written by
+        -- PUT /chats/:id/draft so a draft follows the user across devices.
+        -- A draft with empty content_text is deleted rather than stored.
+        CREATE TABLE IF NOT EXISTS chat_drafts (
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+          content_text TEXT NOT NULL DEFAULT '',
+          updated_at TEXT DEFAULT (datetime('now')),
+          PRIMARY KEY (user_id, chat_id)
+        );
 

@@ -1,8 +1,8 @@
 {
-  "name": "aether-messaging-platform",
+  "name": "twine",
   "version": "2.0.0",
   "type": "module",
-  "description": "Telegram-grade real-time messaging platform with WebSockets, WebRTC, AI copilot, and multi-device sync",
+  "description": "Twine — Telegram-grade real-time messaging platform with WebSockets, WebRTC, AI copilot, and multi-device sync",
   "scripts": {
     "dev": "concurrently -n \"BACKEND,CLIENT\" -c \"cyan,magenta\" \"npm --prefix backend run dev\" \"npm --prefix client run dev\"",
     "dev:backend": "npm --prefix backend run dev",
@@ -32,6 +32,22 @@
   },
   "dependencies": {
     "expo": "^57.0.24",
+    "express": "^5.3.0",
     "pino": "^10.3.1"
-  }
+  },
+  "main": "run-agent-tests.js",
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hemanthkunta/Twine.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hemanthkunta/Twine/issues"
+  },
+  "homepage": "https://github.com/hemanthkunta/Twine#readme"
 }

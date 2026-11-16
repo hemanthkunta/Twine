@@ -4,6 +4,7 @@ import { MessageService } from '../../services/message.service.js';
 import { PresenceService } from '../../services/presence.service.js';
 import { ConnectedClient } from '../../services/presence.service.js';
 import { WSEditMessagePayload } from '../../types/protocol.js';
+import { safeSend, createFrame } from './frameUtils.js';
 
 export async function handleEditMessage(
     socket: WebSocket,
@@ -16,15 +17,7 @@ export async function handleEditMessage(
     registeredClient: ConnectedClient | null;
 }> {
     const sendFrame = (type: string, payload: unknown) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            const frame = {
-                type,
-                payload,
-                correlation_id: correlationId,
-                timestamp: Date.now(),
-            };
-            socket.send(JSON.stringify(frame));
-        }
+        safeSend(socket, createFrame(type, payload, correlationId));
     };
 
     const sendError = (code: string, message: string) => {

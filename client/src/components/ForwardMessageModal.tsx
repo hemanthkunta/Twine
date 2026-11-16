@@ -1,20 +1,26 @@
 import React, { useMemo, useState } from 'react';
 import { X, Forward, Search, EyeOff } from 'lucide-react';
 import { Chat, Message } from '../types/index';
+import { E2EEService } from '../services/e2ee';
+import { offlineStorage } from '../services/storage';
 import { ApiService } from '../services/api';
 import { UserAvatar } from './UserAvatar';
 
 interface ForwardMessageModalProps {
     message: Message;
+    userId: string;
+    deviceId: number;
     chats: Chat[];
     /** Chat the message currently lives in — pre-checked by default. */
     currentChatId?: string;
     onClose: () => void;
-    onForwarded: (targetChatIds: string[]) => void;
+    onForwarded: (targetChatIds: string[], messages: Message[]) => void;
 }
 
 export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
     message,
+    userId,
+    deviceId,
     chats,
     currentChatId,
     onClose,
@@ -50,8 +56,27 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
         setSending(true);
         setError(null);
         try {
-            await ApiService.forwardMessage(message.id, Array.from(selected), hideAttribution);
-            onForwarded(Array.from(selected));
+            const source = { ...message };
+            await E2EEService.decryptIncoming(source, userId, deviceId,
+                chats.find(c => c.id === source.chat_id)?.peer_user?.id,
+                chats.find(c => c.id === source.chat_id));
+            if (source.ciphertext_payload && (!source.content_text || /^\[(Encrypted|Unable|Untrusted|No envelope)/.test(source.content_text))) {
+                throw new Error('Open and decrypt this message before forwarding it.');
+            }
+            const destinationPayloads: Record<string, string> = {};
+            for (const id of selected) {
+                const destination = chats.find(c => c.id === id);
+                if (!destination) throw new Error('Destination chat is unavailable.');
+                if (source.content_text) {
+                    const sealed = await E2EEService.sealForChat(source.content_text, destination, userId, deviceId);
+                    if (sealed !== '__PLAINTEXT__') destinationPayloads[id] = sealed;
+                    else if (source.ciphertext_payload) throw new Error('This destination cannot receive encrypted forwards.');
+                }
+            }
+            const response = await ApiService.forwardMessage(message.id, Array.from(selected), hideAttribution, destinationPayloads);
+            const opened = response.messages.map(m => ({ ...m, content_text: source.content_text }));
+            await offlineStorage.saveMessagesLocally(opened);
+            onForwarded(Array.from(selected), opened);
             onClose();
         } catch (err: any) {
             setError(err?.message || 'Failed to forward message');

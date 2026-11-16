@@ -1,14 +1,32 @@
 ﻿import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  TextInput,
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  ActionSheetIOS,
+  Alert,
+  Platform,
+} from 'react-native';
+import { MediaKind } from '../types';
 
 interface Props {
   onSend: (text: string) => void;
   onSendImage?: () => Promise<void>;
+  onSendMedia?: (kind: MediaKind) => Promise<void>;
   onTyping?: () => void;
   placeholder?: string;
 }
 
-export default function MessageInput({ onSend, onSendImage, onTyping, placeholder = 'Message...' }: Props) {
+export default function MessageInput({
+  onSend,
+  onSendImage,
+  onSendMedia,
+  onTyping,
+  placeholder = 'Message...',
+}: Props) {
   const [text, setText] = useState('');
   const [uploading, setUploading] = useState(false);
 
@@ -19,21 +37,59 @@ export default function MessageInput({ onSend, onSendImage, onTyping, placeholde
     setText('');
   };
 
-  const handleSendImage = async () => {
-    if (uploading || !onSendImage) return;
+  const pickMedia = async (kind: MediaKind) => {
+    if (uploading) return;
     setUploading(true);
     try {
-      await onSendImage();
+      if (kind === 'image' && !onSendMedia && onSendImage) {
+        await onSendImage();
+      } else if (onSendMedia) {
+        await onSendMedia(kind);
+      } else {
+        Alert.alert('Attachments unavailable', 'No attachment handler is configured.');
+      }
+    } catch (e) {
+      Alert.alert(
+        'Attachment failed',
+        e instanceof Error ? e.message : 'Could not attach the selected media.',
+      );
     } finally {
       setUploading(false);
     }
+  };
+
+  const handleAttach = () => {
+    if (uploading) return;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Photo', 'Video', 'File'],
+          cancelButtonIndex: 0,
+          userInterfaceStyle: 'dark',
+        },
+        (index) => {
+          if (index === 0) return;
+          const kinds: MediaKind[] = ['image', 'video', 'file'];
+          void pickMedia(kinds[index - 1]);
+        },
+      );
+      return;
+    }
+
+    Alert.alert('Attach', 'Choose what to send', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Photo', onPress: () => void pickMedia('image') },
+      { text: 'Video', onPress: () => void pickMedia('video') },
+      { text: 'File', onPress: () => void pickMedia('file') },
+    ]);
   };
 
   return (
     <View style={styles.container}>
       <TouchableOpacity
         style={styles.attachBtn}
-        onPress={handleSendImage}
+        onPress={handleAttach}
         disabled={uploading}>
         {uploading ? (
           <ActivityIndicator color="#4FC3F7" size="small" />

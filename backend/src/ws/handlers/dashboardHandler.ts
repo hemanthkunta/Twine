@@ -1,5 +1,6 @@
 import { WebSocket } from 'ws';
 import { ConnectedClient } from '../../services/presence.service.js';
+import { safeSend, createFrame } from './frameUtils.js';
 
 // Set to hold dashboard WebSocket connections
 const dashboardClients = new Set<WebSocket>();
@@ -11,18 +12,10 @@ const dashboardClients = new Set<WebSocket>();
  * @param correlationId - Optional correlation ID
  */
 export function broadcastDashboardEvent(type: string, payload: unknown, correlationId?: string): void {
-    const sendFrame = (socket: WebSocket) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type,
-                payload,
-                correlation_id: correlationId,
-                timestamp: Date.now(),
-            }));
-        }
-    };
-
-    dashboardClients.forEach(sendFrame);
+    const frame = createFrame(type, payload, correlationId);
+    dashboardClients.forEach(socket => {
+        safeSend(socket, frame);
+    });
 }
 
 /**
@@ -42,14 +35,7 @@ export function handleDashboardConnect(
     correlationId: string
 ): { clientSession: { userId: string; deviceId?: string } | null; registeredClient: ConnectedClient | null } {
     const sendFrame = (type: string, payloadObj: unknown) => {
-        if (socket.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify({
-                type,
-                payload: payloadObj,
-                correlation_id: correlationId,
-                timestamp: Date.now(),
-            }));
-        }
+        safeSend(socket, createFrame(type, payloadObj, correlationId));
     };
 
     const sendError = (code: string, message: string) => {

@@ -9,6 +9,9 @@
  *
  * Run: npm run test:otp
  */
+// Use test SMS provider for OTP tests
+process.env.SMS_PROVIDER = 'test';
+
 import { OTPService } from "../services/otp.service.js";
 import { AuthService } from "../services/auth.service.js";
 import { initDatabase } from "../db/index.js";

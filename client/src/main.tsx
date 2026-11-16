@@ -28,13 +28,9 @@ const setFavicon = () => {
 
 setFavicon();
 
-// Unregister legacy service workers that might cache old names
+// Keep the push worker active; it does not cache application assets.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const reg of registrations) {
-      reg.unregister();
-    }
-  });
+  navigator.serviceWorker.register('/sw.js').catch(console.warn);
 }
 
 // Clean old caches

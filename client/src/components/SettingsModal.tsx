@@ -21,12 +21,14 @@ import {
   AtSign,
 } from 'lucide-react';
 import { User, UserSession, UserSummary } from '../types/index';
-import { ApiService } from '../services/api';
+import { enablePush } from '../services/push';
+import { ApiService, TwoFactorStatus } from '../services/api';
 import { THEME_PRESETS, ThemeService, ThemeDefinition } from '../services/theme.service';
 import { WALLPAPER_PRESETS, WallpaperService, WallpaperDefinition } from '../services/wallpaper.service';
 import { NOTIFICATION_SOUNDS, NotificationSoundId, sounds } from '../services/sound';
 import { NotificationPrefs } from '../services/notificationPrefs';
 import { UserAvatar } from './UserAvatar';
+import { TwoFactorModal } from './TwoFactorModal';
 
 interface SettingsModalProps {
   currentUser: User;
@@ -45,7 +47,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onProfileUpdated,
   onOpenLinkDevice,
 }) => {
-  const [tab, setTab] = useState<'profile' | 'notifications' | 'sessions' | 'appearance' | 'blocked'>('profile');
+  const [tab, setTab] = useState<'profile' | 'notifications' | 'sessions' | 'appearance' | 'blocked' | 'security'>('profile');
   const [displayName, setDisplayName] = useState(currentUser.display_name);
   const [username, setUsername] = useState(currentUser.username);
   const [bio, setBio] = useState(currentUser.bio || '');
@@ -64,6 +66,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
   );
   const [isSubscribingPush, setIsSubscribingPush] = useState(false);
+  const [pushRegistered, setPushRegistered] = useState(false);
+  const [twoFactorStatus, setTwoFactorStatus] = useState<TwoFactorStatus | null>(null);
+  const [twoFactorModal, setTwoFactorModal] = useState<'setup' | 'disable' | 'backup-codes' | null>(null);
 
   // Sounds & Notifications (client-side, persisted via NotificationPrefs)
   const [globalSound, setGlobalSound] = useState<NotificationSoundId>(
@@ -91,21 +96,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     setIsSubscribingPush(true);
     try {
-      const perm = await Notification.requestPermission();
-      setPushPermission(perm);
-      if (perm === 'granted') {
-        await ApiService.subscribePush({
-          endpoint: 'https://fcm.googleapis.com/fcm/send/twine_web_push',
-          keys: {
-            p256dh: 'BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QT9Ac',
-            auth: 'tBHItJI5svbpez7KI4CCXg',
-          },
-        });
-        setSuccessMsg('Push notifications enabled successfully!');
-        setTimeout(() => setSuccessMsg(null), 3000);
-      } else if (perm === 'denied') {
-        setErrorMsg('Notification permission was denied in your browser settings.');
-      }
+      await enablePush();
+      setPushRegistered(true);
+      setPushPermission(Notification.permission);
+      setSuccessMsg('Push subscription registered.');
+      setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to enable notifications');
     } finally {
@@ -143,6 +138,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       ApiService.getDemoUsers()
         .then((res) => setAllUsers(res.users || []))
         .catch(() => {});
+    } else if (tab === 'security') {
+      loadTwoFactorStatus();
     }
   }, [tab]);
 
@@ -228,6 +225,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const blockedUsersList = allUsers.filter((u) => blockedUserIds.includes(u.id));
 
+  const loadTwoFactorStatus = async () => {
+    try {
+      const status = await ApiService.getTwoFactorStatus();
+      setTwoFactorStatus(status);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to load two-factor status');
+    }
+  };
+
+  const handleTwoFactorSuccess = (message: string) => {
+    setTwoFactorModal(null);
+    setSuccessMsg(message);
+    setTimeout(() => setSuccessMsg(null), 3000);
+    loadTwoFactorStatus();
+  };
+
+  const closeTwoFactorModal = () => {
+    setTwoFactorModal(null);
+    loadTwoFactorStatus();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
       <div className="w-full max-w-lg glass-modal rounded-3xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.12)] flex flex-col">
@@ -274,6 +292,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             <Ban className="w-3.5 h-3.5 text-red-400" />
             <span>Blocked ({blockedUserIds.length})</span>
+          </button>
+
+          <button
+            onClick={() => setTab('security')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all flex-shrink-0 ${
+              tab === 'security'
+                ? 'bg-[#2b5278] text-white shadow'
+                : 'text-[#7f91a4] hover:text-white hover:bg-[#242f3d]'
+            }`}
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>Security</span>
           </button>
 
           <button
@@ -421,8 +451,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-white">Browser Push Notifications</p>
                     <p className="text-[11px] text-[#7f91a4]">
-                      {pushPermission === 'granted'
-                        ? 'Active — You will receive instant notifications.'
+                      {pushRegistered
+                        ? 'Subscription registered for this browser.'
                         : pushPermission === 'denied'
                         ? 'Blocked in browser settings.'
                         : 'Not enabled — click to grant permission.'}
@@ -432,7 +462,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <button
                   type="button"
-                  disabled={isSubscribingPush || pushPermission === 'granted'}
+                  disabled={isSubscribingPush}
                   onClick={handleRequestPushPermission}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex-shrink-0 ${
                     pushPermission === 'granted'
@@ -442,7 +472,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   {isSubscribingPush
                     ? 'Enabling...'
-                    : pushPermission === 'granted'
+                    : pushRegistered
                     ? 'Enabled ✓'
                     : 'Enable Push'}
                 </button>
@@ -579,6 +609,83 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {tab === 'security' && (
+            <div className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-[#0f1822] border border-[rgba(255,255,255,0.06)] text-xs text-[#7f91a4] leading-relaxed">
+                Two-factor authentication adds a second step to sign-in: a 6-digit code from your
+                authenticator app, or one of your single-use backup codes.
+              </div>
+
+              <div className="p-4 bg-[#0f1822] border border-[rgba(255,255,255,0.06)] rounded-2xl flex items-center justify-between">
+                <div className="flex items-center space-x-3 min-w-0 mr-2">
+                  <div className="p-2.5 rounded-xl bg-[#2b5278]/40 border border-[#2b5278]/60 text-[#3fc5f0] flex-shrink-0">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white">Two-Factor Authentication</p>
+                    <p className="text-[11px] text-[#7f91a4]">
+                      {!twoFactorStatus
+                        ? 'Loading status...'
+                        : twoFactorStatus.enabled
+                        ? `Enabled${
+                              twoFactorStatus.enabledAt
+                                ? ` since ${new Date(twoFactorStatus.enabledAt).toLocaleDateString()}`
+                                : ''
+                            } — ${twoFactorStatus.backupCodesRemaining} backup code(s) left`
+                        : twoFactorStatus.pending
+                        ? 'Setup pending — confirm a code to finish enabling it.'
+                        : 'Not enabled'}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`px-2 py-1 rounded-lg text-[10px] font-bold flex-shrink-0 ${
+                    twoFactorStatus?.enabled
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                      : twoFactorStatus?.pending
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      : 'bg-[#1c2836] text-[#7f91a4] border border-[rgba(255,255,255,0.08)]'
+                  }`}
+                >
+                  {twoFactorStatus?.enabled
+                    ? 'Enabled'
+                    : twoFactorStatus?.pending
+                    ? 'Pending'
+                    : 'Off'}
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setTwoFactorModal('setup')}
+                  disabled={!!twoFactorStatus?.enabled}
+                  className="w-full py-2.5 bg-gradient-to-r from-[#2f88ff] to-[#3fc5f0] hover:opacity-95 font-bold text-white rounded-xl text-xs shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Enable Two-Factor Authentication
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTwoFactorModal('disable')}
+                  disabled={!twoFactorStatus?.enabled}
+                  className="w-full py-2.5 bg-[#2b5278] hover:bg-[#34618f] disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-white rounded-xl text-xs transition-all"
+                >
+                  Disable Two-Factor Authentication
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTwoFactorModal('backup-codes')}
+                  disabled={!twoFactorStatus?.enabled}
+                  className="w-full py-2.5 bg-[#0f1822] border border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.15)] disabled:opacity-50 disabled:cursor-not-allowed font-semibold text-white rounded-xl text-xs transition-all"
+                >
+                  Regenerate Backup Codes
+                </button>
+              </div>
             </div>
           )}
 
@@ -810,6 +917,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
         </div>
       </div>
+
+        {twoFactorModal === 'setup' && (
+          <TwoFactorModal
+            mode="setup"
+            onClose={closeTwoFactorModal}
+            onSuccess={() => handleTwoFactorSuccess('Two-factor authentication enabled')}
+          />
+        )}
+
+        {twoFactorModal === 'disable' && (
+          <TwoFactorModal
+            mode="disable"
+            onClose={closeTwoFactorModal}
+            onSuccess={() => handleTwoFactorSuccess('Two-factor authentication disabled')}
+          />
+        )}
+
+        {twoFactorModal === 'backup-codes' && (
+          <TwoFactorModal
+            mode="backup-codes"
+            onClose={closeTwoFactorModal}
+            onSuccess={() => handleTwoFactorSuccess('New backup codes generated')}
+          />
+        )}
     </div>
   );
 };

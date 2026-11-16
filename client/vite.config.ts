@@ -8,15 +8,15 @@ export default defineConfig({
         port: 3000,
         proxy: {
             '/api': {
-                target: 'http://localhost:4000',
+                target: process.env.VITE_PROXY_TARGET || 'http://localhost:4000',
                 changeOrigin: true,
             },
             '/uploads': {
-                target: 'http://localhost:4000',
+                target: process.env.VITE_PROXY_TARGET || 'http://localhost:4000',
                 changeOrigin: true,
             },
             '/ws': {
-                target: 'ws://localhost:4000',
+                target: (process.env.VITE_PROXY_TARGET || 'http://localhost:4000').replace(/^http/, 'ws'),
                 ws: true,
                 changeOrigin: true,
             },

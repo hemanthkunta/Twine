@@ -1,5 +1,6 @@
 import { WSFrame } from '../types/index';
 import { ApiService } from './api';
+import { E2EEService } from './e2ee';
 
 type EventHandler<T = any> = (payload: T, frame: WSFrame<T>) => void;
 
@@ -94,6 +95,18 @@ class RealtimeSocketClient {
       this.isAuthenticated = true;
       this.reconnectAttempts = 0;
       console.log('✅ WebSocket Authenticated successfully:', frame.payload?.user?.display_name);
+      
+      // Publish identity key for E2EE
+      try {
+        const userId = frame.payload?.user?.id;
+        if (userId) {
+          await E2EEService.ensureIdentityPublished(userId, 1);
+          console.log('🔐 E2EE identity key published for user:', userId);
+        }
+      } catch (err) {
+        console.warn('E2EE: could not publish identity key', err);
+      }
+      
       // Flush pending queue
       while (this.pendingQueue.length > 0) {
         const item = this.pendingQueue.shift();

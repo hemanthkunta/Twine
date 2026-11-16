@@ -4,6 +4,7 @@ import { User } from '../types/index';
 import { ApiService } from '../services/api';
 import { AndroidInstallerService } from '../services/androidInstaller.service';
 import { TwineGlowingLogo } from './TwineGlowingLogo';
+import { TwoFactorModal } from './TwoFactorModal';
 
 interface AuthModalProps {
   onSuccess: (user: User) => void;
@@ -31,6 +32,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
   const [otpSending, setOtpSending] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(0);
   const [devOtpCode, setDevOtpCode] = useState<string | null>(null);
+  const [twoFactorChallenge, setTwoFactorChallenge] = useState<{ challengeId: string; method: 'totp' | 'backup' } | null>(null);
 
   const handleCustomLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +48,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
     setError(null);
     try {
       const res = await ApiService.login(identifier.trim(), password);
+      if ('requiresTwoFactor' in res) {
+        setTwoFactorChallenge({ challengeId: res.challengeId, method: res.method });
+        return;
+      }
       onSuccess(res.user);
     } catch (err: any) {
       setError(err.message || 'Sign in failed. Check your credentials.');
@@ -130,6 +136,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
     setError(null);
     try {
       const res = await ApiService.verifyOTPAndSignIn({ phoneNumber: phone, otp: code });
+      if ('requiresTwoFactor' in res) {
+        setTwoFactorChallenge({ challengeId: res.challengeId, method: res.method });
+        return;
+      }
       onSuccess(res.user);
     } catch (err: any) {
       setError(err.message || 'Invalid or expired code. Please try again.');
@@ -147,7 +157,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
       {/* Modal Container */}
       <div className="w-full max-w-md max-h-[94vh] max-h-[94dvh] flex flex-col glass-modal rounded-3xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.12)] relative my-auto">
         
@@ -469,5 +480,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
         </div>
       </div>
     </div>
+      {twoFactorChallenge && (
+        <TwoFactorModal
+          mode="challenge"
+          challengeId={twoFactorChallenge.challengeId}
+          method={twoFactorChallenge.method}
+          onClose={() => setTwoFactorChallenge(null)}
+          onSuccess={(user) => {
+            setTwoFactorChallenge(null);
+            onSuccess(user);
+          }}
+        />
+      )}
+    </>
   );
 };

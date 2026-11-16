@@ -1,4 +1,5 @@
 import { db } from '../db/index.js';
+import type { DatabaseSync } from 'node:sqlite';
 import { getLogger } from '../services/logger.service.js';
 
 const logger = getLogger();
@@ -93,5 +94,15 @@ export class BaseService {
       });
       throw error;
     }
+  }
+
+  /**
+   * Execute a function within a database transaction.
+   * Uses the pooled database's transaction method.
+   * @param fn Function to execute within the transaction (receives connection)
+   * @returns The return value of the function
+   */
+  static transaction<T>(fn: (conn: DatabaseSync) => T): T {
+    return db.transaction(fn);
   }
 }

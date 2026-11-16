@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function ChatScreen({ chat, onBack }: Props) {
-  const { state, loadMessages, sendMessage, sendImageMessage, sendTyping, markRead } = useApp();
+  const { state, loadMessages, sendMessage, sendMediaMessage, sendTyping, markRead, clearE2eeError } = useApp();
   const flatRef = useRef<FlatList>(null);
   const messages = state.messages[chat.id] || [];
   const typingUsers = state.typingUsers[chat.id] || [];
@@ -37,7 +37,7 @@ export default function ChatScreen({ chat, onBack }: Props) {
   }, [chat.id, loadMessages, markRead]);
 
   const handleSend = (text: string) => {
-    sendMessage(chat.id, text);
+    void sendMessage(chat.id, text);
   };
 
   const handleReply = (msg: Message) => {
@@ -77,6 +77,16 @@ export default function ChatScreen({ chat, onBack }: Props) {
         </View>
       </View>
 
+      {/* Encryption failure notice */}
+      {state.e2eeError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>{state.e2eeError}</Text>
+          <TouchableOpacity onPress={clearE2eeError}>
+            <Text style={styles.errorDismiss}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Messages */}
       <FlatList
         ref={flatRef}
@@ -109,7 +119,7 @@ export default function ChatScreen({ chat, onBack }: Props) {
       {/* Input */}
       <MessageInput
         onSend={handleSend}
-        onSendImage={() => sendImageMessage(chat.id)}
+        onSendMedia={(kind) => sendMediaMessage(chat.id, kind)}
         onTyping={() => sendTyping(chat.id)}
       />
     </KeyboardAvoidingView>
@@ -172,5 +182,25 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 13,
     color: '#5A7388',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3D1E1E',
+    marginHorizontal: 10,
+    marginTop: 8,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  errorText: {
+    flex: 1,
+    color: '#EF5350',
+    fontSize: 13,
+  },
+  errorDismiss: {
+    color: '#EF5350',
+    fontSize: 15,
+    paddingHorizontal: 6,
   },
 });
