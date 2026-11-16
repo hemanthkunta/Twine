@@ -37,7 +37,7 @@ export const SELECTORS = {
 export const DEMO_USERS = [
   { username: 'alice', password: 'password123', displayName: 'Alice Walker' },
   { username: 'bob', password: 'password123', displayName: 'Bob Vance' },
-  { username: 'charlie', password: 'password123', displayName: 'Charlie Brown' },
+  { username: 'charlie', password: 'password123', displayName: 'Charlie Smith' },
   { username: 'diana', password: 'password123', displayName: 'Diana Prince' },
 ];
 

@@ -18,7 +18,7 @@ test.describe('Group Messaging Tests', () => {
       await Promise.all(agents.map(a => a.waitForWebSocketConnection()));
       
       const groupName = `Test Group ${Date.now()}`;
-      await alice.createGroup(groupName, ['Bob Vance', 'Charlie Brown']);
+      await alice.createGroup(groupName, ['Bob Vance', 'Charlie Smith']);
       
       await expect(alice['page'].locator(SELECTORS.composer)).toBeVisible();
       
@@ -50,7 +50,7 @@ test.describe('Group Messaging Tests', () => {
       await Promise.all(agents.map(a => a.waitForWebSocketConnection()));
       
       const groupName = `Fanout Group ${Date.now()}`;
-      await alice.createGroup(groupName, ['Bob Vance', 'Charlie Brown']);
+      await alice.createGroup(groupName, ['Bob Vance', 'Charlie Smith']);
       await bob.selectGroup(groupName);
       await charlie.selectGroup(groupName);
       
@@ -87,7 +87,7 @@ test.describe('Group Messaging Tests', () => {
       await Promise.all(agents.map(a => a.waitForWebSocketConnection()));
       
       const groupName = `Reply Group ${Date.now()}`;
-      await alice.createGroup(groupName, ['Bob Vance', 'Charlie Brown']);
+      await alice.createGroup(groupName, ['Bob Vance', 'Charlie Smith']);
       
       await alice.sendMessage(`Alice starts ${Date.now()}`);
       
@@ -163,7 +163,7 @@ test.describe('Group Messaging Tests', () => {
       await Promise.all(agents.map(a => a.waitForWebSocketConnection()));
       
       const groupName = `Receipt Group ${Date.now()}`;
-      await alice.createGroup(groupName, ['Bob Vance', 'Charlie Brown']);
+      await alice.createGroup(groupName, ['Bob Vance', 'Charlie Smith']);
       await bob.selectGroup(groupName);
       await charlie.selectGroup(groupName);
       

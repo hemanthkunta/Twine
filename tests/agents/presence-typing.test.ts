@@ -132,7 +132,7 @@ test.describe('Presence and Typing Indicators Tests', () => {
       await Promise.all(agents.map(a => a.waitForWebSocketConnection()));
       
       const groupName = `Typing Group ${Date.now()}`;
-      await alice.createGroup(groupName, ['Bob Vance', 'Charlie Brown']);
+      await alice.createGroup(groupName, ['Bob Vance', 'Charlie Smith']);
       
       await bob.selectGroup(groupName);
       

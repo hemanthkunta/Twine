@@ -49,7 +49,7 @@ test.describe.parallel('Parallel Agent Tests - Core Features', () => {
     await alice.selectChat('Bob Vance');
     await charlie.selectChat('Diana Prince');
     await bob.selectChat('Alice Walker');
-    await diana.selectChat('Charlie Brown');
+    await diana.selectChat('Charlie Smith');
     
     const timestamp = Date.now();
     await Promise.all([
@@ -70,13 +70,13 @@ test.describe.parallel('Parallel Agent Tests - Core Features', () => {
     const timestamp = Date.now();
     
     await agents[0].selectChat('Bob Vance');
-    await agents[1].selectChat('Charlie Brown');
+    await agents[1].selectChat('Charlie Smith');
     await agents[2].selectChat('Diana Prince');
     await agents[3].selectChat('Alice Walker');
     
     await Promise.all(
       agents.map((agent, i) => {
-        const targets = ['Bob Vance', 'Charlie Brown', 'Diana Prince', 'Alice Walker'];
+        const targets = ['Bob Vance', 'Charlie Smith', 'Diana Prince', 'Alice Walker'];
         const msg = `${DEMO_USERS[i].displayName}->${targets[i]} ${timestamp}`;
         return agent.sendMessage(msg);
       })
@@ -84,7 +84,7 @@ test.describe.parallel('Parallel Agent Tests - Core Features', () => {
     
     await Promise.all(
       agents.map((agent, i) => {
-        const targets = ['Bob Vance', 'Charlie Brown', 'Diana Prince', 'Alice Walker'];
+        const targets = ['Bob Vance', 'Charlie Smith', 'Diana Prince', 'Alice Walker'];
         const msg = `${DEMO_USERS[i].displayName}->${targets[i]} ${timestamp}`;
         return agent.waitForMessage(msg);
       })

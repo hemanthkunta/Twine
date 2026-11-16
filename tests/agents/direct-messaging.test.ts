@@ -151,7 +151,7 @@ test.describe('Direct Messaging Tests', () => {
       await alice.selectChat('Bob Vance');
       await charlie.selectChat('Diana Prince');
       await bob.selectChat('Alice Walker');
-      await diana.selectChat('Charlie Brown');
+      await diana.selectChat('Charlie Smith');
       
       const msg1 = `Alice->Bob ${Date.now()}`;
       const msg2 = `Charlie->Diana ${Date.now()}`;
