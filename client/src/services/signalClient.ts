@@ -177,7 +177,7 @@ export class SignalClientService {
     // Get the base pre-key (the first one)
     const db = await offlineStorage.getDB();
     let basePreKeyId = 0;
-    let basePreKeyPair: PreKeyPairType | null = null;
+    let basePreKeyPair: { keyId: number; keyPair: { privKey: ArrayBuffer; pubKey: ArrayBuffer } } | null = null;
     await new Promise<void>((resolve, reject) => {
       const txn = db.transaction('pre_keys', 'readonly');
       const store = txn.objectStore('pre_keys');
@@ -188,7 +188,10 @@ export class SignalClientService {
         const cursor = (ev.target as IDBRequest).result;
         if (cursor) {
           basePreKeyId = cursor.value.preKeyId;
-          basePreKeyPair = { privKey: cursor.value.privKey, pubKey: cursor.value.pubKey };
+          basePreKeyPair = {
+            keyId: cursor.value.preKeyId,
+            keyPair: { privKey: cursor.value.privKey, pubKey: cursor.value.pubKey }
+          };
           cursor.continue();
         } else {
           resolve();
@@ -200,6 +203,7 @@ export class SignalClientService {
     if (!basePreKeyPair) {
       throw new Error('No base pre-key found');
     }
+    const basePreKey = basePreKeyPair as { keyId: number; keyPair: { privKey: ArrayBuffer; pubKey: ArrayBuffer } };
 
     // Get the latest signed pre-key
     const signedPreKeyRecord = await store.loadSignedPreKey(1);
@@ -244,7 +248,7 @@ export class SignalClientService {
       registrationId,
       deviceId,
       preKeyId: basePreKeyId,
-      preKeyPublic: toB64(basePreKeyPair.pubKey),
+      preKeyPublic: toB64(basePreKey.keyPair.pubKey),
       signedPreKeyId: signedPreKeyPair.keyId,
       signedPreKeyPublic: toB64(signedPreKeyPair.keyPair.pubKey),
       signedPreKeySignature: toB64(signedPreKeyPair.signature),
