@@ -1,0 +1,38 @@
+services:
+  coturn:
+    image: coturn/coturn:latest
+    container_name: twine-coturn
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      - "5349:5349/tcp"
+      - "5349:5349/udp"
+      - "49152-65535:49152-65535/udp"
+    environment:
+      - TURN_SHARED_SECRET=dev-turn-shared-secret-32chars-min
+      - REALM=localhost
+      # Disable TLS for local testing (will use self-signed cert)
+    command: >
+      -a
+      -v
+      -L 0.0.0.0
+      -p 3478
+      -P 5349
+      --lt-cred-mech
+      --use-auth-secret
+      --static-auth-secret=dev-turn-shared-secret-32chars-min
+      --realm=localhost
+      --min-port=49152
+      --max-port=65535
+      --no-tls
+      --no-dtls
+    restart: unless-stopped
+
+  # Override backend to depend on coturn
+  aether-app:
+    environment:
+      - TURN_SHARED_SECRET=dev-turn-shared-secret-32chars-min
+      - TURN_URLS=turn:coturn:3478,turns:coturn:5349
+    depends_on:
+      coturn:
+        condition: service_started

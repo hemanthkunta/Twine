@@ -27,8 +27,8 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({ onClose, onSelectUse
   }, [query]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-md glass-modal rounded-2xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.1)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm pointer-events-none">
+      <div className="w-full max-w-md glass-modal rounded-2xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.1)] pointer-events-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(255,255,255,0.06)] bg-[#17212b]">
           <div className="flex items-center space-x-2.5">

@@ -29,6 +29,24 @@ A full-stack, cloud-first messaging platform architecture inspired by Telegram w
 
 ---
 
+## 📱 Free SMS / OTP Setup (No Paid Provider Required)
+
+**Develop and test the complete phone OTP flow without any paid SMS account.**
+
+| Mode | Command | Cost |
+|------|---------|------|
+| **Zero-config (default)** | `cd backend && npm run dev` | **Free** — OTP code echoed in UI with "Autofill" button |
+| **Webhook inspection** | `npm run dev:webhook` + `SMS_PROVIDER=webhook` | **Free** — Full webhook payload logged to console |
+| **Automated tests** | `npm run test:otp` | **Free** — 24 OTP regression checks |
+
+**How it works:** In development (`NODE_ENV !== production`), the backend automatically uses a test provider that logs OTPs to console and returns them in the API response as `devCode`. The frontend shows a **"Dev code: 123456 [Autofill]"** banner — click to auto-fill and sign in instantly.
+
+> **📖 Full documentation:** [docs/FREE_SMS_SETUP.md](./docs/FREE_SMS_SETUP.md) — includes webhook server setup, production provider configuration, troubleshooting, and security notes.
+
+**Production only:** Twilio, Vonage, or a custom webhook endpoint are required when `NODE_ENV=production`. The app refuses to start without one.
+
+---
+
 ## 📊 Completion Status
 
 See [TODO.md](./TODO.md) for the detailed completion checklist and progress tracking.

@@ -12,7 +12,7 @@ const logger = getLogger();
 logger.debug('[config] projectRoot: %s', projectRoot);
 logger.debug('[config] DB_PATH env: %s', process.env.DB_PATH);
 
-dotenv.config();
+dotenv.config({ path: path.resolve(projectRoot, '.env') });
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 const isProduction = nodeEnv === 'production';

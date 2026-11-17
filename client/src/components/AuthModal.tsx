@@ -158,9 +158,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess, onClose }) => {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto pointer-events-none">
       {/* Modal Container */}
-      <div className="w-full max-w-md max-h-[94vh] max-h-[94dvh] flex flex-col glass-modal rounded-3xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.12)] relative my-auto">
+      <div className="w-full max-w-md max-h-[94vh] max-h-[94dvh] flex flex-col glass-modal rounded-3xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.12)] relative my-auto pointer-events-auto">
         
         {/* Optional Close Button (Only if already logged in / switch account mode) */}
         {onClose && (

@@ -38,8 +38,8 @@ export const CallModal: React.FC<CallModalProps> = ({ peer, callType, onEndCall 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl">
-      <div className="w-full max-w-sm glass-modal rounded-3xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.15)] text-center p-8 flex flex-col items-center justify-between min-h-[480px]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl pointer-events-none">
+      <div className="w-full max-w-sm glass-modal rounded-3xl overflow-hidden shadow-2xl border border-[rgba(255,255,255,0.15)] text-center p-8 flex flex-col items-center justify-between min-h-[480px] pointer-events-auto">
         {/* Top Info */}
         <div className="space-y-2">
           <div className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium">

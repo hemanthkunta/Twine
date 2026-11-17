@@ -17,9 +17,11 @@
 | `npm run test:e2ee` | ✅ PASS | 8 | 0 | 2026-11-17 |
 | `npm run test:phase1` | ✅ PASS | 30 | 0 | 2026-11-17 |
 | `npm run test:sync` | ✅ PASS | 5 | 0 | 2026-11-17 |
-| `npm run test:e2e` (Playwright) | ⚠️ PARTIAL | - | - | 2026-11-17 |
+| `npm run test:e2e` (Playwright) | ❌ FAILING | - | - | 2026-11-17 |
 
-**Total Automated Checks:** **126 passing** (was 121)
+**Total Backend Automated Checks:** **126 passing** (all backend tests pass)
+
+**Playwright E2E Tests:** Failing due to frontend instability (Vite websocket proxy, message delivery between clients)
 
 *Sync test now passes with Redis running
 
@@ -204,25 +206,29 @@ VAPID_SUBJECT=mailto:admin@example.com
 | Real SMS delivery | Not verified | Needs Twilio/Vonage credentials |
 | Real Web Push delivery | Not verified | Subagent testing |
 | Browser E2EE interop | **BLOCKED** | Session sharing between tabs, persistent modal dialogs, broken chat navigation |
-| Push notification button | Not found in header | Need to locate in UI |
+| Push notification button | **FOUND** | In Settings → Notifications tab (not header) |
 | Push notification browser test | **FAILED** | HTTP 429 from provider; browser automation rate limited |
+| E2EE incognito test | **CREATED** | New test file: tests/agents/e2ee-incognito.test.ts |
+| Free SMS documentation | **COMPLETE** | docs/FREE_SMS_SETUP.md, README.md, .env.example, package.json |
+| TURN server | **PENDING** | Subagent running |
 
 ---
 
 ## 📋 Next Actions
 
 ### Immediate (Subagents Complete)
-- [x] Push notification test results: **FAILED** (HTTP 429)
+- [x] Push notification test results: **FAILED** (HTTP 429) | **BUTTON FOUND** in Settings → Notifications tab
 - [x] E2EE browser test results: **BLOCKED** (Session sharing, modals, navigation)
+- [x] Free SMS documentation: **COMPLETE** | docs/FREE_SMS_SETUP.md
 
 ### Short Term
-- [ ] Install Redis for multi-server testing
-- [ ] Fix Playwright E2E flakiness
-- [ ] Locate push notification UI element
+- [x] Install Redis for multi-server testing
+- [ ] Fix Playwright E2E flakiness (Vite websocket proxy, message delivery)
+- [x] Locate push notification UI element (Settings → Notifications tab)
 - [ ] Test WebRTC calls (1:1)
 
 ### Medium Term
-- [ ] Real Twilio/Vonage integration (optional)
+- [ ] Real Twilio/Vonage integration (optional - free webhook works)
 - [ ] Mobile client (Expo) testing
 - [ ] Group calls (SFU)
 - [ ] Bot API platform
@@ -237,7 +243,11 @@ VAPID_SUBJECT=mailto:admin@example.com
 | `backend/.env` | Backend-specific config |
 | `webhook-server.mjs` | Local SMS webhook receiver |
 | `test-image.png` | Test media file |
-| `backend/src/test/*.test.ts` | Test suites |
+| `backend/src/test/*.test.ts` | Backend test suites |
+| `tests/agents/e2ee-incognito.test.ts` | E2EE incognito browser test |
+| `docs/FREE_SMS_SETUP.md` | Free SMS/OTP documentation |
+| `docker-compose.override.yml` | Docker Compose override for TURN |
+| `package.json` | Root scripts (dev:webhook added) |
 
 ---
 
