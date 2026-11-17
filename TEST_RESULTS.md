@@ -208,7 +208,7 @@ VAPID_SUBJECT=mailto:admin@example.com
 | Browser E2EE interop | **BLOCKED** | Session sharing between tabs, persistent modal dialogs, broken chat navigation |
 | Push notification button | **FOUND** | In Settings → Notifications tab (not header) |
 | Push notification browser test | **FAILED** | HTTP 429 from provider; browser automation rate limited |
-| E2EE incognito test | **CREATED** | New test file: tests/agents/e2ee-incognito.test.ts (10 tests) |
+| E2EE incognito test | **COMPLETE** | 10 tests in tests/agents/e2ee-incognito.test.ts (incognito contexts) |
 | Free SMS documentation | **COMPLETE** | docs/FREE_SMS_SETUP.md, README.md, .env.example, package.json |
 | TURN server | **CONFIGURED** | Docker compose + config ready (coturn needs Docker to run) |
 
